@@ -192,61 +192,59 @@ void Renderer::Update(double dt)
 
 void Renderer::SortObjects()
 {
-	//struct DistFromCamera
-	//{
-	//	double distance;
-	//	RenderComponent* rc;
-	//};
-	//
-	//unsigned int numRenderComponents = m_RenderComponents.size();
-	//DistFromCamera* distFromCamArr = new DistFromCamera[numRenderComponents];
-	//
-	//// Get all the distances of each objects and store them by ID and distance
-	//DirectX::XMFLOAT3 camPos = m_pScenePrimaryCamera->GetPosition();
-	//for (unsigned int i = 0; i < numRenderComponents; i++)
-	//{
-	//	DirectX::XMFLOAT3 objectPos = m_RenderComponents.at(i)->tc->GetTransform()->GetPositionXMFLOAT3();
-	//
-	//	double distance = sqrt(pow(camPos.x - objectPos.x, 2) +
-	//		pow(camPos.y - objectPos.y, 2) +
-	//		pow(camPos.z - objectPos.z, 2));
-	//
-	//	// Save the object alongside its distance to the m_pCamera
-	//	distFromCamArr[i].distance = distance;
-	//	distFromCamArr[i].rc->mc = m_RenderComponents.at(i)->mc;
-	//	distFromCamArr[i].rc->tc = m_RenderComponents.at(i)->tc;
-	//	distFromCamArr[i].rc->CB_PER_OBJECT_UPLOAD_RESOURCE = m_RenderComponents.at(i)->CB_PER_OBJECT_UPLOAD_RESOURCE;
-	//}
-	//
-	//// InsertionSort (because its best case is O(N)), 
-	//// and since this is sorted ((((((EVERY FRAME)))))) this is a good choice of sorting algorithm
-	//unsigned int j = 0;
-	//DistFromCamera distFromCamArrTemp = {};
-	//for (unsigned int i = 1; i < numRenderComponents; i++)
-	//{
-	//	j = i;
-	//	while (j > 0 && (distFromCamArr[j - 1].distance > distFromCamArr[j].distance))
-	//	{
-	//		// Swap
-	//		distFromCamArrTemp = distFromCamArr[j - 1];
-	//		distFromCamArr[j - 1] = distFromCamArr[j];
-	//		distFromCamArr[j] = distFromCamArrTemp;
-	//		j--;
-	//	}
-	//}
-	//
-	//// Fill the vector with sorted array
-	//m_RenderComponents.clear();
-	//for (unsigned int i = 0; i < numRenderComponents; i++)
-	//{
-	//	m_RenderComponents.push_back(distFromCamArr->rc);
-	//}
-	//
-	//// Free memory
-	//delete[] distFromCamArr;
-	//
-	//// Update the entity-arrays inside the rendertasks
-	//setRenderTasksRenderComponents();
+	struct DistFromCamera
+	{
+		double distance;
+		RenderComponent* rc;
+	};
+	
+	unsigned int numRenderComponents = m_RenderComponents.size();
+	DistFromCamera* distFromCamArr = new DistFromCamera[numRenderComponents];
+	
+	// Get all the distances of each objects and store them by ID and distance
+	DirectX::XMFLOAT3 camPos = m_pScenePrimaryCamera->GetPosition();
+	for (unsigned int i = 0; i < numRenderComponents; i++)
+	{
+		DirectX::XMFLOAT3 objectPos = m_RenderComponents.at(i)->tc->GetTransform()->GetPositionXMFLOAT3();
+	
+		double distance = sqrt(pow(camPos.x - objectPos.x, 2) +
+			pow(camPos.y - objectPos.y, 2) +
+			pow(camPos.z - objectPos.z, 2));
+	
+		// Save the object alongside its distance to the m_pCamera
+		distFromCamArr[i].distance = distance;
+		distFromCamArr[i].rc = m_RenderComponents.at(i);
+	}
+	
+	// InsertionSort (because its best case is O(N)), 
+	// and since this is sorted ((((((EVERY FRAME)))))) this is a good choice of sorting algorithm
+	unsigned int j = 0;
+	DistFromCamera distFromCamArrTemp = {};
+	for (unsigned int i = 1; i < numRenderComponents; i++)
+	{
+		j = i;
+		while (j > 0 && (distFromCamArr[j - 1].distance > distFromCamArr[j].distance))
+		{
+			// Swap
+			distFromCamArrTemp = distFromCamArr[j - 1];
+			distFromCamArr[j - 1] = distFromCamArr[j];
+			distFromCamArr[j] = distFromCamArrTemp;
+			j--;
+		}
+	}
+	
+	// Fill the vector with sorted array
+	m_RenderComponents.clear();
+	for (unsigned int i = 0; i < numRenderComponents; i++)
+	{
+		m_RenderComponents.push_back(distFromCamArr[i].rc);
+	}
+	
+	// Free memory
+	delete[] distFromCamArr;
+	
+	// Update the entity-arrays inside the rendertasks
+	setRenderTasksRenderComponents();
 }
 
 
@@ -324,11 +322,12 @@ void Renderer::InitModelComponent(component::ModelComponent* mc)
 			RenderComponent* rc = new RenderComponent();
 			rc->mc = mc;
 			rc->tc = tc;
-			rc->CB_PER_OBJECT_UPLOAD_RESOURCE = new Resource(
-				m_pDevice5,
-				sizeof(CB_PER_OBJECT_STRUCT),
-				RESOURCE_TYPE::UPLOAD,
-				L"CB_PER_OBJECT_UPLOAD_RESOURCE_" + mc->GetModelPath());
+			rc->CB_PER_OBJECT_UPLOAD_RESOURCE = nullptr;
+			//rc->CB_PER_OBJECT_UPLOAD_RESOURCE = new Resource(
+			//	m_pDevice5,
+			//	sizeof(CB_PER_OBJECT_STRUCT),
+			//	RESOURCE_TYPE::UPLOAD,
+			//	L"CB_PER_OBJECT_UPLOAD_RESOURCE_" + mc->GetModelPath());
 
 			// Finally store the object in the in renderer so it can be drawn
 			m_RenderComponents.push_back(rc);
@@ -437,18 +436,18 @@ void Renderer::UnInitModelComponent(component::ModelComponent* component)
 {
 	// Remove component from renderComponents
 	// TODO: change data structure to allow O(1) add and remove
-	unsigned int i = 0;
-	for (auto& renderComponent : m_RenderComponents)
+	for (unsigned int i = 0; i < m_RenderComponents.size(); i++)
 	{
 		// Remove from renderComponents
 		component::ModelComponent* comp = nullptr;
-		comp = renderComponent->mc;
+		comp = m_RenderComponents[i]->mc;
 		if (comp == component)
 		{
 			delete m_RenderComponents[i]->CB_PER_OBJECT_UPLOAD_RESOURCE;
+			delete m_RenderComponents[i];
 			m_RenderComponents.erase(m_RenderComponents.begin() + i);
+			break;
 		}
-		i++;
 	}
 
 	// Update Render Tasks components (forward the change in renderComponents)
