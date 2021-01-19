@@ -1,0 +1,16 @@
+\.git
+
+DXR_SoftShadows_Project/bin/
+DXR_SoftShadows_Project/*.bat
+
+**.sln
+**.vcxproj
+**.user
+**.filters
+**.Tlog
+**.vs
+**bin/
+**bin-int/
+
+
+DXR_SoftShadows_Project/Vendor/Resources/Scenes/**
