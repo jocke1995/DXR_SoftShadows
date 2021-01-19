@@ -43,6 +43,7 @@ class WireframeRenderTask;
 class OutliningRenderTask;
 class BaseCamera;
 class Material;
+struct RenderComponent;
 
 // Copy
 class CopyTask;
@@ -167,7 +168,7 @@ private:
 	Mesh* m_pFullScreenQuad = nullptr;
 
 	// Group of components that's needed for rendering:
-	std::map<FLAG_DRAW, std::vector<std::pair<component::ModelComponent*, component::TransformComponent*>>> m_RenderComponents;
+	std::vector<RenderComponent*> m_RenderComponents;
 
 	ViewPool* m_pViewPool = nullptr;
 	std::map<LIGHT_TYPE, std::vector<std::tuple<Light*, ConstantBuffer*, ShadowInfo*>>> m_Lights;

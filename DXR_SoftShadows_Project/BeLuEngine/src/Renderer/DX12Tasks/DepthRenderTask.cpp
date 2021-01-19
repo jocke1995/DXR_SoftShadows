@@ -63,20 +63,22 @@ void DepthRenderTask::Execute()
 	commandList->OMSetRenderTargets(0, nullptr, false, &dsh);
 
 	// Draw for every Rendercomponent
-	for (int i = 0; i < m_RenderComponents.size(); i++)
+	for (int i = 0; i < m_RenderComponents->size(); i++)
 	{
-		component::ModelComponent* mc = m_RenderComponents.at(i).first;
-		component::TransformComponent* tc = m_RenderComponents.at(i).second;
-
-		// Draws all entities with ModelComponent + TransformComponent
-		drawRenderComponent(mc, tc, viewProjMatTrans, commandList);
+		drawRenderComponent(m_RenderComponents->at(i), viewProjMatTrans, commandList);
 	}
 
 	commandList->Close();
 }
 
-void DepthRenderTask::drawRenderComponent(component::ModelComponent* mc, component::TransformComponent* tc, const DirectX::XMMATRIX* viewProjTransposed, ID3D12GraphicsCommandList5* cl)
+void DepthRenderTask::drawRenderComponent(
+	RenderComponent* rc,
+	const DirectX::XMMATRIX* viewProjTransposed,
+	ID3D12GraphicsCommandList5* cl)
 {
+	component::ModelComponent	 * mc = rc->mc;
+	component::TransformComponent* tc = rc->tc;
+
 	// Draw for every m_pMesh the meshComponent has
 	for (unsigned int i = 0; i < mc->GetNrOfMeshes(); i++)
 	{

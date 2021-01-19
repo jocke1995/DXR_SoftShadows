@@ -15,6 +15,19 @@ class RenderTargetView;
 class SwapChain;
 class PipelineState;
 
+namespace component
+{
+	class ModelComponent;
+	class TransformComponent;
+}
+
+struct RenderComponent
+{
+	component::ModelComponent* mc = nullptr;
+	component::TransformComponent* tc = nullptr;
+	Resource* CB_PER_OBJECT_UPLOAD_RESOURCE = nullptr;
+};
+
 // Components
 #include "../../ECS/Components/ModelComponent.h"
 #include "../../ECS/Components/TransformComponent.h"
@@ -42,16 +55,14 @@ public:
 	
 	void AddRenderTargetView(std::string, const RenderTargetView* renderTargetView);
 	
-	void SetRenderComponents(
-		std::vector<std::pair<	component::ModelComponent*,
-								component::TransformComponent*>>* renderComponents);
+	void SetRenderComponents(std::vector<RenderComponent*>* renderComponents);
 	void SetMainDepthStencil(DepthStencil* depthStencil);
 
 	void SetCamera(BaseCamera* camera);
 	void SetSwapChain(SwapChain* swapChain);
 	
 protected:
-	std::vector<std::pair<component::ModelComponent*, component::TransformComponent*>> m_RenderComponents;
+	std::vector<RenderComponent*>* m_RenderComponents;
 	std::map<std::string, const RenderTargetView*> m_RenderTargetViews;
 	
 	DepthStencil* m_pDepthStencil = nullptr;

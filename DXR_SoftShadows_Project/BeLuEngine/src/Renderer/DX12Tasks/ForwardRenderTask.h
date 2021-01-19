@@ -17,8 +17,7 @@ public:
 
 private:
 	void drawRenderComponent(
-		component::ModelComponent* mc,
-		component::TransformComponent* tc,
+		RenderComponent* rc,
 		const DirectX::XMMATRIX* viewProjTransposed,
 		ID3D12GraphicsCommandList5* cl);
 };

@@ -33,6 +33,7 @@
 #include "GPUMemory/GPUMemory.h"
 
 // Graphics
+#include "DX12Tasks/RenderTask.h"
 #include "DX12Tasks/DepthRenderTask.h"
 #include "DX12Tasks/ForwardRenderTask.h"
 
@@ -191,65 +192,61 @@ void Renderer::Update(double dt)
 
 void Renderer::SortObjects()
 {
-	struct DistFromCamera
-	{
-		double distance;
-		component::ModelComponent* mc;
-		component::TransformComponent* tc;
-	};
-
-	for (auto& renderComponents : m_RenderComponents)
-	{
-		unsigned int numRenderComponents = static_cast<unsigned int>(renderComponents.second.size());
-
-		DistFromCamera* distFromCamArr = new DistFromCamera[numRenderComponents];
-
-		// Get all the distances of each objects and store them by ID and distance
-		DirectX::XMFLOAT3 camPos = m_pScenePrimaryCamera->GetPosition();
-		for (unsigned int i = 0; i < numRenderComponents; i++)
-		{
-			DirectX::XMFLOAT3 objectPos = renderComponents.second.at(i).second->GetTransform()->GetPositionXMFLOAT3();
-
-			double distance = sqrt(pow(camPos.x - objectPos.x, 2) +
-				pow(camPos.y - objectPos.y, 2) +
-				pow(camPos.z - objectPos.z, 2));
-
-			// Save the object alongside its distance to the m_pCamera
-			distFromCamArr[i].distance = distance;
-			distFromCamArr[i].mc = renderComponents.second.at(i).first;
-			distFromCamArr[i].tc = renderComponents.second.at(i).second;
-		}
-
-		// InsertionSort (because its best case is O(N)), 
-		// and since this is sorted ((((((EVERY FRAME)))))) this is a good choice of sorting algorithm
-		unsigned int j = 0;
-		DistFromCamera distFromCamArrTemp = {};
-		for (unsigned int i = 1; i < numRenderComponents; i++)
-		{
-			j = i;
-			while (j > 0 && (distFromCamArr[j - 1].distance > distFromCamArr[j].distance))
-			{
-				// Swap
-				distFromCamArrTemp = distFromCamArr[j - 1];
-				distFromCamArr[j - 1] = distFromCamArr[j];
-				distFromCamArr[j] = distFromCamArrTemp;
-				j--;
-			}
-		}
-
-		// Fill the vector with sorted array
-		renderComponents.second.clear();
-		for (unsigned int i = 0; i < numRenderComponents; i++)
-		{
-			renderComponents.second.push_back(std::make_pair(distFromCamArr[i].mc, distFromCamArr[i].tc));
-		}
-
-		// Free memory
-		delete[] distFromCamArr;
-	}
-
-	// Update the entity-arrays inside the rendertasks
-	setRenderTasksRenderComponents();
+	//struct DistFromCamera
+	//{
+	//	double distance;
+	//	RenderComponent* rc;
+	//};
+	//
+	//unsigned int numRenderComponents = m_RenderComponents.size();
+	//DistFromCamera* distFromCamArr = new DistFromCamera[numRenderComponents];
+	//
+	//// Get all the distances of each objects and store them by ID and distance
+	//DirectX::XMFLOAT3 camPos = m_pScenePrimaryCamera->GetPosition();
+	//for (unsigned int i = 0; i < numRenderComponents; i++)
+	//{
+	//	DirectX::XMFLOAT3 objectPos = m_RenderComponents.at(i)->tc->GetTransform()->GetPositionXMFLOAT3();
+	//
+	//	double distance = sqrt(pow(camPos.x - objectPos.x, 2) +
+	//		pow(camPos.y - objectPos.y, 2) +
+	//		pow(camPos.z - objectPos.z, 2));
+	//
+	//	// Save the object alongside its distance to the m_pCamera
+	//	distFromCamArr[i].distance = distance;
+	//	distFromCamArr[i].rc->mc = m_RenderComponents.at(i)->mc;
+	//	distFromCamArr[i].rc->tc = m_RenderComponents.at(i)->tc;
+	//	distFromCamArr[i].rc->CB_PER_OBJECT_UPLOAD_RESOURCE = m_RenderComponents.at(i)->CB_PER_OBJECT_UPLOAD_RESOURCE;
+	//}
+	//
+	//// InsertionSort (because its best case is O(N)), 
+	//// and since this is sorted ((((((EVERY FRAME)))))) this is a good choice of sorting algorithm
+	//unsigned int j = 0;
+	//DistFromCamera distFromCamArrTemp = {};
+	//for (unsigned int i = 1; i < numRenderComponents; i++)
+	//{
+	//	j = i;
+	//	while (j > 0 && (distFromCamArr[j - 1].distance > distFromCamArr[j].distance))
+	//	{
+	//		// Swap
+	//		distFromCamArrTemp = distFromCamArr[j - 1];
+	//		distFromCamArr[j - 1] = distFromCamArr[j];
+	//		distFromCamArr[j] = distFromCamArrTemp;
+	//		j--;
+	//	}
+	//}
+	//
+	//// Fill the vector with sorted array
+	//m_RenderComponents.clear();
+	//for (unsigned int i = 0; i < numRenderComponents; i++)
+	//{
+	//	m_RenderComponents.push_back(distFromCamArr->rc);
+	//}
+	//
+	//// Free memory
+	//delete[] distFromCamArr;
+	//
+	//// Update the entity-arrays inside the rendertasks
+	//setRenderTasksRenderComponents();
 }
 
 
@@ -320,17 +317,21 @@ void Renderer::InitModelComponent(component::ModelComponent* mc)
 	submitModelToGPU(mc->m_pModel);
 	
 	// Only add the m_Entities that actually should be drawn
-	if (tc != nullptr)
+	if (FLAG_DRAW::DRAW_OPAQUE & mc->GetDrawFlag())
 	{
-		// Finally store the object in the corresponding renderComponent vectors so it will be drawn
-		if (FLAG_DRAW::DRAW_OPAQUE & mc->GetDrawFlag())
+		if (tc != nullptr)
 		{
-			m_RenderComponents[FLAG_DRAW::DRAW_OPAQUE].push_back(std::make_pair(mc, tc));
-		}
+			RenderComponent* rc = new RenderComponent();
+			rc->mc = mc;
+			rc->tc = tc;
+			rc->CB_PER_OBJECT_UPLOAD_RESOURCE = new Resource(
+				m_pDevice5,
+				sizeof(CB_PER_OBJECT_STRUCT),
+				RESOURCE_TYPE::UPLOAD,
+				L"CB_PER_OBJECT_UPLOAD_RESOURCE_" + mc->GetModelPath());
 
-		if (FLAG_DRAW::NO_DEPTH & ~mc->GetDrawFlag())
-		{
-			m_RenderComponents[FLAG_DRAW::NO_DEPTH].push_back(std::make_pair(mc, tc));
+			// Finally store the object in the in renderer so it can be drawn
+			m_RenderComponents.push_back(rc);
 		}
 	}
 }
@@ -436,18 +437,18 @@ void Renderer::UnInitModelComponent(component::ModelComponent* component)
 {
 	// Remove component from renderComponents
 	// TODO: change data structure to allow O(1) add and remove
+	unsigned int i = 0;
 	for (auto& renderComponent : m_RenderComponents)
 	{
-		for (int i = 0; i < renderComponent.second.size(); i++)
+		// Remove from renderComponents
+		component::ModelComponent* comp = nullptr;
+		comp = renderComponent->mc;
+		if (comp == component)
 		{
-			// Remove from all renderComponent-vectors if they are there
-			component::ModelComponent* comp = nullptr;
-			comp = renderComponent.second[i].first;
-			if (comp == component)
-			{
-				renderComponent.second.erase(renderComponent.second.begin() + i);
-			}
+			delete m_RenderComponents[i]->CB_PER_OBJECT_UPLOAD_RESOURCE;
+			m_RenderComponents.erase(m_RenderComponents.begin() + i);
 		}
+		i++;
 	}
 
 	// Update Render Tasks components (forward the change in renderComponents)
@@ -1038,8 +1039,8 @@ void Renderer::initRenderTasks()
 
 void Renderer::setRenderTasksRenderComponents()
 {
-	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->SetRenderComponents(&m_RenderComponents[FLAG_DRAW::NO_DEPTH]);
-	m_RenderTasks[RENDER_TASK_TYPE::FORWARD_RENDER]->SetRenderComponents(&m_RenderComponents[FLAG_DRAW::DRAW_OPAQUE]);
+	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->SetRenderComponents(&m_RenderComponents);
+	m_RenderTasks[RENDER_TASK_TYPE::FORWARD_RENDER]->SetRenderComponents(&m_RenderComponents);
 }
 
 void Renderer::createDescriptorHeaps()

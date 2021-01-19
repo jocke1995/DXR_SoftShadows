@@ -92,13 +92,9 @@ void ForwardRenderTask::Execute()
 
 	// Draw for every Rendercomponent with stencil testing disabled
 	commandList->SetPipelineState(m_PipelineStates[0]->GetPSO());
-	for (int i = 0; i < m_RenderComponents.size(); i++)
+	for (int i = 0; i < m_RenderComponents->size(); i++)
 	{
-		
-		component::ModelComponent* mc = m_RenderComponents.at(i).first;
-		component::TransformComponent* tc = m_RenderComponents.at(i).second;
-
-		drawRenderComponent(mc, tc, viewProjMatTrans, commandList);
+		drawRenderComponent(m_RenderComponents->at(i), viewProjMatTrans, commandList);
 	}
 
 	// Change state on front/backbuffer
@@ -111,11 +107,13 @@ void ForwardRenderTask::Execute()
 }
 
 void ForwardRenderTask::drawRenderComponent(
-	component::ModelComponent* mc,
-	component::TransformComponent* tc,
+	RenderComponent* rc,
 	const DirectX::XMMATRIX* viewProjTransposed,
 	ID3D12GraphicsCommandList5* cl)
 {
+	component::ModelComponent	 * mc	= rc->mc;
+	component::TransformComponent* tc	= rc->tc;
+
 	// Draw for every m_pMesh the meshComponent has
 	for (unsigned int i = 0; i < mc->GetNrOfMeshes(); i++)
 	{

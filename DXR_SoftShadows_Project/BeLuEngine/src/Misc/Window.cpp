@@ -98,9 +98,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int msg, WPARAM wParam, LPARAM lPar
 			Input::GetInstance().SetMouseMovement(inputData.lLastX, inputData.lLastY);
 
 			// Enable this to lock mouse inside window
-			RECT win;
-			GetWindowRect(hWnd, &win);
-			ClipCursor(&win);
+			//RECT win;
+			//GetWindowRect(hWnd, &win);
+			//ClipCursor(&win);
 		}
 #pragma endregion HandleInput
 		delete[] charArr;
