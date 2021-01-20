@@ -19,7 +19,7 @@ inline bool ParseParameters(ApplicationParameters* output)
     szArglist = CommandLineToArgvW(GetCommandLineW(), &nArgs);
     if (NULL == szArglist)
     {
-        Log::Print("CommandLineToArgvW failed\n");
+        //Log::Print("CommandLineToArgvW failed\n");
         return false;
     }
     else

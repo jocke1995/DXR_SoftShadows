@@ -6,9 +6,6 @@ Scene* SponzaScene(SceneManager* sm);
 void TestUpdateScene(SceneManager* sm, double dt);
 void SponzaUpdateScene(SceneManager* sm, double dt);
 
-
-
-
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 {
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -19,7 +16,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 
     /* ------ Engine  ------ */
     BeLuEngine engine;
-    engine.Init(hInstance, nCmdShow);
+    engine.Init(hInstance, nCmdShow, &params);
 
     /*  ------ Get references from engine  ------ */
     Window* const window = engine.GetWindow();

@@ -41,7 +41,7 @@ public:
 	BeLuEngine();
 	~BeLuEngine();
 
-	void Init(HINSTANCE hInstance, int nCmdShow);
+	void Init(HINSTANCE hInstance, int nCmdShow, ApplicationParameters* params = nullptr);
 
 	Window* const GetWindow() const;
 	Timer* const GetTimer() const;

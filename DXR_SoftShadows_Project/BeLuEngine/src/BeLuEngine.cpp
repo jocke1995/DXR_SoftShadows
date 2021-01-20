@@ -15,7 +15,7 @@ BeLuEngine::~BeLuEngine()
 	m_pRenderer->deleteRenderer();
 }
 
-void BeLuEngine::Init(HINSTANCE hInstance, int nCmdShow)
+void BeLuEngine::Init(HINSTANCE hInstance, int nCmdShow, ApplicationParameters* params)
 {
 	// Window values
 	bool windowedFullscreen = false;
