@@ -24,11 +24,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     /*------ AssetLoader to load models / textures ------*/
    AssetLoader* al = AssetLoader::Get();
    
-   Scene* scene = SponzaScene(sceneManager);
-   //Scene* scene = TestScene(sceneManager);
+   //Scene* scene = SponzaScene(sceneManager);
+   Scene* scene = TestScene(sceneManager);
    
    // Set scene
    sceneManager->SetScene(scene);
+
+
+   LPWSTR* szArglist;
+   int nArgs;
+   int i;
+
+   szArglist = CommandLineToArgvW(GetCommandLineW(), &nArgs);
+   if (NULL == szArglist)
+   {
+       Log::Print("CommandLineToArgvW failed\n");
+       return 0;
+   }
+   else for (i = 0; i < nArgs; i++) Log::Print("%d: %ws\n", i, szArglist[i]);
+
    
    Log::Print("Entering Game-Loop ...\n\n");
    while (!window->ExitWindow())
