@@ -43,6 +43,8 @@ public:
 
 	void Init(HINSTANCE hInstance, int nCmdShow, ApplicationParameters* params = nullptr);
 
+	const ApplicationParameters* GetApplicationParameters() const;
+
 	Window* const GetWindow() const;
 	Timer* const GetTimer() const;
 	ThreadPool* const GetThreadPool() const;
@@ -51,6 +53,8 @@ public:
 	SceneManager* const GetSceneHandler() const;
 
 private:
+	ApplicationParameters m_ApplicationParams;
+
 	Window* m_pWindow = nullptr;
 	Timer* m_pTimer = nullptr;
 	ThreadPool* m_pThreadPool = nullptr;
