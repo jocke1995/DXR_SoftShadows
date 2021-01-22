@@ -12,7 +12,7 @@ RenderTargetView::RenderTargetView(
 	D3D12_RENDER_TARGET_VIEW_DESC* rtvDesc,
 	Resource* resource,
 	bool createRTVInConstructor)
-	:View(descriptorHeap_RTV, resource)
+	:Descriptor(descriptorHeap_RTV, resource)
 {
 	m_pRenderView = new RenderView(width, height);
 

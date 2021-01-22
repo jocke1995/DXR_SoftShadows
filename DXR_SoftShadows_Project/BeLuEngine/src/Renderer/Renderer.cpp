@@ -322,13 +322,16 @@ void Renderer::InitModelComponent(component::ModelComponent* mc)
 			RenderComponent* rc = new RenderComponent();
 			rc->mc = mc;
 			rc->tc = tc;
-			rc->CB_PER_OBJECT_UPLOAD_RESOURCE = nullptr;
-			//rc->CB_PER_OBJECT_UPLOAD_RESOURCE = new Resource(
-			//	m_pDevice5,
-			//	sizeof(CB_PER_OBJECT_STRUCT),
-			//	RESOURCE_TYPE::UPLOAD,
-			//	L"CB_PER_OBJECT_UPLOAD_RESOURCE_" + mc->GetModelPath());
-
+			
+			// One resource for each mesh
+			for (unsigned int i = 0; i < mc->GetNrOfMeshes(); i++)
+			{
+				rc->CB_PER_OBJECT_UPLOAD_RESOURCES.push_back(new Resource(
+					m_pDevice5,
+					sizeof(CB_PER_OBJECT_STRUCT),
+					RESOURCE_TYPE::UPLOAD,
+					L"CB_PER_OBJECT_UPLOAD_RESOURCE_" + std::to_wstring(i) + L"_" + mc->GetModelPath()));	
+			}
 			// Finally store the object in the in renderer so it can be drawn
 			m_RenderComponents.push_back(rc);
 		}
@@ -443,7 +446,11 @@ void Renderer::UnInitModelComponent(component::ModelComponent* component)
 		comp = m_RenderComponents[i]->mc;
 		if (comp == component)
 		{
-			delete m_RenderComponents[i]->CB_PER_OBJECT_UPLOAD_RESOURCE;
+			for (unsigned int j = 0; j < comp->GetNrOfMeshes(); j++)
+			{
+				delete m_RenderComponents[i]->CB_PER_OBJECT_UPLOAD_RESOURCES.at(j);
+			}
+			
 			delete m_RenderComponents[i];
 			m_RenderComponents.erase(m_RenderComponents.begin() + i);
 			break;

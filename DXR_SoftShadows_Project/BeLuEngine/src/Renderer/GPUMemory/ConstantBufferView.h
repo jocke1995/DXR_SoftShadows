@@ -1,9 +1,9 @@
 #ifndef CONSTANTBUFFERVIEW_H
 #define CONSTANTBUFFERVIEW_H
 
-#include "View.h"
+#include "Descriptor.h"
 
-class ConstantBufferView : public View
+class ConstantBufferView : public Descriptor
 {
 public:
 	ConstantBufferView(

@@ -1,9 +1,9 @@
 #ifndef UNORDEREDACCESSVIEW_H
 #define UNORDEREDACCESSVIEW_H
 
-#include "View.h"
+#include "Descriptor.h"
 
-class UnorderedAccessView : public View
+class UnorderedAccessView : public Descriptor
 {
 public:
 	UnorderedAccessView(

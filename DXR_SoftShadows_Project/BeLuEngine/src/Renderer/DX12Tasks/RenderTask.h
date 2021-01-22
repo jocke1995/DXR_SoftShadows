@@ -25,7 +25,7 @@ struct RenderComponent
 {
 	component::ModelComponent* mc = nullptr;
 	component::TransformComponent* tc = nullptr;
-	Resource* CB_PER_OBJECT_UPLOAD_RESOURCE = nullptr;
+	std::vector<Resource*> CB_PER_OBJECT_UPLOAD_RESOURCES;
 };
 
 // Components

@@ -9,7 +9,7 @@ UnorderedAccessView::UnorderedAccessView(
 	DescriptorHeap* descriptorHeap_CBV_UAV_SRV,
 	D3D12_UNORDERED_ACCESS_VIEW_DESC* uavDesc,
 	Resource* resource)
-	:View(descriptorHeap_CBV_UAV_SRV, resource)
+	:Descriptor(descriptorHeap_CBV_UAV_SRV, resource)
 {
 	createUnorderedAccessView(device, descriptorHeap_CBV_UAV_SRV, uavDesc);
 }
