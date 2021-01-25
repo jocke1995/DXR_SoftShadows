@@ -6,6 +6,7 @@
 #include "Misc/Timer.h"
 #include "Misc/AssetLoader.h"
 #include "Misc/ApplicationParameters.h"
+#include "Misc/CSVExporter.h"
 
 // Entity Component System
 #include "ECS/SceneManager.h"

@@ -14,6 +14,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     ApplicationParameters params;
     ParseParameters(&params);
 
+
+    CSVExporter exporter;
+
+    exporter << "asd";
+
+    exporter.Export(L"asd", L"ASD");
+
+
+
+
+
     /* ------ Engine  ------ */
     BeLuEngine engine;
     engine.Init(hInstance, nCmdShow, &params);
