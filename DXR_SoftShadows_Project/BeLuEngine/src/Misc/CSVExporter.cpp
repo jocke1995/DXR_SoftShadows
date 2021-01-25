@@ -1,7 +1,9 @@
 #include "stdafx.h"
 #include "CSVExporter.h"
 
-CSVExporter::CSVExporter(int numColumns, std::wstring* columnTitles)
+#include <iostream>
+
+CSVExporter::CSVExporter()
 {
 }
 
@@ -17,7 +19,21 @@ void CSVExporter::Clear()
 
 bool CSVExporter::Export(const std::wstring& name, const std::wstring& path)
 {
+	std::ofstream outFile;
+	// open file, creates if not exists
+	outFile.open(path + name, std::ofstream::out, std::ofstream::trunc);
 
+	if (!outFile.is_open())
+	{
+		// Something went wrong
+		return false;
+	}
+	
+	// Write to file
+	outFile << entries.rdbuf();
+
+
+	outFile.close();
 
 	return true;
 }

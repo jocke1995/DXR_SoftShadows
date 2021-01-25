@@ -6,22 +6,24 @@
 class CSVExporter
 {
 public:
-	CSVExporter(int numColumns, std::wstring* columnTitles);
-	CSVExporter() {}
+	CSVExporter();
 	~CSVExporter();
 
 	void Clear();
 
-	bool Export(const std::wstring& name, const std::wstring& path);
+	bool Export(const std::wstring& name = L"Results.csv", const std::wstring& path = L"");
 
-	inline void Print() {
-		Log::Print(entries.str() + '\n');
+	inline void Print()
+	{
+		std::string a = entries.str();
+		Log::Print("%s\n", a.c_str());
 	}
 
 	friend std::stringstream& operator<<(CSVExporter& exporter, std::string string);
+	//friend std::stringstream& operator<<(CSVExporter& exporter, std::wstring wstring); does not work for some reason.
 
 private:
-	std::stringstream entries;   // Holds all data to be output, std::wstring is csv format (asd:123:qwe)
+	std::stringstream entries;   // Holds all data to be output | csv format (asd:123:qwe)
 };
 
 

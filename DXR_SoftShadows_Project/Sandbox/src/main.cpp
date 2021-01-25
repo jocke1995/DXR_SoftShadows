@@ -1,5 +1,7 @@
 #include "BeLuEngine.h"
 
+#include <ios>
+
 Scene* TestScene(SceneManager* sm);
 Scene* SponzaScene(SceneManager* sm);
 
@@ -9,7 +11,7 @@ void SponzaUpdateScene(SceneManager* sm, double dt);
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 {
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-
+    
     /* ------ Command line arguments  ------ */
     ApplicationParameters params;
     ParseParameters(&params);
@@ -17,9 +19,39 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 
     CSVExporter exporter;
 
-    exporter << "asd";
+    /*
+    exporter <<
+        "Film:År:Distributör" << std::endl << 
+        "Reservoir Dogs:1992:Miramax" << std::endl <<
+        "Pulp Fiction : 1994 : Miramax" << std::endl <<
+        "Jackie Brown : 1997 : Miramax" << std::endl <<
+        "Kill Bill: Volume 1 : 2003 : Miramax" << std::endl <<
+        "Kill Bill: Volume 2 : 2004 : Miramax" << std::endl <<
+        "Death Proof : 2007 : Dimension Films" << std::endl <<
+        "Inglourious Basterds : 2009 : Universal Pictures" << std::endl <<
+        "Django Unchained : 2012 : Sony Pictures Releasing" << std::endl <<
+        "The Hateful Eight : 2015 : The Weinstein Company" << std::endl <<
+        "Once Upon A Time in Hollywood : 2019 : Sony Pictures" << std::endl;
 
-    exporter.Export(L"asd", L"ASD");
+        */
+
+    exporter <<
+        "Film:År:Distributör" << std::endl <<
+        "Reservoir Dogs:1992:Miramax" << std::endl <<
+        "Pulp Fiction:1994:Miramax" << std::endl <<
+        "Jackie Brown:1997:Miramax" << std::endl <<
+        "Kill Bill:Volume 1:2003:Miramax" << std::endl <<
+        "Kill Bill:Volume 2:2004:Miramax" << std::endl <<
+        "Death Proof:2007:Dimension Films" << std::endl <<
+        "Inglourious Basterds:2009:Universal Pictures" << std::endl <<
+        "Django Unchained:2012:Sony Pictures Releasing" << std::endl <<
+        "The Hateful Eight:2015:The Weinstein Company" << std::endl <<
+        "Once Upon A Time in Hollywood:2019:Sony Pictures" << std::endl;
+        
+
+    exporter.Export();
+
+    exporter.Print();
 
 
 
