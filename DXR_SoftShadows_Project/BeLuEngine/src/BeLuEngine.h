@@ -5,6 +5,8 @@
 #include "Misc/Window.h"
 #include "Misc/Timer.h"
 #include "Misc/AssetLoader.h"
+#include "Misc/ApplicationParameters.h"
+#include "Misc/CSVExporter.h"
 
 // Entity Component System
 #include "ECS/SceneManager.h"
@@ -40,7 +42,9 @@ public:
 	BeLuEngine();
 	~BeLuEngine();
 
-	void Init(HINSTANCE hInstance, int nCmdShow);
+	void Init(HINSTANCE hInstance, int nCmdShow, ApplicationParameters* params = nullptr);
+
+	const ApplicationParameters* GetApplicationParameters() const;
 
 	Window* const GetWindow() const;
 	Timer* const GetTimer() const;
@@ -50,6 +54,8 @@ public:
 	SceneManager* const GetSceneHandler() const;
 
 private:
+	ApplicationParameters m_ApplicationParams;
+
 	Window* m_pWindow = nullptr;
 	Timer* m_pTimer = nullptr;
 	ThreadPool* m_pThreadPool = nullptr;

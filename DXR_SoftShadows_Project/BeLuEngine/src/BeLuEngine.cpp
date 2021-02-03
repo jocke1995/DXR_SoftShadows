@@ -15,8 +15,10 @@ BeLuEngine::~BeLuEngine()
 	m_pRenderer->deleteRenderer();
 }
 
-void BeLuEngine::Init(HINSTANCE hInstance, int nCmdShow)
+void BeLuEngine::Init(HINSTANCE hInstance, int nCmdShow, ApplicationParameters* params)
 {
+	m_ApplicationParams = *params;
+
 	// Window values
 	bool windowedFullscreen = false;
 	int windowWidth = 1280;
@@ -34,6 +36,11 @@ void BeLuEngine::Init(HINSTANCE hInstance, int nCmdShow)
 	m_pSceneManager = &SceneManager::GetInstance();
 
 	Input::GetInstance().RegisterDevices(m_pWindow->GetHwnd());
+}
+
+const ApplicationParameters* BeLuEngine::GetApplicationParameters() const
+{
+	return &m_ApplicationParams;
 }
 
 Window* const BeLuEngine::GetWindow() const
