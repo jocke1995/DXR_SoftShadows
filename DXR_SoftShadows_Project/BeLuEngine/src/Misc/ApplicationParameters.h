@@ -19,16 +19,17 @@ inline bool ParseParameters(ApplicationParameters* output)
     szArglist = CommandLineToArgvW(GetCommandLineW(), &nArgs);
     if (NULL == szArglist)
     {
-        //Log::Print("CommandLineToArgvW failed\n");
+        Log::Print("CommandLineToArgvW failed\n");
         return false;
     }
     else
     {
         for (int i = 0; i < nArgs; i++)
         {
-            Log::Print("%d: %ws\n", i, szArglist[i]);
+            #ifdef _DEBUG
+                Log::Print("%d: %ws\n", i, szArglist[i]);
+            #endif
 
-            auto a = szArglist[i];
             // Scene
             if (wcscmp(szArglist[i], L"-s") == 0)
             {

@@ -17,46 +17,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     ParseParameters(&params);
 
 
-    CSVExporter exporter;
-
-    /*
-    exporter <<
-        "Film:År:Distributör" << std::endl << 
-        "Reservoir Dogs:1992:Miramax" << std::endl <<
-        "Pulp Fiction : 1994 : Miramax" << std::endl <<
-        "Jackie Brown : 1997 : Miramax" << std::endl <<
-        "Kill Bill: Volume 1 : 2003 : Miramax" << std::endl <<
-        "Kill Bill: Volume 2 : 2004 : Miramax" << std::endl <<
-        "Death Proof : 2007 : Dimension Films" << std::endl <<
-        "Inglourious Basterds : 2009 : Universal Pictures" << std::endl <<
-        "Django Unchained : 2012 : Sony Pictures Releasing" << std::endl <<
-        "The Hateful Eight : 2015 : The Weinstein Company" << std::endl <<
-        "Once Upon A Time in Hollywood : 2019 : Sony Pictures" << std::endl;
-
-        */
-
-    exporter <<
-        "Film:År:Distributör" << std::endl <<
-        "Reservoir Dogs:1992:Miramax" << std::endl <<
-        "Pulp Fiction:1994:Miramax" << std::endl <<
-        "Jackie Brown:1997:Miramax" << std::endl <<
-        "Kill Bill:Volume 1:2003:Miramax" << std::endl <<
-        "Kill Bill:Volume 2:2004:Miramax" << std::endl <<
-        "Death Proof:2007:Dimension Films" << std::endl <<
-        "Inglourious Basterds:2009:Universal Pictures" << std::endl <<
-        "Django Unchained:2012:Sony Pictures Releasing" << std::endl <<
-        "The Hateful Eight:2015:The Weinstein Company" << std::endl <<
-        "Once Upon A Time in Hollywood:2019:Sony Pictures" << std::endl;
-        
-
-    exporter.Export();
-
-    exporter.Print();
-
-
-
-
-
     /* ------ Engine  ------ */
     BeLuEngine engine;
     engine.Init(hInstance, nCmdShow, &params);
@@ -72,7 +32,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
    AssetLoader* al = AssetLoader::Get();
    
    Scene* scene;
-   if (params.scene == L"test2")
+   if (params.scene == L"test")
    {
         scene = TestScene(sceneManager);
    }
