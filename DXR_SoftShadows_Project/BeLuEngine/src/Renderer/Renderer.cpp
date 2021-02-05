@@ -677,48 +677,49 @@ bool Renderer::createDevice()
 {
 	bool deviceCreated = false;
 
-#ifdef _DEBUG
-	//Enable the D3D12 debug layer.
-	ID3D12Debug3* debugController = nullptr;
-	HMODULE mD3D12 = LoadLibrary(L"D3D12.dll"); // ist�llet f�r GetModuleHandle
-
-	PFN_D3D12_GET_DEBUG_INTERFACE f = (PFN_D3D12_GET_DEBUG_INTERFACE)GetProcAddress(mD3D12, "D3D12GetDebugInterface");
-	if (SUCCEEDED(f(IID_PPV_ARGS(&debugController))))
+	if (ENABLE_DEBUGLAYER == true)
 	{
-		debugController->EnableDebugLayer();
-		debugController->SetEnableGPUBasedValidation(false);
+		//Enable the D3D12 debug layer.
+		ID3D12Debug3* debugController = nullptr;
+		HMODULE mD3D12 = LoadLibrary(L"D3D12.dll"); // ist�llet f�r GetModuleHandle
+
+		PFN_D3D12_GET_DEBUG_INTERFACE f = (PFN_D3D12_GET_DEBUG_INTERFACE)GetProcAddress(mD3D12, "D3D12GetDebugInterface");
+		if (SUCCEEDED(f(IID_PPV_ARGS(&debugController))))
+		{
+			debugController->EnableDebugLayer();
+			debugController->SetEnableGPUBasedValidation(false);
+		}
+
+		IDXGIInfoQueue* dxgiInfoQueue = nullptr;
+		unsigned int dxgiFactoryFlags = 0;
+		if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&dxgiInfoQueue)))) {
+			dxgiFactoryFlags = DXGI_CREATE_FACTORY_DEBUG;
+
+			// Break on severity
+			dxgiInfoQueue->SetBreakOnSeverity(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_ERROR, true);
+			dxgiInfoQueue->SetBreakOnSeverity(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_CORRUPTION, true);
+
+			// Break on errors
+			dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_UNKNOWN, true);
+			dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_MISCELLANEOUS, true);
+			dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_INITIALIZATION, true);
+			dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_CLEANUP, true);
+			dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_COMPILATION, true);
+			dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_STATE_CREATION, true);
+			dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_STATE_SETTING, true);
+			dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_STATE_GETTING, true);
+			dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_RESOURCE_MANIPULATION, true);
+			dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_EXECUTION, true);
+			dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_SHADER, true);
+		}
+
+		SAFE_RELEASE(&debugController);
 	}
-
-	IDXGIInfoQueue* dxgiInfoQueue = nullptr;
-	unsigned int dxgiFactoryFlags = 0;
-	if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&dxgiInfoQueue)))) {
-		dxgiFactoryFlags = DXGI_CREATE_FACTORY_DEBUG;
-
-		// Break on severity
-		dxgiInfoQueue->SetBreakOnSeverity(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_ERROR, true);
-		dxgiInfoQueue->SetBreakOnSeverity(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_CORRUPTION, true);
-
-		// Break on errors
-		dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_UNKNOWN, true);
-		dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_MISCELLANEOUS, true);
-		dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_INITIALIZATION, true);
-		dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_CLEANUP, true);
-		dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_COMPILATION, true);
-		dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_STATE_CREATION, true);
-		dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_STATE_SETTING, true);
-		dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_STATE_GETTING, true);
-		dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_RESOURCE_MANIPULATION, true);
-		dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_EXECUTION, true);
-		dxgiInfoQueue->SetBreakOnCategory(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_CATEGORY_SHADER, true);
-	}
-
-	SAFE_RELEASE(&debugController);
-#endif
 
 	IDXGIFactory6* factory = nullptr;
 	IDXGIAdapter1* adapter = nullptr;
 
-	CreateDXGIFactory(IID_PPV_ARGS(&factory));
+	CreateDXGIFactory1(IID_PPV_ARGS(&factory));
 
 	for (unsigned int adapterIndex = 0;; ++adapterIndex)
 	{
@@ -729,14 +730,41 @@ bool Renderer::createDevice()
 		}
 	
 		// Check to see if the adapter supports Direct3D 12, but don't create the actual m_pDevice yet.
-		if (SUCCEEDED(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_1, __uuidof(ID3D12Device5), nullptr)))
+		ID3D12Device5* pDevice = nullptr;
+		HRESULT hr = D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&pDevice));
+
+		if (SUCCEEDED(hr))
 		{
 			DXGI_ADAPTER_DESC adapterDesc = {};
 			adapter->GetDesc(&adapterDesc);
 
 			Log::Print("Adapter: %S\n", adapterDesc.Description);
 
-			break;
+			D3D12_FEATURE_DATA_FEATURE_LEVELS cap{};
+			cap.NumFeatureLevels = 1;
+			D3D_FEATURE_LEVEL requested = D3D_FEATURE_LEVEL_12_2;
+			cap.pFeatureLevelsRequested = &requested;
+			if (SUCCEEDED(pDevice->CheckFeatureSupport(
+				D3D12_FEATURE_FEATURE_LEVELS,
+				&cap,
+				sizeof(cap)))
+				&& cap.MaxSupportedFeatureLevel == requested)
+			{
+				Log::Print("Feature level 12_2 is supported!\n");// feature level is supported on the device
+			}
+			
+			D3D12_FEATURE_DATA_D3D12_OPTIONS5 features5 = {};
+			HRESULT hr = pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &features5, sizeof(D3D12_FEATURE_DATA_D3D12_OPTIONS5));
+			SAFE_RELEASE(&pDevice);
+			
+			if (SUCCEEDED(hr))
+			{
+				if (features5.RaytracingTier == D3D12_RAYTRACING_TIER_1_1)
+				{
+					Log::Print("Raytracing tier 1.1 supported!\n");
+					break; // found one!
+				}
+			}
 		}
 	
 		SAFE_RELEASE(&adapter);
@@ -763,7 +791,6 @@ bool Renderer::createDevice()
 		factory->EnumWarpAdapter(IID_PPV_ARGS(&adapter));
 		D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_pDevice5));
 	}
-
 	SAFE_RELEASE(&factory);
 
 	return deviceCreated;
