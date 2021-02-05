@@ -9,7 +9,7 @@ ShaderResourceView::ShaderResourceView(
 	DescriptorHeap* descriptorHeap_CBV_UAV_SRV,
 	D3D12_SHADER_RESOURCE_VIEW_DESC* srvDesc,
 	Resource* resource)
-	:View(descriptorHeap_CBV_UAV_SRV, resource)
+	:Descriptor(descriptorHeap_CBV_UAV_SRV, resource)
 {
 	createShaderResourceView(device, descriptorHeap_CBV_UAV_SRV, srvDesc);
 }

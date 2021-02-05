@@ -12,6 +12,4 @@ DXR_SoftShadows_Project/*.bat
 **bin/
 **bin-int/
 
-
-DXR_SoftShadows_Project/Vendor/**
 DXR_SoftShadows_Project/Vendor/Resources/Scenes/**

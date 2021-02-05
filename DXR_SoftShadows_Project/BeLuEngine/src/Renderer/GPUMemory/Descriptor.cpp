@@ -1,25 +1,25 @@
 #include "stdafx.h"
-#include "View.h"
+#include "Descriptor.h"
 
 #include "Resource.h"
 #include "../DescriptorHeap.h"
 
-View::View(DescriptorHeap* descriptorHeap, Resource* resource)
+Descriptor::Descriptor(DescriptorHeap* descriptorHeap, Resource* resource)
 {
     m_pResource = resource;
     m_DescriptorHeapIndex = descriptorHeap->GetNextDescriptorHeapIndex(1);
 }
 
-View::~View()
+Descriptor::~Descriptor()
 {
 }
 
-const Resource* const View::GetResource() const
+const Resource* const Descriptor::GetResource() const
 {
     return m_pResource;
 }
 
-const unsigned int View::GetDescriptorHeapIndex() const
+const unsigned int Descriptor::GetDescriptorHeapIndex() const
 {
     return m_DescriptorHeapIndex;
 }

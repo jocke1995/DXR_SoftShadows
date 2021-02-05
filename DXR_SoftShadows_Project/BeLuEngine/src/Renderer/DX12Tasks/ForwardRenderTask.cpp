@@ -10,6 +10,7 @@
 #include "../RenderView.h"
 #include "../RootSignature.h"
 #include "../SwapChain.h"
+//#include "RenderTask.h"
 
 // Model info
 #include "../Renderer/Model/Transform.h"
@@ -127,8 +128,7 @@ void ForwardRenderTask::drawRenderComponent(
 
 		// Create a CB_PER_OBJECT struct
 		CB_PER_OBJECT_STRUCT perObject = { *WTransposed, WVPTransposed, *info };
-
-		cl->SetGraphicsRoot32BitConstants(RS::CB_PER_OBJECT_CONSTANTS, sizeof(CB_PER_OBJECT_STRUCT) / sizeof(UINT), &perObject, 0);
+		cl->SetGraphicsRootConstantBufferView(RS::CB_PER_OBJECT_CBV, rc->CB_PER_OBJECT_UPLOAD_RESOURCES[i]->GetGPUVirtualAdress());
 
 		cl->IASetIndexBuffer(m->GetIndexBufferView());
 		cl->DrawIndexedInstanced(num_Indices, 1, 0, 0, 0);

@@ -1,9 +1,9 @@
 #ifndef SHADERRESOURCEVIEW_H
 #define SHADERRESOURCEVIEW_H
 
-#include "View.h"
+#include "Descriptor.h"
 
-class ShaderResourceView : public View
+class ShaderResourceView : public Descriptor
 {
 public:
 	ShaderResourceView(

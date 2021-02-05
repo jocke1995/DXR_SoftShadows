@@ -1,10 +1,10 @@
 #ifndef RENDERTARGETVIEW_H
 #define RENDERTARGETVIEW_H
 
-#include "View.h"
+#include "Descriptor.h"
 class RenderView;
 
-class RenderTargetView : public View
+class RenderTargetView : public Descriptor
 {
 public:
 	RenderTargetView(
