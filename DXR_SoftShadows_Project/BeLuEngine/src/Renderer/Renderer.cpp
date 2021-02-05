@@ -742,7 +742,7 @@ bool Renderer::createDevice()
 
 			D3D12_FEATURE_DATA_FEATURE_LEVELS cap{};
 			cap.NumFeatureLevels = 1;
-			D3D_FEATURE_LEVEL requested = D3D_FEATURE_LEVEL_12_2;
+			D3D_FEATURE_LEVEL requested = D3D_FEATURE_LEVEL_12_1;
 			cap.pFeatureLevelsRequested = &requested;
 			if (SUCCEEDED(pDevice->CheckFeatureSupport(
 				D3D12_FEATURE_FEATURE_LEVELS,
