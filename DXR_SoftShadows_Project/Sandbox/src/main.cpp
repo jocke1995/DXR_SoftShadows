@@ -1,5 +1,7 @@
 #include "BeLuEngine.h"
 
+#include <ios>
+
 Scene* TestScene(SceneManager* sm);
 Scene* SponzaScene(SceneManager* sm);
 
@@ -9,10 +11,15 @@ void SponzaUpdateScene(SceneManager* sm, double dt);
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 {
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+    
+    /* ------ Command line arguments  ------ */
+    ApplicationParameters params;
+    ParseParameters(&params);
+
 
     /* ------ Engine  ------ */
     BeLuEngine engine;
-    engine.Init(hInstance, nCmdShow);
+    engine.Init(hInstance, nCmdShow, &params);
 
     /*  ------ Get references from engine  ------ */
     Window* const window = engine.GetWindow();
@@ -24,11 +31,23 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     /*------ AssetLoader to load models / textures ------*/
    AssetLoader* al = AssetLoader::Get();
    
-   Scene* scene = SponzaScene(sceneManager);
-   //Scene* scene = TestScene(sceneManager);
+   Scene* scene;
+   if (params.scene == L"test")
+   {
+        scene = TestScene(sceneManager);
+   }
+   else
+   {
+       scene = SponzaScene(sceneManager);
+   }
+   
    
    // Set scene
    sceneManager->SetScene(scene);
+
+   
+   
+
    
    Log::Print("Entering Game-Loop ...\n\n");
    while (!window->ExitWindow())
