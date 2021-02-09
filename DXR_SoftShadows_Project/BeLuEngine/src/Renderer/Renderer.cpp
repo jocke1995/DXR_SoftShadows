@@ -704,14 +704,14 @@ AccelerationStructureBuffers Renderer::CreateBottomLevelAS(std::vector<std::pair
 	// Scratch
 	Resource r1(
 		m_pDevice5, scratchSizeInBytes,
-		RESOURCE_TYPE::DEFAULT, L"tasd",
+		RESOURCE_TYPE::DEFAULT, L"scratchBottomLevel",
 		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 	buffers.pScratch = r1.GetID3D12Resource1();
 
 	// Result
 	Resource r2(
 		m_pDevice5, resultSizeInBytes,
-		RESOURCE_TYPE::DEFAULT, L"tasd",
+		RESOURCE_TYPE::DEFAULT, L"resultBottomLevel",
 		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
 		D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
 	buffers.pResult = r2.GetID3D12Resource1();
@@ -723,6 +723,68 @@ AccelerationStructureBuffers Renderer::CreateBottomLevelAS(std::vector<std::pair
 		buffers.pResult, false, nullptr);
 
 	return buffers;
+}
+
+void Renderer::CreateTopLevelAS(std::vector<std::pair<Resource*, DirectX::XMMATRIX>>& instances)
+{
+	// Gather all the instances into the builder helper
+	for (size_t i = 0; i < instances.size(); i++)
+	{
+		m_TopLevelAsGenerator.AddInstance(instances[i].first->GetID3D12Resource1(),
+			instances[i].second, static_cast<unsigned int>(i),
+			static_cast<unsigned int>(0));
+	}
+
+	// As for the bottom-level AS, the building the AS requires some scratch space
+	// to store temporary data in addition to the actual AS. In the case of the
+	// top-level AS, the instance descriptors also need to be stored in GPU
+	// memory. This call outputs the memory requirements for each (scratch,
+	// results, instance descriptors) so that the application can allocate the
+	// corresponding memory
+	UINT64 scratchSize, resultSize, instanceDescsSize;
+
+	// Prebuild
+	m_TopLevelAsGenerator.ComputeASBufferSizes(m_pDevice5, true, &scratchSize, &resultSize, &instanceDescsSize);
+
+	// Create the scratch and result buffers. Since the build is all done on GPU,
+	// those can be allocated on the default heap
+
+	// Scratch
+	Resource r1(
+		m_pDevice5, scratchSize,
+		RESOURCE_TYPE::DEFAULT, L"scratchTopLevel",
+		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	m_TopLevelASBuffers.pScratch = r1.GetID3D12Resource1();
+
+	// Result
+	Resource r2(
+		m_pDevice5, resultSize,
+		RESOURCE_TYPE::DEFAULT, L"resultTopLevel",
+		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+		D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
+	m_TopLevelASBuffers.pResult = r2.GetID3D12Resource1();
+
+	// The buffer describing the instances: ID, shader binding information,
+	// matrices ... Those will be copied into the buffer by the helper through
+	// mapping, so the buffer has to be allocated on the upload heap.
+
+	// Result
+	Resource r3(
+		m_pDevice5, instanceDescsSize,
+		RESOURCE_TYPE::UPLOAD, L"instanceDescTopLevel",
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_STATE_GENERIC_READ);
+	m_TopLevelASBuffers.pInstanceDesc = r3.GetID3D12Resource1();
+
+	// After all the buffers are allocated, or if only an update is required, we
+	// can build the acceleration structure. Note that in the case of the update
+	// we also pass the existing AS as the 'previous' AS, so that it can be
+	// refitted in place.
+	m_TopLevelAsGenerator.Generate(m_pTempCommandInterface->GetCommandList(0),
+		m_TopLevelASBuffers.pScratch,
+		m_TopLevelASBuffers.pResult,
+		m_TopLevelASBuffers.pInstanceDesc);
 }
 
 void Renderer::setRenderTasksPrimaryCamera()
