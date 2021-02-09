@@ -2,7 +2,6 @@
 #include "ComputeTask.h"
 
 // DX12 Specifics
-#include "../PipelineState/ComputeState.h"
 #include "../RootSignature.h"
 
 ComputeTask::ComputeTask(
@@ -15,7 +14,8 @@ ComputeTask::ComputeTask(
 {
 	for (auto& pair : csNamePSOName)
 	{
-		m_PipelineStates.push_back(new ComputeState(device, rootSignature, pair.first, pair.second));
+		// TODO: Add pipeline state for compute aswell
+		//m_PipelineStates.push_back(new ComputeState(device, rootSignature, pair.first, pair.second));
 	}
 
 	m_pRootSig = rootSignature->GetRootSig();

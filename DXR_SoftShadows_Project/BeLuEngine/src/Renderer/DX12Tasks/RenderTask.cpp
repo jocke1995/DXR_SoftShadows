@@ -4,7 +4,7 @@
 // DX12 Specifics
 #include "../CommandInterface.h"
 #include "../GPUMemory/GPUMemory.h"
-#include "../PipelineState/GraphicsState.h"
+#include "../PipelineState/PipelineState.h"
 #include "../RootSignature.h"
 #include "../SwapChain.h"
 
@@ -12,15 +12,15 @@ RenderTask::RenderTask(
 	ID3D12Device5* device,
 	RootSignature* rootSignature,
 	const std::wstring& VSName, const std::wstring& PSName,
-	std::vector<D3D12_GRAPHICS_PIPELINE_STATE_DESC*>* gpsds,
+	std::vector<PSO_STREAM*>* pso_streams,
 	const std::wstring& psoName)
 	:DX12Task(device, COMMAND_INTERFACE_TYPE::DIRECT_TYPE)
 {
-	if (gpsds != nullptr)
+	if (pso_streams != nullptr)
 	{
-		for (auto gpsd : *gpsds)
+		for (auto pso_stream : *pso_streams)
 		{
-			m_PipelineStates.push_back(new GraphicsState(device, rootSignature, VSName, PSName, gpsd, psoName));
+			m_PipelineStates.push_back(new PipelineState(device, rootSignature, VSName, PSName, pso_stream, psoName));
 		}
 	}
 	

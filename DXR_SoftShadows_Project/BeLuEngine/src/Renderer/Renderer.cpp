@@ -17,7 +17,7 @@
 // Renderer-Engine 
 #include "RootSignature.h"
 #include "SwapChain.h"
-#include "GPUMemory/DepthStencilView.h"
+#include "GPUMemory/GPUMemory.h"
 #include "CommandInterface.h"
 #include "DescriptorHeap.h"
 #include "Model/Transform.h"
@@ -29,6 +29,7 @@
 #include "Texture/Texture2DGUI.h"
 #include "Texture/TextureCubeMap.h"
 #include "Model/Material.h"
+#include "PipelineState/PipelineState.h"
 
 #include "GPUMemory/GPUMemory.h"
 
@@ -913,22 +914,25 @@ void Renderer::initRenderTasks()
 
 #pragma region DepthPrePass
 
+	PSO_STREAM psoStream = {};
+
 	/* Depth Pre-Pass rendering without stencil testing */
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsdDepthPrePass = {};
-	gpsdDepthPrePass.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	psoStream.primitive_topology_type = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+
 	// RenderTarget
-	gpsdDepthPrePass.NumRenderTargets = 0;
-	gpsdDepthPrePass.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
-	// Depthstencil usage
-	gpsdDepthPrePass.SampleDesc.Count = 1;
-	gpsdDepthPrePass.SampleMask = UINT_MAX;
+	psoStream.render_target_info.NumRenderTargets = 0;
+	psoStream.render_target_info.RTFormats[0] = DXGI_FORMAT_UNKNOWN;
+
+	psoStream.sample_desc.Count = 1;
+	//psoStream.sample_mask = UINT_MAX;
+
 	// Rasterizer behaviour
-	gpsdDepthPrePass.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-	gpsdDepthPrePass.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
-	gpsdDepthPrePass.RasterizerState.DepthBias = 0;
-	gpsdDepthPrePass.RasterizerState.DepthBiasClamp = 0.0f;
-	gpsdDepthPrePass.RasterizerState.SlopeScaledDepthBias = 0.0f;
-	gpsdDepthPrePass.RasterizerState.FrontCounterClockwise = false;
+	psoStream.rasterizer_desc.FillMode = D3D12_FILL_MODE_SOLID;
+	psoStream.rasterizer_desc.CullMode = D3D12_CULL_MODE_BACK;
+	psoStream.rasterizer_desc.DepthBias = 0;
+	psoStream.rasterizer_desc.DepthBiasClamp = 0.0f;
+	psoStream.rasterizer_desc.SlopeScaledDepthBias = 0.0f;
+	psoStream.rasterizer_desc.FrontCounterClockwise = false;
 
 	// Specify Blend descriptions
 	// copy of defaultRTdesc
@@ -937,28 +941,31 @@ void Renderer::initRenderTasks()
 		D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
 		D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
 		D3D12_LOGIC_OP_NOOP, D3D12_COLOR_WRITE_ENABLE_ALL };
+
 	for (unsigned int i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
-		gpsdDepthPrePass.BlendState.RenderTarget[i] = depthPrePassRTdesc;
+		psoStream.blend_desc.RenderTarget[i] = {};
 
-	// Depth descriptor
-	D3D12_DEPTH_STENCIL_DESC depthPrePassDsd = {};
-	depthPrePassDsd.DepthEnable = true;
-	depthPrePassDsd.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-	depthPrePassDsd.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	for (unsigned int i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
+		psoStream.blend_desc.RenderTarget[i] = depthPrePassRTdesc;
 
+	// Depth-stencil descriptor
+	psoStream.depth_stencil_desc.DepthEnable = true;
+	psoStream.depth_stencil_desc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	psoStream.depth_stencil_desc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
 	// DepthStencil
-	depthPrePassDsd.StencilEnable = false;
-	gpsdDepthPrePass.DepthStencilState = depthPrePassDsd;
-	gpsdDepthPrePass.DSVFormat = m_pMainDepthStencil->GetDSV()->GetDXGIFormat();
+	psoStream.depth_stencil_desc.StencilEnable = false;
 
-	std::vector<D3D12_GRAPHICS_PIPELINE_STATE_DESC*> gpsdDepthPrePassVector;
-	gpsdDepthPrePassVector.push_back(&gpsdDepthPrePass);
+	// DepthFormat
+	psoStream.depth_stencil_format = m_pMainDepthStencil->GetDSV()->GetDXGIFormat();
+
+	std::vector<PSO_STREAM*> psoStreamDepthPrePassVector;
+	psoStreamDepthPrePassVector.push_back(&psoStream);
 
 	RenderTask* DepthPrePassRenderTask = new DepthRenderTask(
 		m_pDevice5,
 		m_pRootSignature,
 		L"DepthVertex.hlsl", L"DepthPixel.hlsl",
-		&gpsdDepthPrePassVector,
+		&psoStreamDepthPrePassVector,
 		L"DepthPrePassPSO");
 
 	DepthPrePassRenderTask->SetMainDepthStencil(m_pMainDepthStencil);
@@ -968,6 +975,8 @@ void Renderer::initRenderTasks()
 #pragma endregion DepthPrePass
 
 #pragma region ForwardRendering
+	psoStream = {};
+
 	/* Forward rendering without stencil testing */
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsdForwardRender = {};
 	gpsdForwardRender.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
@@ -1005,14 +1014,14 @@ void Renderer::initRenderTasks()
 	gpsdForwardRender.DSVFormat = m_pMainDepthStencil->GetDSV()->GetDXGIFormat();
 
 	// All settings are done, now give it to the renderTask
-	std::vector<D3D12_GRAPHICS_PIPELINE_STATE_DESC*> gpsdForwardRenderVector;
-	gpsdForwardRenderVector.push_back(&gpsdForwardRender);
+	std::vector<PSO_STREAM*> psoStreamForwardRenderVector;
+	psoStreamForwardRenderVector.push_back(&psoStream);
 
 	RenderTask* forwardRenderTask = new ForwardRenderTask(
 		m_pDevice5,
 		m_pRootSignature,
 		L"ForwardVertex.hlsl", L"ForwardPixel.hlsl",
-		&gpsdForwardRenderVector,
+		&psoStreamForwardRenderVector,
 		L"ForwardRenderingPSO");
 
 	forwardRenderTask->AddResource("cbPerFrame", m_pCbPerFrame->GetDefaultResource());

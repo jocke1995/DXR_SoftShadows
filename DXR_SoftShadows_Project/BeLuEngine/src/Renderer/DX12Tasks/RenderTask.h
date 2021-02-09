@@ -37,7 +37,7 @@ struct RenderComponent
 
 // DX12 Forward Declarations
 struct ID3D12RootSignature;
-struct D3D12_GRAPHICS_PIPELINE_STATE_DESC;
+struct PSO_STREAM;
 
 class RenderTask : public DX12Task
 {
@@ -45,7 +45,7 @@ public:
 	RenderTask(ID3D12Device5* device, 
 		RootSignature* rootSignature, 
 		const std::wstring& VSName, const std::wstring& PSName,
-		std::vector<D3D12_GRAPHICS_PIPELINE_STATE_DESC*> *gpsds,
+		std::vector<PSO_STREAM*> *pso_streams,
 		const std::wstring& psoName);
 	
 	virtual ~RenderTask();

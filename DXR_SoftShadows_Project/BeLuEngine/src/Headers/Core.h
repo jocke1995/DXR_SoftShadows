@@ -96,7 +96,7 @@ enum class ShaderType
 	VS = 0,
 	PS = 1,
 	CS = 2,
-	UNSPECIFIED = 3
+	NUM_SHADER_TYPES = 3
 };
 
 enum class CAMERA_TYPE

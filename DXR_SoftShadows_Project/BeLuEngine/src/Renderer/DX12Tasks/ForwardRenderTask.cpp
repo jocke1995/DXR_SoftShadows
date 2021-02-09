@@ -20,9 +20,9 @@ ForwardRenderTask::ForwardRenderTask(
 	ID3D12Device5* device,
 	RootSignature* rootSignature,
 	const std::wstring& VSName, const std::wstring& PSName,
-	std::vector<D3D12_GRAPHICS_PIPELINE_STATE_DESC*>* gpsds,
+	std::vector<PSO_STREAM*>* pso_streams,
 	const std::wstring& psoName)
-	:RenderTask(device, rootSignature, VSName, PSName, gpsds, psoName)
+	:RenderTask(device, rootSignature, VSName, PSName, pso_streams, psoName)
 {
 	
 }
