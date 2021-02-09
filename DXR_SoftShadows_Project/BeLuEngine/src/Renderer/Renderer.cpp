@@ -169,8 +169,11 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 
 	// Temp
 	m_pTempCommandInterface = new CommandInterface(m_pDevice5, COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
+	m_pTempCommandInterface->Reset(0);
 
 	initRenderTasks();
+
+	CreateAccelerationStructures();
 	
 	submitMeshToCodt(m_pFullScreenQuad);
 }
@@ -675,14 +678,14 @@ Window* const Renderer::GetWindow() const
 	return m_pWindow;
 }
 
-AccelerationStructureBuffers Renderer::CreateBottomLevelAS(std::vector<std::pair<Resource*, uint32_t>> vVertexBuffers)
+AccelerationStructureBuffers Renderer::CreateBottomLevelAS(std::vector<std::pair<ID3D12Resource1*, uint32_t>> vVertexBuffers)
 {
 	nv_helpers_dx12::BottomLevelASGenerator bottomLevelAS;
 
 	// Adding all vertex buffers and not transforming their position.
 	for (const auto& buffer : vVertexBuffers)
 	{
-		bottomLevelAS.AddVertexBuffer(buffer.first->GetID3D12Resource1(), 0, buffer.second,
+		bottomLevelAS.AddVertexBuffer(buffer.first, 0, buffer.second,
 			sizeof(Vertex), 0, 0);
 	}
 
@@ -725,12 +728,12 @@ AccelerationStructureBuffers Renderer::CreateBottomLevelAS(std::vector<std::pair
 	return buffers;
 }
 
-void Renderer::CreateTopLevelAS(std::vector<std::pair<Resource*, DirectX::XMMATRIX>>& instances)
+void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>>& instances)
 {
 	// Gather all the instances into the builder helper
 	for (size_t i = 0; i < instances.size(); i++)
 	{
-		m_TopLevelAsGenerator.AddInstance(instances[i].first->GetID3D12Resource1(),
+		m_TopLevelAsGenerator.AddInstance(instances[i].first,
 			instances[i].second, static_cast<unsigned int>(i),
 			static_cast<unsigned int>(0));
 	}
@@ -785,6 +788,36 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<Resource*, DirectX::XMMATR
 		m_TopLevelASBuffers.pScratch,
 		m_TopLevelASBuffers.pResult,
 		m_TopLevelASBuffers.pInstanceDesc);
+}
+
+void Renderer::CreateAccelerationStructures()
+{
+	// Build the bottom AS from the Triangle vertex buffer
+	ID3D12Resource1* r1 = m_pFullScreenQuad->GetDefaultResourceVertices()->GetID3D12Resource1();
+	unsigned int numVertices = m_pFullScreenQuad->GetNumVertices();
+	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ {r1, numVertices} });
+
+	// Just one instance for now
+	m_instances = { {bottomLevelBuffers.pResult, DirectX::XMMatrixIdentity()} };
+	CreateTopLevelAS(m_instances);
+
+	// Flush the command list and wait for it to finish
+	ID3D12CommandList* cl = m_pTempCommandInterface->GetCommandList(0);
+	ID3D12CommandList* ppCommandLists[] = { cl };
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, ppCommandLists);
+
+	// Wait if the CPU is to far ahead of the gpu
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->Signal(m_pFenceFrame, m_FenceFrameValue);
+	waitForFrame(0);
+	m_FenceFrameValue++;
+
+	// Once the command list is finished executing, reset it to be reused for
+	// rendering
+	m_pTempCommandInterface->Reset(0);
+
+	// Store the AS buffers. The rest of the buffers will be released once we exit
+	// the function
+	m_pBottomLevelAS = bottomLevelBuffers.pResult;
 }
 
 void Renderer::setRenderTasksPrimaryCamera()

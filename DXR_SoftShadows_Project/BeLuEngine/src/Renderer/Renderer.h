@@ -46,6 +46,7 @@ class OutliningRenderTask;
 class BaseCamera;
 class Material;
 struct RenderComponent;
+struct ID3D12Resource1;
 
 // Copy
 class CopyTask;
@@ -176,15 +177,16 @@ private:
 	CommandInterface* m_pTempCommandInterface = nullptr;
 
 	// Bottom
-	Resource* m_pBottomLevelAS = nullptr;
+	ID3D12Resource1* m_pBottomLevelAS = nullptr;
 
 	// Top
 	nv_helpers_dx12::TopLevelASGenerator m_TopLevelAsGenerator;
 	AccelerationStructureBuffers m_TopLevelASBuffers;
-	std::vector<std::pair<Resource*, DirectX::XMMATRIX>> m_instances;
+	std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>> m_instances;
 
-	AccelerationStructureBuffers CreateBottomLevelAS(std::vector<std::pair<Resource*, uint32_t>> vVertexBuffers);
-	void CreateTopLevelAS(std::vector<std::pair<Resource*, DirectX::XMMATRIX>> &instances);
+	AccelerationStructureBuffers CreateBottomLevelAS(std::vector<std::pair<ID3D12Resource1*, uint32_t>> vVertexBuffers);
+	void CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>> &instances);
+	void CreateAccelerationStructures();
 	// ------------------- DXR temp ----------------
 
 
