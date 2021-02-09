@@ -111,6 +111,10 @@ void Renderer::deleteRenderer()
 	delete m_pCbPerFrame;
 	delete m_pCbPerFrameData;
 	delete m_pTempCommandInterface;
+
+	// DXR
+	m_BottomLevelASBuffers.release();
+	m_TopLevelASBuffers.release();
 }
 
 void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* threadPool)
@@ -678,14 +682,12 @@ Window* const Renderer::GetWindow() const
 	return m_pWindow;
 }
 
-AccelerationStructureBuffers Renderer::CreateBottomLevelAS(std::vector<std::pair<ID3D12Resource1*, uint32_t>> vVertexBuffers)
+void Renderer::CreateBottomLevelAS(std::vector<std::pair<ID3D12Resource1*, uint32_t>> vVertexBuffers)
 {
-	nv_helpers_dx12::BottomLevelASGenerator bottomLevelAS;
-
 	// Adding all vertex buffers and not transforming their position.
 	for (const auto& buffer : vVertexBuffers)
 	{
-		bottomLevelAS.AddVertexBuffer(buffer.first, 0, buffer.second,
+		m_BottomLevelASGenerator.AddVertexBuffer(buffer.first, 0, buffer.second,
 			sizeof(Vertex), 0, 0);
 	}
 
@@ -696,36 +698,27 @@ AccelerationStructureBuffers Renderer::CreateBottomLevelAS(std::vector<std::pair
 	// buffers. It size is also dependent on the scene complexity.
 	UINT64 resultSizeInBytes = 0;
 
-	bottomLevelAS.ComputeASBufferSizes(m_pDevice5, false, &scratchSizeInBytes,
+	m_BottomLevelASGenerator.ComputeASBufferSizes(m_pDevice5, false, &scratchSizeInBytes,
 		&resultSizeInBytes);
 
-	// Once the sizes are obtained, the application is responsible for allocating
-	// the necessary buffers. Since the entire generation will be done on the GPU,
-	// we can directly allocate those on the default heap
-	AccelerationStructureBuffers buffers;
-
 	// Scratch
-	Resource r1(
+	m_BottomLevelASBuffers.scratch = new Resource(
 		m_pDevice5, scratchSizeInBytes,
 		RESOURCE_TYPE::DEFAULT, L"scratchBottomLevel",
 		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-	buffers.pScratch = r1.GetID3D12Resource1();
 
 	// Result
-	Resource r2(
+	m_BottomLevelASBuffers.result = new Resource(
 		m_pDevice5, resultSizeInBytes,
 		RESOURCE_TYPE::DEFAULT, L"resultBottomLevel",
 		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
 		D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
-	buffers.pResult = r2.GetID3D12Resource1();
-
+	
 	// Build the acceleration structure. Note that this call integrates a barrier
 	// on the generated AS, so that it can be used to compute a top-level AS right
 	// after this method.
-	bottomLevelAS.Generate(m_pTempCommandInterface->GetCommandList(0), buffers.pScratch,
-		buffers.pResult, false, nullptr);
-
-	return buffers;
+	m_BottomLevelASGenerator.Generate(m_pTempCommandInterface->GetCommandList(0), m_BottomLevelASBuffers.scratch->GetID3D12Resource1(),
+		m_BottomLevelASBuffers.result->GetID3D12Resource1(), false, nullptr);
 }
 
 void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>>& instances)
@@ -753,41 +746,38 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 	// those can be allocated on the default heap
 
 	// Scratch
-	Resource r1(
+	m_TopLevelASBuffers.scratch = new Resource(
 		m_pDevice5, scratchSize,
 		RESOURCE_TYPE::DEFAULT, L"scratchTopLevel",
 		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-	m_TopLevelASBuffers.pScratch = r1.GetID3D12Resource1();
 
 	// Result
-	Resource r2(
+	m_TopLevelASBuffers.result = new Resource(
 		m_pDevice5, resultSize,
 		RESOURCE_TYPE::DEFAULT, L"resultTopLevel",
 		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
 		D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
-	m_TopLevelASBuffers.pResult = r2.GetID3D12Resource1();
 
 	// The buffer describing the instances: ID, shader binding information,
 	// matrices ... Those will be copied into the buffer by the helper through
 	// mapping, so the buffer has to be allocated on the upload heap.
 
 	// Result
-	Resource r3(
+	m_TopLevelASBuffers.instanceDesc = new Resource(
 		m_pDevice5, instanceDescsSize,
 		RESOURCE_TYPE::UPLOAD, L"instanceDescTopLevel",
 		D3D12_RESOURCE_FLAG_NONE,
 		D3D12_RESOURCE_STATE_GENERIC_READ);
-	m_TopLevelASBuffers.pInstanceDesc = r3.GetID3D12Resource1();
 
 	// After all the buffers are allocated, or if only an update is required, we
 	// can build the acceleration structure. Note that in the case of the update
 	// we also pass the existing AS as the 'previous' AS, so that it can be
 	// refitted in place.
 	m_TopLevelAsGenerator.Generate(m_pTempCommandInterface->GetCommandList(0),
-		m_TopLevelASBuffers.pScratch,
-		m_TopLevelASBuffers.pResult,
-		m_TopLevelASBuffers.pInstanceDesc);
+		m_TopLevelASBuffers.scratch->GetID3D12Resource1(),
+		m_TopLevelASBuffers.result->GetID3D12Resource1(),
+		m_TopLevelASBuffers.instanceDesc->GetID3D12Resource1());
 }
 
 void Renderer::CreateAccelerationStructures()
@@ -795,15 +785,15 @@ void Renderer::CreateAccelerationStructures()
 	// Build the bottom AS from the Triangle vertex buffer
 	ID3D12Resource1* r1 = m_pFullScreenQuad->GetDefaultResourceVertices()->GetID3D12Resource1();
 	unsigned int numVertices = m_pFullScreenQuad->GetNumVertices();
-	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ {r1, numVertices} });
+	CreateBottomLevelAS({ {r1, numVertices} });
 
 	// Just one instance for now
-	m_instances = { {bottomLevelBuffers.pResult, DirectX::XMMatrixIdentity()} };
+	m_instances = { {m_BottomLevelASBuffers.result->GetID3D12Resource1(), DirectX::XMMatrixIdentity()} };
 	CreateTopLevelAS(m_instances);
 
 	// Flush the command list and wait for it to finish
-	ID3D12CommandList* cl = m_pTempCommandInterface->GetCommandList(0);
-	ID3D12CommandList* ppCommandLists[] = { cl };
+	m_pTempCommandInterface->GetCommandList(0)->Close();
+	ID3D12CommandList* ppCommandLists[] = { m_pTempCommandInterface->GetCommandList(0) };
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, ppCommandLists);
 
 	// Wait if the CPU is to far ahead of the gpu
@@ -814,10 +804,6 @@ void Renderer::CreateAccelerationStructures()
 	// Once the command list is finished executing, reset it to be reused for
 	// rendering
 	m_pTempCommandInterface->Reset(0);
-
-	// Store the AS buffers. The rest of the buffers will be released once we exit
-	// the function
-	m_pBottomLevelAS = bottomLevelBuffers.pResult;
 }
 
 void Renderer::setRenderTasksPrimaryCamera()

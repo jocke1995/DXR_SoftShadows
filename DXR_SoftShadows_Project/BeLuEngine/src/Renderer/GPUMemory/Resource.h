@@ -8,6 +8,8 @@ enum RESOURCE_TYPE
     NUM_RESOURCE_TYPES
 };
 
+struct ID3D12Device;
+
 class Resource
 {
 public:

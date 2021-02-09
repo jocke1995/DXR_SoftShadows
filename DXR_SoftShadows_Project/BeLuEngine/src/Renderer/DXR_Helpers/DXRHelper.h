@@ -1,13 +1,32 @@
 #ifndef DXRHELPER_H
 
 #include <d3d12.h>
+#include "../GPUMemory/Resource.h"
 
-// #DXR
-struct AccelerationStructureBuffers
+struct AccelerationStructureBuffers 
 {
-    ID3D12Resource1* pScratch;      // Scratch memory for AS builder
-    ID3D12Resource1* pResult;       // Where the AS is
-    ID3D12Resource1* pInstanceDesc; // Hold the matrices of the instances
+	Resource* scratch = nullptr;
+	Resource* result = nullptr;
+	Resource* instanceDesc = nullptr;    // Used only for top-level AS
+	bool allowUpdate = false;
+	void release() 
+	{
+		if (scratch) 
+		{
+			delete scratch;
+			scratch = nullptr;
+		}
+		if (result) 
+		{
+			delete result;
+			result = nullptr;
+		}
+		if (instanceDesc) 
+		{
+			delete instanceDesc;
+			instanceDesc = nullptr;
+		}
+	}
 };
 
 #include "BottomLevelASGenerator.h"

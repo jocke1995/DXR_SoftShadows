@@ -176,15 +176,19 @@ private:
 	// ------------------- DXR temp ----------------
 	CommandInterface* m_pTempCommandInterface = nullptr;
 
-	// Bottom
-	ID3D12Resource1* m_pBottomLevelAS = nullptr;
-
-	// Top
-	nv_helpers_dx12::TopLevelASGenerator m_TopLevelAsGenerator;
+	// AS
+	AccelerationStructureBuffers m_BottomLevelASBuffers;
 	AccelerationStructureBuffers m_TopLevelASBuffers;
+
+	// Generators
+	nv_helpers_dx12::BottomLevelASGenerator m_BottomLevelASGenerator = {};
+	nv_helpers_dx12::TopLevelASGenerator	m_TopLevelAsGenerator = {};
+
+	// Objects
 	std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>> m_instances;
 
-	AccelerationStructureBuffers CreateBottomLevelAS(std::vector<std::pair<ID3D12Resource1*, uint32_t>> vVertexBuffers);
+	// Create
+	void CreateBottomLevelAS(std::vector<std::pair<ID3D12Resource1*, uint32_t>> vVertexBuffers);
 	void CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>> &instances);
 	void CreateAccelerationStructures();
 	// ------------------- DXR temp ----------------
