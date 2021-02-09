@@ -6,7 +6,8 @@ Resource::Resource(
 	unsigned long long entrySize,
 	RESOURCE_TYPE type,
 	std::wstring name,
-	D3D12_RESOURCE_FLAGS flags)
+	D3D12_RESOURCE_FLAGS flags,
+	D3D12_RESOURCE_STATES startState)
 {
 	m_Id = s_IdCounter++;
 
@@ -15,17 +16,16 @@ Resource::Resource(
 	m_Name = name;
 
 	D3D12_HEAP_TYPE d3d12HeapType;
-	D3D12_RESOURCE_STATES startState;
+	D3D12_RESOURCE_STATES startStateTemp = startState;
 
 	switch (type)
 	{
 	case RESOURCE_TYPE::UPLOAD:
 		d3d12HeapType = D3D12_HEAP_TYPE_UPLOAD;
-		startState = D3D12_RESOURCE_STATE_GENERIC_READ;
+		startStateTemp = D3D12_RESOURCE_STATE_GENERIC_READ;
 		break;
 	case RESOURCE_TYPE::DEFAULT:
 		d3d12HeapType = D3D12_HEAP_TYPE_DEFAULT;
-		startState = D3D12_RESOURCE_STATE_COMMON;
 		break;
 	}
 
@@ -41,7 +41,7 @@ Resource::Resource(
 	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 	resourceDesc.Flags = flags;
 
-	createResource(device, &resourceDesc, nullptr, startState);
+	createResource(device, &resourceDesc, nullptr, startStateTemp);
 }
 
 Resource::Resource(

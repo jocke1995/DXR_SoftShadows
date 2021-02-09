@@ -110,6 +110,7 @@ void Renderer::deleteRenderer()
 	delete m_pCbPerSceneData;
 	delete m_pCbPerFrame;
 	delete m_pCbPerFrameData;
+	delete m_pTempCommandInterface;
 }
 
 void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* threadPool)
@@ -165,6 +166,9 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	);
 
 	m_pCbPerFrameData = new CB_PER_FRAME_STRUCT();
+
+	// Temp
+	m_pTempCommandInterface = new CommandInterface(m_pDevice5, COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
 
 	initRenderTasks();
 	
@@ -304,6 +308,10 @@ void Renderer::Execute()
 		Log::PrintSeverity(Log::Severity::CRITICAL, "Swapchain Failed to present\n");
 	}
 #endif
+}
+
+void Renderer::ExecuteDXR()
+{
 }
 
 
@@ -665,6 +673,56 @@ Scene* const Renderer::GetActiveScene() const
 Window* const Renderer::GetWindow() const
 {
 	return m_pWindow;
+}
+
+AccelerationStructureBuffers Renderer::CreateBottomLevelAS(std::vector<std::pair<Resource*, uint32_t>> vVertexBuffers)
+{
+	nv_helpers_dx12::BottomLevelASGenerator bottomLevelAS;
+
+	// Adding all vertex buffers and not transforming their position.
+	for (const auto& buffer : vVertexBuffers)
+	{
+		bottomLevelAS.AddVertexBuffer(buffer.first->GetID3D12Resource1(), 0, buffer.second,
+			sizeof(Vertex), 0, 0);
+	}
+
+	// The AS build requires some scratch space to store temporary information.
+	// The amount of scratch memory is dependent on the scene complexity.
+	UINT64 scratchSizeInBytes = 0;
+	// The final AS also needs to be stored in addition to the existing vertex
+	// buffers. It size is also dependent on the scene complexity.
+	UINT64 resultSizeInBytes = 0;
+
+	bottomLevelAS.ComputeASBufferSizes(m_pDevice5, false, &scratchSizeInBytes,
+		&resultSizeInBytes);
+
+	// Once the sizes are obtained, the application is responsible for allocating
+	// the necessary buffers. Since the entire generation will be done on the GPU,
+	// we can directly allocate those on the default heap
+	AccelerationStructureBuffers buffers;
+
+	// Scratch
+	Resource r1(
+		m_pDevice5, scratchSizeInBytes,
+		RESOURCE_TYPE::DEFAULT, L"tasd",
+		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+	buffers.pScratch = r1.GetID3D12Resource1();
+
+	// Result
+	Resource r2(
+		m_pDevice5, resultSizeInBytes,
+		RESOURCE_TYPE::DEFAULT, L"tasd",
+		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+		D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
+	buffers.pResult = r2.GetID3D12Resource1();
+
+	// Build the acceleration structure. Note that this call integrates a barrier
+	// on the generated AS, so that it can be used to compute a top-level AS right
+	// after this method.
+	bottomLevelAS.Generate(m_pTempCommandInterface->GetCommandList(0), buffers.pScratch,
+		buffers.pResult, false, nullptr);
+
+	return buffers;
 }
 
 void Renderer::setRenderTasksPrimaryCamera()

@@ -5,6 +5,7 @@
 class ThreadPool;
 class Window;
 
+#include "DXR_Helpers/DXRHelper.h"
 // Renderer Engine
 class RootSignature;
 class SwapChain;
@@ -16,6 +17,7 @@ class Mesh;
 class Texture;
 class Model;
 class Resource;
+class CommandInterface;
 
 // GPU Resources
 class ConstantBuffer;
@@ -91,6 +93,7 @@ public:
 	void Update(double dt);
 	void SortObjects();
 	void Execute();
+	void ExecuteDXR();
 
 	// Render inits, these functions are called by respective components through SetScene to prepare for drawing
 	void InitModelComponent(component::ModelComponent* component);
@@ -166,6 +169,19 @@ private:
 	std::vector<RenderTask*>  m_RenderTasks;
 
 	Mesh* m_pFullScreenQuad = nullptr;
+
+
+
+	// ------------------- DXR temp ----------------
+	CommandInterface* m_pTempCommandInterface = nullptr;
+	Resource* m_pBottomLevelAS = nullptr;
+	nv_helpers_dx12::TopLevelASGenerator m_TopLevelAsGenerator;
+	std::vector<std::pair<Resource*, DirectX::XMMATRIX>> m_instances;
+
+	AccelerationStructureBuffers CreateBottomLevelAS(std::vector<std::pair<Resource*, uint32_t>> vVertexBuffers);
+	// ------------------- DXR temp ----------------
+
+
 
 	// Group of components that's needed for rendering:
 	std::vector<RenderComponent*> m_RenderComponents;

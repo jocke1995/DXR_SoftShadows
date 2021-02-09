@@ -52,6 +52,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
    Log::Print("Entering Game-Loop ...\n\n");
    while (!window->ExitWindow())
    {
+       static bool DXR = false;
+       if (window->WasSpacePressed())
+       {
+           DXR = !DXR;
+       }
+
        /* ------ Update ------ */
        timer->Update();
    
@@ -61,7 +67,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
        renderer->SortObjects();
    
        /* ------ Draw ------ */
-       renderer->Execute();
+       if (DXR)
+       {
+           renderer->ExecuteDXR();
+       }
+       else
+       {
+           renderer->Execute();
+       }
    }
     
     return EXIT_SUCCESS;
