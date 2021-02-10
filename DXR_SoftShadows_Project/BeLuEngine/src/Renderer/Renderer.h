@@ -247,5 +247,4 @@ private:
 
 	SwapChain* getSwapChain() const;
 };
-
 #endif

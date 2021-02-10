@@ -883,19 +883,6 @@ bool Renderer::createDevice()
 			adapter->GetDesc(&adapterDesc);
 
 			Log::Print("Adapter: %S\n", adapterDesc.Description);
-
-			D3D12_FEATURE_DATA_FEATURE_LEVELS cap{};
-			cap.NumFeatureLevels = 1;
-			D3D_FEATURE_LEVEL requested = D3D_FEATURE_LEVEL_12_1;
-			cap.pFeatureLevelsRequested = &requested;
-			if (SUCCEEDED(pDevice->CheckFeatureSupport(
-				D3D12_FEATURE_FEATURE_LEVELS,
-				&cap,
-				sizeof(cap)))
-				&& cap.MaxSupportedFeatureLevel == requested)
-			{
-				Log::Print("Feature level 12_2 is supported!\n");// feature level is supported on the device
-			}
 			
 			D3D12_FEATURE_DATA_D3D12_OPTIONS5 features5 = {};
 			HRESULT hr = pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &features5, sizeof(D3D12_FEATURE_DATA_D3D12_OPTIONS5));
@@ -931,7 +918,8 @@ bool Renderer::createDevice()
 	}
 	else
 	{
-		//Create warp m_pDevice if no adapter was found.
+		// Create warpAdapter if no other suitable adapter was found.
+		Log::PrintSeverity(Log::Severity::WARNING, "Creating warp-adapter...\n");
 		factory->EnumWarpAdapter(IID_PPV_ARGS(&adapter));
 		D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_pDevice5));
 	}

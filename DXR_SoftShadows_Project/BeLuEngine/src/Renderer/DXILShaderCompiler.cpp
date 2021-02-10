@@ -64,7 +64,11 @@ HRESULT DXILShaderCompiler::CompileFromFile(DXILCompilationDesc* desc, IDxcBlob*
 		if (SUCCEEDED(hr))
 		{
 			IDxcOperationResult* pResult = nullptr;
-			if (SUCCEEDED(hr = m_pCompiler->Compile(
+
+#ifdef _DEBUG
+			IDxcBlob* debugBlob = nullptr;
+			LPWSTR a = L"debugBlobName";
+			hr = m_pCompiler->CompileWithDebug(
 				source,									// program text
 				desc->filePath,							// file name, mostly for error messages
 				desc->entryPoint,						// entry point function
@@ -74,7 +78,31 @@ HRESULT DXILShaderCompiler::CompileFromFile(DXILCompilationDesc* desc, IDxcBlob*
 				desc->defines.data(),					// define arguments
 				(UINT)desc->defines.size(),				// number of define arguments
 				m_pIncludeHandler,						// handler for #include directives
-				&pResult))) 
+				&pResult,
+				&a,										// DebugBlobName
+				&debugBlob);							// DebugBlob
+
+			if (FAILED(hr) && debugBlob != nullptr)
+			{
+				Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to compile shader: %S\n", desc->filePath);
+
+				const char* errorMsg = static_cast<const char*>(debugBlob->GetBufferPointer());
+				Log::PrintSeverity(Log::Severity::CRITICAL, "%s\n", errorMsg);
+			}
+#else
+			hr = m_pCompiler->Compile(
+				source,									// program text
+				desc->filePath,							// file name, mostly for error messages
+				desc->entryPoint,						// entry point function
+				desc->targetProfile,					// target profile
+				desc->compileArguments.data(),          // compilation arguments
+				(UINT)desc->compileArguments.size(),	// number of compilation arguments
+				desc->defines.data(),					// define arguments
+				(UINT)desc->defines.size(),				// number of define arguments
+				m_pIncludeHandler,						// handler for #include directives
+				&pResult);
+#endif
+			if (SUCCEEDED(hr))
 			{
 				HRESULT hrCompile = E_FAIL;
 				if (SUCCEEDED(hr = pResult->GetStatus(&hrCompile)))

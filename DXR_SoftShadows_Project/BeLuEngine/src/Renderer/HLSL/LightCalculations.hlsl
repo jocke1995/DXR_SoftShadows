@@ -11,19 +11,6 @@ SamplerState samplerTypeBorder	: register (s4);
 
 ConstantBuffer<CB_PER_SCENE_STRUCT>  cbPerScene  : register(b5, space3);
 
-float3 temp(
-	in float3 camPos,
-	in float3 viewDir,
-	in float4 fragPos,
-	in float metallic,
-	in float3 albedo,
-	in float roughness,
-	in float3 normal,
-	in float3 baseReflectivity)
-{
-	return float3(1.0f, 1.0f, 1.0f);
-}
-
 float3 CalcDirLight(
 	in DirectionalLight dirLight,
 	in float3 camPos,

@@ -40,7 +40,6 @@ PS_OUTPUT PS_main(VS_OUT input)
 	// Linear interpolation
 	float3 baseReflectivity = lerp(float3(0.04f, 0.04f, 0.04f), albedo.rgb, metallic);
 
-
 	// TEMP
 	//float4 lightDir = normalize(float4(0.0f, 5.0f, 0.0f, 1.0f) - input.worldPos);
 	//float4 tempDiffuse = max(dot(normal, lightDir), 0) * float4(0.2f, 0.2f, 0.2f, 1.0f);
@@ -61,6 +60,9 @@ PS_OUTPUT PS_main(VS_OUT input)
 	dirLightTemp.direction = float4(1.0f, -1.0f, 0.0f, 0.0f);
 	dirLightTemp.baseLight.color = float3(0.7f, 0.3f, 1.0f);
 	dirLightTemp.baseLight.castShadow = false;
+
+	//int index = cbPerScene.dirLightIndices[21].x;
+
 	// DirectionalLight contributions
 	//for (unsigned int i = 0; i < cbPerScene.Num_Dir_Lights; i++)
 	//{
