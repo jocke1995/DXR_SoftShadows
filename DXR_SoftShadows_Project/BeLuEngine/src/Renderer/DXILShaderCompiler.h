@@ -30,11 +30,10 @@ public:
 private:
 	DXILShaderCompiler();
 	
-
-	IDxcLibrary* m_library = nullptr;
-	IDxcCompiler* m_compiler = nullptr;
-	IDxcLinker* m_linker = nullptr;
-	IDxcIncludeHandler* m_includeHandler = nullptr;
+	IDxcLibrary* m_pLibrary = nullptr;
+	IDxcCompiler* m_pCompiler = nullptr;
+	IDxcLinker* m_pLinker = nullptr;
+	IDxcIncludeHandler* m_pIncludeHandler = nullptr;
 };
 
 #endif

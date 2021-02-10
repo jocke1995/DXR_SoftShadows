@@ -157,7 +157,7 @@ namespace Log
 	inline void PrintSeverity(const Severity type, const std::string string, const Args&... args)
 	{
 		std::vector<char> inputBuffer;
-		inputBuffer.resize(256);
+		inputBuffer.resize(4096);
 		char typeBuffer[32] = {};
 
 		sprintf(inputBuffer.data(), string.c_str(), args...);
@@ -186,7 +186,7 @@ namespace Log
 	inline void Print(const std::string string, const Args&... args)
 	{
 		std::vector<char> inputBuffer;
-		inputBuffer.resize(512);
+		inputBuffer.resize(4096);
 
 		sprintf(inputBuffer.data(), string.c_str(), args...);
 

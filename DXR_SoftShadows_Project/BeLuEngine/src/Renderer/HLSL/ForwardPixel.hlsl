@@ -40,13 +40,34 @@ PS_OUTPUT PS_main(VS_OUT input)
 	// Linear interpolation
 	float3 baseReflectivity = lerp(float3(0.04f, 0.04f, 0.04f), albedo.rgb, metallic);
 
+
+	// TEMP
+	//float4 lightDir = normalize(float4(0.0f, 5.0f, 0.0f, 1.0f) - input.worldPos);
+	//float4 tempDiffuse = max(dot(normal, lightDir), 0) * float4(0.2f, 0.2f, 0.2f, 1.0f);
+	//
+	//finalColor += tempDiffuse.rgb;
+
+	//finalColor += temp(
+	//	camPos,
+	//	viewDir,
+	//	input.worldPos,
+	//	metallic,
+	//	albedo.rgb,
+	//	roughness,
+	//	normal.rgb,
+	//	baseReflectivity);
+
+	DirectionalLight dirLightTemp;
+	dirLightTemp.direction = float4(1.0f, -1.0f, 0.0f, 0.0f);
+	dirLightTemp.baseLight.color = float3(0.7f, 0.3f, 1.0f);
+	dirLightTemp.baseLight.castShadow = false;
 	// DirectionalLight contributions
-	for (unsigned int i = 0; i < cbPerScene.Num_Dir_Lights; i++)
-	{
-		int index = cbPerScene.dirLightIndices[i].x;
+	//for (unsigned int i = 0; i < cbPerScene.Num_Dir_Lights; i++)
+	//{
+		//int index = cbPerScene.dirLightIndices[i].x;
 	
 		finalColor += CalcDirLight(
-			dirLight[index],
+			dirLightTemp,
 			camPos,
 			viewDir,
 			input.worldPos,
@@ -55,43 +76,43 @@ PS_OUTPUT PS_main(VS_OUT input)
 			roughness,
 			normal.rgb,
 			baseReflectivity);
-	}
-
+	//}
+	
 	// PointLight contributions
-	for (unsigned int i = 0; i < cbPerScene.Num_Point_Lights; i++)
-	{
-		int index = cbPerScene.pointLightIndices[i].x;
-
-		finalColor += CalcPointLight(
-			pointLight[index],
-			camPos,
-			viewDir,
-			input.worldPos,
-			metallic,
-			albedo.rgb,
-			roughness,
-			normal.rgb,
-			baseReflectivity);
-	}
-
-	// SpotLight  contributions
-	for (unsigned int i = 0; i < cbPerScene.Num_Spot_Lights; i++)
-	{
-		int index = cbPerScene.spotLightIndices[i].x;
+	//for (unsigned int i = 0; i < cbPerScene.Num_Point_Lights; i++)
+	//{
+	//	int index = cbPerScene.pointLightIndices[i].x;
+	//
+	//	finalColor += CalcPointLight(
+	//		pointLight[index],
+	//		camPos,
+	//		viewDir,
+	//		input.worldPos,
+	//		metallic,
+	//		albedo.rgb,
+	//		roughness,
+	//		normal.rgb,
+	//		baseReflectivity);
+	//}
+	//
+	//// SpotLight  contributions
+	//for (unsigned int i = 0; i < cbPerScene.Num_Spot_Lights; i++)
+	//{
+	//	int index = cbPerScene.spotLightIndices[i].x;
+	//
+	//	finalColor += CalcSpotLight(
+	//		spotLight[index],
+	//		camPos,
+	//		viewDir,
+	//		input.worldPos,
+	//		metallic,
+	//		albedo.rgb,
+	//		roughness,
+	//		normal.rgb,
+	//		baseReflectivity);
+	//}
 	
-		finalColor += CalcSpotLight(
-			spotLight[index],
-			camPos,
-			viewDir,
-			input.worldPos,
-			metallic,
-			albedo.rgb,
-			roughness,
-			normal.rgb,
-			baseReflectivity);
-	}
-	
-	float3 ambient = float3(0.007f, 0.007f, 0.007f) * albedo;
+	float3 ambient = float3(0.005f, 0.005f, 0.005f) * albedo;
 	finalColor += ambient;
 
 	// Since hdr will lower the intensity of our emissive textures, our quick solution in this game is to

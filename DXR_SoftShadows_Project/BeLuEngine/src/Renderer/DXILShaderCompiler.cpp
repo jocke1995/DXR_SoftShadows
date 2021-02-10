@@ -8,10 +8,10 @@ DXILShaderCompiler::DXILShaderCompiler()
 
 DXILShaderCompiler::~DXILShaderCompiler() 
 {
-	SAFE_RELEASE(&m_compiler);
-	SAFE_RELEASE(&m_library);
-	SAFE_RELEASE(&m_includeHandler);
-	SAFE_RELEASE(&m_linker);
+	SAFE_RELEASE(&m_pCompiler);
+	SAFE_RELEASE(&m_pLibrary);
+	SAFE_RELEASE(&m_pIncludeHandler);
+	SAFE_RELEASE(&m_pLinker);
 }
 
 DXILShaderCompiler* DXILShaderCompiler::Get()
@@ -30,18 +30,17 @@ HRESULT DXILShaderCompiler::Init()
 		Log::PrintSeverity(Log::Severity::CRITICAL, "dxcompiler.dll is missing");
 	}
 
-
 	DxcCreateInstanceProc pfnDxcCreateInstance = DxcCreateInstanceProc(GetProcAddress(dll, "DxcCreateInstance"));
 
 	HRESULT hr = E_FAIL;
 
-	if (SUCCEEDED(hr = pfnDxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&m_compiler))))
+	if (SUCCEEDED(hr = pfnDxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&m_pCompiler))))
 	{
-		if (SUCCEEDED(hr = pfnDxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&m_library))))
+		if (SUCCEEDED(hr = pfnDxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&m_pLibrary))))
 		{
-			if (SUCCEEDED(m_library->CreateIncludeHandler(&m_includeHandler)))
+			if (SUCCEEDED(m_pLibrary->CreateIncludeHandler(&m_pIncludeHandler)))
 			{
-				if (SUCCEEDED(hr = pfnDxcCreateInstance(CLSID_DxcLinker, IID_PPV_ARGS(&m_linker))))
+				if (SUCCEEDED(hr = pfnDxcCreateInstance(CLSID_DxcLinker, IID_PPV_ARGS(&m_pLinker))))
 				{
 					Log::Print("DXIL Compiler succesfully created!\n");
 				}
@@ -60,12 +59,12 @@ HRESULT DXILShaderCompiler::CompileFromFile(DXILCompilationDesc* desc, IDxcBlob*
 		IDxcBlobEncoding* source = nullptr;
 
 		// Compile from file path
-		hr = m_library->CreateBlobFromFile(desc->filePath, nullptr, &source);
+		hr = m_pLibrary->CreateBlobFromFile(desc->filePath, nullptr, &source);
 
 		if (SUCCEEDED(hr))
 		{
 			IDxcOperationResult* pResult = nullptr;
-			if (SUCCEEDED(hr = m_compiler->Compile(
+			if (SUCCEEDED(hr = m_pCompiler->Compile(
 				source,									// program text
 				desc->filePath,							// file name, mostly for error messages
 				desc->entryPoint,						// entry point function
@@ -74,7 +73,7 @@ HRESULT DXILShaderCompiler::CompileFromFile(DXILCompilationDesc* desc, IDxcBlob*
 				(UINT)desc->compileArguments.size(),	// number of compilation arguments
 				desc->defines.data(),					// define arguments
 				(UINT)desc->defines.size(),				// number of define arguments
-				m_includeHandler,						// handler for #include directives
+				m_pIncludeHandler,						// handler for #include directives
 				&pResult))) 
 			{
 				HRESULT hrCompile = E_FAIL;
@@ -99,10 +98,13 @@ HRESULT DXILShaderCompiler::CompileFromFile(DXILCompilationDesc* desc, IDxcBlob*
 						{
 							// We can use the library to get our preferred encoding.
 							IDxcBlobEncoding* pPrintBlob16 = nullptr;
-							m_library->GetBlobAsUtf16(pPrintBlob, &pPrintBlob16);
+							m_pLibrary->GetBlobAsUtf16(pPrintBlob, &pPrintBlob16);
 
-							OutputDebugStringW((LPCWSTR)pPrintBlob16->GetBufferPointer());
-							MessageBox(0, (LPCWSTR)pPrintBlob16->GetBufferPointer(), L"", 0);
+
+
+							std::wstring b = (LPCWSTR)pPrintBlob16->GetBufferPointer();
+							std::string a = to_string(b);
+							Log::PrintSeverity(Log::Severity::CRITICAL, "%s\n", a.c_str());
 
 
 							SAFE_RELEASE(&pPrintBlob);
