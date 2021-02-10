@@ -1,16 +1,18 @@
 #ifndef SHADER_H
 #define SHADER_H
 
+#include <dxcapi.h>
+
 class Shader
 {
 public:
 	Shader(LPCTSTR path, ShaderType type);
 	virtual ~Shader();
 
-	ID3DBlob* GetBlob() const;
+	IDxcBlob* GetBlob() const;
 
 private:
-	ID3DBlob* m_pBlob;
+	IDxcBlob* m_pBlob;
 	ShaderType m_Type;
 	LPCTSTR m_Path;	// Ex: vertexShader1
 

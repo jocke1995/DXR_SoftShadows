@@ -29,6 +29,7 @@
 #include "Texture/Texture2DGUI.h"
 #include "Texture/TextureCubeMap.h"
 #include "Model/Material.h"
+#include "DXILShaderCompiler.h"
 
 #include "GPUMemory/GPUMemory.h"
 
@@ -146,8 +147,12 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	// Create Rootsignature
 	createRootSignature();
 
+	// DXIL ShaderCompiler
+	DXILShaderCompiler::Get()->Init();
+
 	// FullScreenQuad
 	createFullScreenQuad();
+
 	// Init Assetloader
 	AssetLoader* al = AssetLoader::Get(m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], m_pWindow);
 
