@@ -58,6 +58,12 @@ RayTracingPipelineGenerator::RayTracingPipelineGenerator(ID3D12Device5* device)
   CreateDummyRootSignatures();
 }
 
+RayTracingPipelineGenerator::~RayTracingPipelineGenerator()
+{
+    SAFE_RELEASE(&m_dummyLocalRootSignature);
+    SAFE_RELEASE(&m_dummyGlobalRootSignature);
+}
+
 //--------------------------------------------------------------------------------------------------
 //
 // Add a DXIL library to the pipeline. Note that this library has to be

@@ -190,7 +190,6 @@ private:
 
 	// Create
 	Resource* m_pUploadTriVertices = nullptr;
-	Resource* m_pUploadTriIndices = nullptr;
 	void createRTTriangle();
 
 	void CreateBottomLevelAS(std::vector<std::pair<ID3D12Resource1*, uint32_t>> vVertexBuffers);

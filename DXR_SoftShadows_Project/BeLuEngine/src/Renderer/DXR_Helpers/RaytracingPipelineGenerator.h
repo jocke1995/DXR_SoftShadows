@@ -78,6 +78,7 @@ public:
   /// The pipeline helper requires access to the device, as well as the
   /// raytracing device prior to Windows 10 RS5.
   RayTracingPipelineGenerator(ID3D12Device5* device);
+  ~RayTracingPipelineGenerator();
 
   /// Add a DXIL library to the pipeline. Note that this library has to be
   /// compiled with dxc, using a lib_6_3 target. The exported symbols must correspond exactly to the

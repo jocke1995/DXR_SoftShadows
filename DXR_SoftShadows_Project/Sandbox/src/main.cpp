@@ -52,7 +52,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
    Log::Print("Entering Game-Loop ...\n\n");
    while (!window->ExitWindow())
    {
-       static bool DXR = true;
+       static bool DXR = false;
        if (window->WasSpacePressed())
        {
            DXR = !DXR;

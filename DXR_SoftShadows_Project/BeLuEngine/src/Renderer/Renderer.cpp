@@ -104,7 +104,7 @@ void Renderer::deleteRenderer()
 	for (RenderTask* renderTask : m_RenderTasks)
 		delete renderTask;
 
-	SAFE_RELEASE(&m_pDevice5);
+	
 
 	delete m_pMousePicker;
 
@@ -116,8 +116,35 @@ void Renderer::deleteRenderer()
 	delete m_pTempCommandInterface;
 
 	// DXR
+	
+	for (auto i : m_instances)
+	{
+		SAFE_RELEASE(&i.first);
+	}
+
 	m_BottomLevelASBuffers.release();
 	m_TopLevelASBuffers.release();
+	SAFE_RELEASE(&m_pHitLibrary);
+	SAFE_RELEASE(&m_pMissLibrary);
+	SAFE_RELEASE(&m_pRayGenLibrary);
+	SAFE_RELEASE(&m_pRayGenSignature);
+	SAFE_RELEASE(&m_pMissSignature);
+	SAFE_RELEASE(&m_pHitSignature);
+
+	SAFE_RELEASE(&m_pRTStateObject);
+	SAFE_RELEASE(&m_pRTStateObjectProps);
+	
+
+
+
+	delete m_pUploadTriVertices;
+	SAFE_RELEASE(&m_pOutputResource);
+	delete m_pSrvUavHeap;
+	SAFE_RELEASE(&m_pSbtStorage);
+
+	SAFE_RELEASE(&m_pDevice5);
+
+
 }
 
 void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* threadPool)
@@ -204,7 +231,7 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	CreateShaderResourceHeap(); // #DXR
 
 	// Create the shader binding table and indicating which shaders
-// are invoked for each instance in the  AS
+	// are invoked for each instance in the  AS
 	CreateShaderBindingTable();
 	
 	submitMeshToCodt(m_pFullScreenQuad);
