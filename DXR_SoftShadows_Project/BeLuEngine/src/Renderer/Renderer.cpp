@@ -188,6 +188,8 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 
 	// RAYTRACING HERE:::::
 
+	createRTTriangle();
+
 	CreateAccelerationStructures();
 
 	CreateRaytracingPipeline();
@@ -850,13 +852,42 @@ Window* const Renderer::GetWindow() const
 	return m_pWindow;
 }
 
+struct VertexTemp
+{
+	DirectX::XMFLOAT3 pos;
+};
+
+void Renderer::createRTTriangle()
+{
+	// Mesh data
+	std::vector<VertexTemp> vertexVector;
+
+	VertexTemp vertices[3] = {};
+	vertices[0].pos = { 0, 1.0f, 0 };
+
+	vertices[1].pos = { 0.866f,  -0.5f, 0, };
+
+	vertices[2].pos = { -0.866f, -0.5f, 0 };
+
+	for (unsigned int i = 0; i < 4; i++)
+	{
+		vertexVector.push_back(vertices[i]);
+	}
+
+
+	// create vertices resource
+	m_pUploadTriVertices = new Resource(m_pDevice5, vertexVector.size() * sizeof(VertexTemp), RESOURCE_TYPE::UPLOAD, L"TRI_VERTEX_UPLOAD");
+	m_pUploadTriVertices->SetData(vertexVector.data());
+
+}
+
 void Renderer::CreateBottomLevelAS(std::vector<std::pair<ID3D12Resource1*, uint32_t>> vVertexBuffers)
 {
 	// Adding all vertex buffers and not transforming their position.
 	for (const auto& buffer : vVertexBuffers)
 	{
 		m_BottomLevelASGenerator.AddVertexBuffer(buffer.first, 0, buffer.second,
-			sizeof(Vertex), 0, 0);
+			sizeof(VertexTemp), 0, 0);
 	}
 
 	// The AS build requires some scratch space to store temporary information.
@@ -951,8 +982,8 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 void Renderer::CreateAccelerationStructures()
 {
 	// Build the bottom AS from the Triangle vertex buffer
-	ID3D12Resource1* r1 = m_pFullScreenQuad->GetDefaultResourceVertices()->GetID3D12Resource1();
-	unsigned int numVertices = m_pFullScreenQuad->GetNumVertices();
+	ID3D12Resource1* r1 = m_pUploadTriVertices->GetID3D12Resource1();
+	unsigned int numVertices = 4;
 	CreateBottomLevelAS({ {r1, numVertices} });
 
 	// Just one instance for now

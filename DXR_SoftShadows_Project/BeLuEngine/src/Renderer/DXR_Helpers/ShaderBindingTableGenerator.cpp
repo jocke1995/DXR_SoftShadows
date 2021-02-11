@@ -216,6 +216,7 @@ uint32_t ShaderBindingTableGenerator::CopyShaderData(
     }
     // Copy the shader identifier
     memcpy(pData, id, m_progIdSize);
+
     // Copy all its resources pointers or values in bulk
     memcpy(pData + m_progIdSize, shader.m_inputData.data(), shader.m_inputData.size() * 8);
 

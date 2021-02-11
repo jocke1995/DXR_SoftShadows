@@ -189,6 +189,10 @@ private:
 	std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>> m_instances;
 
 	// Create
+	Resource* m_pUploadTriVertices = nullptr;
+	Resource* m_pUploadTriIndices = nullptr;
+	void createRTTriangle();
+
 	void CreateBottomLevelAS(std::vector<std::pair<ID3D12Resource1*, uint32_t>> vVertexBuffers);
 	void CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>> &instances);
 	void CreateAccelerationStructures();
