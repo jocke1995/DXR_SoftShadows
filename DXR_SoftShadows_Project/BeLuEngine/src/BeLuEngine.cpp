@@ -1,6 +1,10 @@
 #include "stdafx.h"
 #include "BeLuEngine.h"
 
+#define SCREENWIDTH 1280
+#define SCREENHEIGHT 720
+
+
 BeLuEngine::BeLuEngine()
 {
 	
@@ -21,8 +25,8 @@ void BeLuEngine::Init(HINSTANCE hInstance, int nCmdShow, ApplicationParameters* 
 
 	// Window values
 	bool windowedFullscreen = false;
-	int windowWidth = 1280;
-	int windowHeight = 720;
+	int windowWidth = SCREENWIDTH;
+	int windowHeight = SCREENHEIGHT;
 
 	// Misc
 	m_pWindow = new Window(hInstance, nCmdShow, windowedFullscreen, windowWidth, windowHeight);

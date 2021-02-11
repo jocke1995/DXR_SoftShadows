@@ -5,7 +5,8 @@
 class ThreadPool;
 class Window;
 
-#include "DXR_Helpers/DXRHelper.h"
+#include "DXR_Helpers/DXRHelperrr.h"
+
 // Renderer Engine
 class RootSignature;
 class SwapChain;
@@ -191,6 +192,45 @@ private:
 	void CreateBottomLevelAS(std::vector<std::pair<ID3D12Resource1*, uint32_t>> vVertexBuffers);
 	void CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>> &instances);
 	void CreateAccelerationStructures();
+
+
+
+	ID3D12RootSignature* CreateRayGenSignature();
+	ID3D12RootSignature* CreateMissSignature();
+	ID3D12RootSignature* CreateHitSignature();
+
+	void CreateRaytracingPipeline();
+
+	IDxcBlob* m_pRayGenLibrary = nullptr;
+	IDxcBlob* m_pHitLibrary = nullptr;
+	IDxcBlob* m_pMissLibrary = nullptr;
+
+
+	ID3D12RootSignature* m_pRayGenSignature = nullptr;
+	ID3D12RootSignature* m_pHitSignature = nullptr;
+	ID3D12RootSignature* m_pMissSignature = nullptr;
+
+	// Ray tracing pipeline state
+	ID3D12StateObject* m_pRTStateObject = nullptr;
+	ID3D12StateObjectProperties* m_pRTStateObjectProps = nullptr;
+
+
+
+	// #DXR Resources
+	void CreateRaytracingOutputBuffer();
+	void CreateShaderResourceHeap();
+	ID3D12Resource* m_pOutputResource = nullptr;
+	DescriptorHeap* m_pSrvUavHeap = nullptr;
+
+
+
+	void CreateShaderBindingTable();
+	nv_helpers_dx12::ShaderBindingTableGenerator m_SbtHelper;
+	ID3D12Resource* m_pSbtStorage;
+	
+	
+	
+	
 	// ------------------- DXR temp ----------------
 
 
