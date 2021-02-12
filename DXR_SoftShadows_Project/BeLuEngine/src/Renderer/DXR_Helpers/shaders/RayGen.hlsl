@@ -4,7 +4,7 @@
 RWTexture2D< float4 > gOutput : register(u0);
 
 // Raytracing acceleration structure, accessed as a SRV
-RaytracingAccelerationStructure SceneBVH : register(t0);
+RaytracingAccelerationStructure SceneBVH : register(t0, space2);
 
 [shader("raygeneration")] 
 void RayGen() {

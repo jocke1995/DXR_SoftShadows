@@ -10,7 +10,7 @@ enum RS
 {
 	dtCBV,
 	dtSRV,
-	dtUAV,
+	dtRaytracing,
 	SRV0,
 	UAV0,
 	CBV0,

@@ -61,7 +61,6 @@ RayTracingPipelineGenerator::RayTracingPipelineGenerator(ID3D12Device5* device)
 RayTracingPipelineGenerator::~RayTracingPipelineGenerator()
 {
     SAFE_RELEASE(&m_dummyLocalRootSignature);
-    SAFE_RELEASE(&m_dummyGlobalRootSignature);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -140,7 +139,7 @@ void RayTracingPipelineGenerator::SetMaxRecursionDepth(UINT maxDepth)
 //--------------------------------------------------------------------------------------------------
 //
 // Compiles the raytracing state object
-ID3D12StateObject* RayTracingPipelineGenerator::Generate()
+ID3D12StateObject* RayTracingPipelineGenerator::Generate(ID3D12RootSignature* globalRootSigParam)
 {
   // The pipeline is made of a set of sub-objects, representing the DXIL libraries, hit group
   // declarations, root signature associations, plus some configuration objects
@@ -247,7 +246,7 @@ ID3D12StateObject* RayTracingPipelineGenerator::Generate()
   // The pipeline construction always requires an empty global root signature
   D3D12_STATE_SUBOBJECT globalRootSig;
   globalRootSig.Type = D3D12_STATE_SUBOBJECT_TYPE_GLOBAL_ROOT_SIGNATURE;
-  ID3D12RootSignature* dgSig = m_dummyGlobalRootSignature;
+  ID3D12RootSignature* dgSig = globalRootSigParam;
   globalRootSig.pDesc = &dgSig;
 
   subobjects[currentIndex++] = globalRootSig;
@@ -303,23 +302,6 @@ void RayTracingPipelineGenerator::CreateDummyRootSignatures()
 
   ID3DBlob* serializedRootSignature;
   ID3DBlob* error;
-
-  // Create the empty global root signature
-  hr = D3D12SerializeRootSignature(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1,
-                                   &serializedRootSignature, &error);
-  if (FAILED(hr))
-  {
-    throw std::logic_error("Could not serialize the global root signature");
-  }
-  hr = m_device->CreateRootSignature(0, serializedRootSignature->GetBufferPointer(),
-                                     serializedRootSignature->GetBufferSize(),
-                                     IID_PPV_ARGS(&m_dummyGlobalRootSignature));
-
-  serializedRootSignature->Release();
-  if (FAILED(hr))
-  {
-    throw std::logic_error("Could not create the global root signature");
-  }
 
   // Create the local root signature, reusing the same descriptor but altering the creation flag
   rootDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE;

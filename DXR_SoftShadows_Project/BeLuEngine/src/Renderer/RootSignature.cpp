@@ -71,16 +71,18 @@ void RootSignature::createRootSignatureStructure()
 	dtSRV.NumDescriptorRanges = ARRAYSIZE(dtRangesSRV);
 	dtSRV.pDescriptorRanges = dtRangesSRV;
 
-	// DescriptorTable for UAV's (bindless)
-	D3D12_DESCRIPTOR_RANGE dtRangesUAV[1]{};
-	dtRangesUAV[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-	dtRangesUAV[0].NumDescriptors = -1; // Bindless
-	dtRangesUAV[0].BaseShaderRegister = 0;	// u0
-	dtRangesUAV[0].RegisterSpace = 0;
+	// RAYTRACING Texture and AS
+	D3D12_DESCRIPTOR_RANGE rayTracingRange[2]{};
+	rayTracingRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+	rayTracingRange[0].NumDescriptors = 1;		// 1 descriptor
+	rayTracingRange[0].BaseShaderRegister = 0;	// u0
+	rayTracingRange[0].RegisterSpace = 0;		// space0
 
-	D3D12_ROOT_DESCRIPTOR_TABLE dtUAV = {};
-	dtUAV.NumDescriptorRanges = ARRAYSIZE(dtRangesUAV);
-	dtUAV.pDescriptorRanges = dtRangesUAV;
+	rayTracingRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	rayTracingRange[1].NumDescriptors = 1;		// 1 descriptor
+	rayTracingRange[1].BaseShaderRegister = 0;	// t0
+	rayTracingRange[1].RegisterSpace = 2;		// space2
+	rayTracingRange[1].OffsetInDescriptorsFromTableStart = 1;	// The uav is on 0
 
 	D3D12_ROOT_PARAMETER rootParam[RS::NUM_PARAMS]{};
 
@@ -92,9 +94,10 @@ void RootSignature::createRootSignatureStructure()
 	rootParam[RS::dtSRV].DescriptorTable = dtSRV;
 	rootParam[RS::dtSRV].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-	rootParam[RS::dtUAV].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParam[RS::dtUAV].DescriptorTable = dtUAV;
-	rootParam[RS::dtUAV].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rootParam[RS::dtRaytracing].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[RS::dtRaytracing].DescriptorTable.NumDescriptorRanges = 2;
+	rootParam[RS::dtRaytracing].DescriptorTable.pDescriptorRanges = rayTracingRange;
+	rootParam[RS::dtRaytracing].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 	rootParam[RS::SRV0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
 	rootParam[RS::SRV0].Descriptor.ShaderRegister = 3;

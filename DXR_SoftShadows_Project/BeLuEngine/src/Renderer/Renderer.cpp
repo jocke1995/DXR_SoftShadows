@@ -387,6 +387,8 @@ void Renderer::ExecuteDXR()
 	// Standard inits
 	cl->RSSetViewports(1, swapChainRenderTarget->GetRenderView()->GetViewPort());
 	cl->RSSetScissorRects(1, swapChainRenderTarget->GetRenderView()->GetScissorRect());
+	
+	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
 
 	// Change state on front/backbuffer
 	cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
@@ -413,6 +415,7 @@ void Renderer::ExecuteDXR()
 	std::vector<ID3D12DescriptorHeap*> heaps = { m_pSrvUavHeap->GetID3D12DescriptorHeap() };
 	cl->SetDescriptorHeaps(static_cast<unsigned int>(heaps.size()), heaps.data());
 
+	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_pSrvUavHeap->GetGPUHeapAt(0));
 	
 	// On the last frame, the raytracing output was used as a copy source, to
 	// copy its contents into the render target. Now we need to transition it to
@@ -1032,13 +1035,13 @@ ID3D12RootSignature* Renderer::CreateRayGenSignature()
 {
 	nv_helpers_dx12::RootSignatureGenerator rsg;
 
-	rsg.AddHeapRangesParameter(
-		{ {0 /*u0*/, 1 /*1 descriptor */, 0 /*use the implicit register space 0*/,
-		  D3D12_DESCRIPTOR_RANGE_TYPE_UAV /* UAV representing the output buffer*/,
-		  0 /*heap slot where the UAV is defined*/},
-		 {0 /*t0*/, 1, 0,
-		  D3D12_DESCRIPTOR_RANGE_TYPE_SRV /*Top-level acceleration structure*/,
-		  1} });
+	//rsg.AddHeapRangesParameter(
+	//	{ {0 /*u0*/, 1 /*1 descriptor */, 0 /*use the implicit register space 0*/,
+	//	  D3D12_DESCRIPTOR_RANGE_TYPE_UAV /* UAV representing the output buffer*/,
+	//	  0 /*heap slot where the UAV is defined*/},
+	//	 {0 /*t0*/, 1, 0,
+	//	  D3D12_DESCRIPTOR_RANGE_TYPE_SRV /*Top-level acceleration structure*/,
+	//	  1} });
 
 	return rsg.Generate(m_pDevice5, true);
 }
@@ -1140,7 +1143,7 @@ void Renderer::CreateRaytracingPipeline()
 	pipeline.SetMaxRecursionDepth(1);
 
 	// Compile the pipeline for execution on the GPU
-	m_pRTStateObject = pipeline.Generate();
+	m_pRTStateObject = pipeline.Generate(m_pRootSignature->GetRootSig());
 
 	// Cast the state object into a properties object, allowing to later access
 	// the shader pointers by name
