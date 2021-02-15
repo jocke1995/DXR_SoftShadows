@@ -139,12 +139,9 @@ void Renderer::deleteRenderer()
 
 	delete m_pUploadTriVertices;
 	SAFE_RELEASE(&m_pOutputResource);
-	delete m_pSrvUavHeap;
 	SAFE_RELEASE(&m_pSbtStorage);
 
 	SAFE_RELEASE(&m_pDevice5);
-
-
 }
 
 void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* threadPool)
@@ -409,13 +406,10 @@ void Renderer::ExecuteDXR()
 
 	cl->OMSetRenderTargets(1, cdhs, false, &dsh);
 
-	
-	// ####DXR
-	// Bind the srvuav heap (TLAS & #RenderTarget#)
-	std::vector<ID3D12DescriptorHeap*> heaps = { m_pSrvUavHeap->GetID3D12DescriptorHeap() };
-	cl->SetDescriptorHeaps(static_cast<unsigned int>(heaps.size()), heaps.data());
+	ID3D12DescriptorHeap* dhSRVUAVCBV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetID3D12DescriptorHeap();
+	cl->SetDescriptorHeaps(1, &dhSRVUAVCBV);
 
-	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_pSrvUavHeap->GetGPUHeapAt(0));
+	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
 	
 	// On the last frame, the raytracing output was used as a copy source, to
 	// copy its contents into the render target. Now we need to transition it to
@@ -1177,12 +1171,13 @@ void Renderer::CreateShaderResourceHeap()
 	// Create a SRV/UAV/CBV descriptor heap. We need 2 entries - 1 UAV for the
 	// raytracing output and 1 SRV for the TLAS
 
-	m_pSrvUavHeap = new DescriptorHeap(m_pDevice5, DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV);
+	//m_pSrvUavHeap = new DescriptorHeap(m_pDevice5, DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV);
 
 	// Get a handle to the heap memory on the CPU side, to be able to write the
 	// descriptors directly
+	m_DhIndexASOB = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetNextDescriptorHeapIndex(1);
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle =
-		m_pSrvUavHeap->GetID3D12DescriptorHeap()->GetCPUDescriptorHandleForHeapStart();
+		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetCPUHeapAt(m_DhIndexASOB);
 
 	// Create the UAV. Based on the root signature we created it is the first
 	// entry. The Create*View methods write the view information directly into
@@ -1193,8 +1188,8 @@ void Renderer::CreateShaderResourceHeap()
 		srvHandle);
 
 	// Add the Top Level AS SRV right after the raytracing output buffer
-	srvHandle.ptr += m_pDevice5->GetDescriptorHandleIncrementSize(
-		D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	unsigned int nextDhIndex = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetNextDescriptorHeapIndex(1);
+	srvHandle = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetCPUHeapAt(nextDhIndex);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
 	srvDesc.Format = DXGI_FORMAT_UNKNOWN;
@@ -1214,7 +1209,9 @@ void Renderer::CreateShaderBindingTable()
 
 	// The pointer to the beginning of the heap is the only parameter required by
 	// shaders without root parameters
-	D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle = m_pSrvUavHeap->GetID3D12DescriptorHeap()->GetGPUDescriptorHandleForHeapStart();
+	
+	// ?? should this be "m_DhIndexASOB" instead of "0"? 
+	D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0);
 
 	// The helper treats both root parameter pointers and heap pointers as void*,
 	// while DX12 uses the

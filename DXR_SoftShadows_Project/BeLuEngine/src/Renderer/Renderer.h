@@ -223,9 +223,9 @@ private:
 	void CreateRaytracingOutputBuffer();
 	void CreateShaderResourceHeap();
 	ID3D12Resource* m_pOutputResource = nullptr;
-	DescriptorHeap* m_pSrvUavHeap = nullptr;
 
-
+	// DescriptorHeapIndexStart for the AS and outputBuffer
+	unsigned int m_DhIndexASOB = 0;
 
 	void CreateShaderBindingTable();
 	nv_helpers_dx12::ShaderBindingTableGenerator m_SbtHelper;
