@@ -50,6 +50,8 @@
 // Event
 #include "../Events/EventBus.h"
 
+#include "../Misc/CSVExporter.h"
+
 Renderer::Renderer()
 {
 	EventBus::GetInstance().Subscribe(this, &Renderer::toggleFullscreen);
@@ -230,6 +232,9 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	// Create the shader binding table and indicating which shaders
 	// are invoked for each instance in the  AS
 	CreateShaderBindingTable();
+
+	m_DXTimer.Init(m_pDevice5, 1);
+	m_DXTimer.InitGPUFrequency(m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]);
 	
 	submitMeshToCodt(m_pFullScreenQuad);
 }
@@ -369,6 +374,17 @@ void Renderer::Execute()
 #endif
 }
 
+CSVExporter csvExporter;
+
+struct TestData
+{
+	std::string GPUcard = "Unknown";
+	double nrOfTests = 50;
+};
+
+TestData testData;
+
+#define DX12TEST(fnc) m_DXTimer.Start(cl, 0);fnc;m_DXTimer.Stop(cl, 0);m_DXTimer.ResolveQueryToCPU(cl, 0);
 void Renderer::ExecuteDXR()
 {
 	IDXGISwapChain4* dx12SwapChain = m_pSwapChain->GetDX12SwapChain();
@@ -468,9 +484,8 @@ void Renderer::ExecuteDXR()
 	// Bind the raytracing pipeline
 	cl->SetPipelineState1(m_pRTStateObject);
 	// Dispatch the rays and write to the raytracing output
-	cl->DispatchRays(&desc);
 
-
+	DX12TEST(cl->DispatchRays(&desc));
 
 	// The raytracing output needs to be copied to the actual render target used
 	// for display. For this, we need to transition the raytracing output from a
@@ -503,6 +518,29 @@ void Renderer::ExecuteDXR()
 		cLists);
 
 	waitForGPU();
+
+#pragma region TimeMeasurment
+	auto timestamps = m_DXTimer.GetTimestampPair(0);
+	double dt = (timestamps.Stop - timestamps.Start) * m_DXTimer.GetGPUFreq();
+	BL_LOG_INFO("DXR deltaTime: %lf\n", dt);
+
+	static unsigned int nrOfFrames = 0;
+	if (nrOfFrames == 0)
+	{
+		// meta data first row
+		csvExporter << testData.GPUcard << "," << testData.nrOfTests << "\n";
+	}
+
+	if (nrOfFrames < testData.nrOfTests)
+	{
+		csvExporter << dt << "\n";
+	}
+	else if (nrOfFrames == testData.nrOfTests)
+	{
+		csvExporter.Export();
+	}
+	nrOfFrames++;
+#pragma endregion TimeMeasurment
 
 	/*------------------- Present -------------------*/
 	HRESULT hr = dx12SwapChain->Present(0, 0);

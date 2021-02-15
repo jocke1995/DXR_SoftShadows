@@ -44,3 +44,18 @@ std::stringstream& operator<<(CSVExporter& exporter, std::string string)
 
 	return exporter.entries;
 }
+
+std::stringstream& operator<<(CSVExporter& exporter, double d)
+{
+	return operator<<(exporter, std::to_string(d));
+}
+
+std::stringstream& operator<<(CSVExporter& exporter, float d)
+{
+	return operator<<(exporter, std::to_string(d));
+}
+
+std::stringstream& operator<<(CSVExporter& exporter, int d)
+{
+	return operator<<(exporter, std::to_string(d));
+}

@@ -6,6 +6,7 @@ class ThreadPool;
 class Window;
 
 #include "DXR_Helpers/DXRHelperrr.h"
+#include "D3D12Timer.h"
 
 // Renderer Engine
 class RootSignature;
@@ -175,6 +176,8 @@ private:
 
 
 	// ------------------- DXR temp ----------------
+	D3D12::D3D12Timer m_DXTimer;
+
 	CommandInterface* m_pTempCommandInterface = nullptr;
 
 	// AS

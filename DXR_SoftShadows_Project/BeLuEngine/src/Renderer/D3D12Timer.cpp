@@ -201,10 +201,23 @@ namespace D3D12
 		m_DeltaTime = m_EndTime - m_BeginTime;
 	}
 
+	void D3D12Timer::InitGPUFrequency(ID3D12CommandQueue* pCommandQueue)
+	{
+		UINT64 queueFreq;
+		pCommandQueue->GetTimestampFrequency(&queueFreq);
+
+		s_GPUFreqToMS = (1.0 / queueFreq) * 1000.0;
+	}
+
 	// Get time from m_Start to m_Stop in nano seconds.
 	UINT64 D3D12Timer::GetDeltaTime()
 	{
 		return m_DeltaTime;
+	}
+
+	double D3D12Timer::GetDeltaTimeMS()
+	{
+		return m_DeltaTime * s_GPUFreqToMS;
 	}
 
 	UINT64 D3D12Timer::GetEndTime()
@@ -215,6 +228,11 @@ namespace D3D12
 	UINT64 D3D12Timer::GetBeginTime()
 	{
 		return m_BeginTime;
+	}
+
+	double D3D12Timer::GetGPUFreq()
+	{
+		return s_GPUFreqToMS;
 	}
 
 	// Whether timer is active.

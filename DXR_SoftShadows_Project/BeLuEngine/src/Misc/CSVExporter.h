@@ -15,11 +15,14 @@ public:
 
 	inline void Print()
 	{
-		std::string a = entries.str();
+		std::string a = entries.str();  
 		Log::Print("%s\n", a.c_str());
 	}
 
 	friend std::stringstream& operator<<(CSVExporter& exporter, std::string string);
+	friend std::stringstream& operator<<(CSVExporter& exporter, double d);
+	friend std::stringstream& operator<<(CSVExporter& exporter, float d);
+	friend std::stringstream& operator<<(CSVExporter& exporter, int d);
 	//friend std::stringstream& operator<<(CSVExporter& exporter, std::wstring wstring); does not work for some reason.
 
 private:

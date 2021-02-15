@@ -3,6 +3,8 @@
 DXR_SoftShadows_Project/bin/
 DXR_SoftShadows_Project/*.bat
 
+**.csv
+
 **.sln
 **.vcxproj
 **.user
