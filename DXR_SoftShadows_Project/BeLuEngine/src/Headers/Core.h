@@ -205,10 +205,12 @@ private:
 };
 
 #ifdef DEBUG
+	#define BL_LOG(...)			 Log::Print(__VA_ARGS__)
 	#define BL_LOG_INFO(...)	 Log::PrintSeverity(__FILE__, std::to_string(__LINE__), Severity::INFO	  , __VA_ARGS__)
 	#define BL_LOG_WARNING(...)	 Log::PrintSeverity(__FILE__, std::to_string(__LINE__), Severity::WARNING , __VA_ARGS__)
 	#define BL_LOG_CRITICAL(...) Log::PrintSeverity(__FILE__, std::to_string(__LINE__), Severity::CRITICAL, __VA_ARGS__)
 #else
+	#define BL_LOG(...)
 	#define BL_LOG_INFO(...)
 	#define BL_LOG_WARNING(...)
 	#define BL_LOG_CRITICAL(...)

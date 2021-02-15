@@ -71,13 +71,13 @@ Renderer::~Renderer()
 
 void Renderer::deleteRenderer()
 {
-	Log::Print("----------------------------  Deleting Renderer  ----------------------------------\n");
+	BL_LOG("----------------------------  Deleting Renderer  ----------------------------------\n");
 	waitForGPU();
 
 	SAFE_RELEASE(&m_pFenceFrame);
 	if (!CloseHandle(m_EventHandle))
 	{
-		Log::Print("Failed To Close Handle... ErrorCode: %d\n", GetLastError());
+		BL_LOG_WARNING("Failed To Close Handle... ErrorCode: %d\n", GetLastError());
 	}
 
 	SAFE_RELEASE(&m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]);
@@ -1324,7 +1324,7 @@ bool Renderer::createDevice()
 			DXGI_ADAPTER_DESC adapterDesc = {};
 			adapter->GetDesc(&adapterDesc);
 
-			Log::Print("Adapter: %S\n", adapterDesc.Description);
+			BL_LOG("Adapter: %S\n", adapterDesc.Description);
 			
 			D3D12_FEATURE_DATA_D3D12_OPTIONS5 features5 = {};
 			HRESULT hr = pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &features5, sizeof(D3D12_FEATURE_DATA_D3D12_OPTIONS5));
@@ -1334,7 +1334,7 @@ bool Renderer::createDevice()
 			{
 				if (features5.RaytracingTier == D3D12_RAYTRACING_TIER_1_1)
 				{
-					Log::Print("Raytracing tier 1.1 supported!\n");
+					BL_LOG("Raytracing tier 1.1 supported!\n");
 					break; // found one!
 				}
 			}

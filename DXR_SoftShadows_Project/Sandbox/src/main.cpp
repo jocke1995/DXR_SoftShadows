@@ -10,8 +10,10 @@ void SponzaUpdateScene(SceneManager* sm, double dt);
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 {
+#ifdef DEBUG
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-    
+#endif
+
     /* ------ Command line arguments  ------ */
     ApplicationParameters params;
     ParseParameters(&params);
@@ -49,7 +51,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
    
 
    
-   Log::Print("Entering Game-Loop ...\n\n");
+   BL_LOG("Entering Game-Loop ...\n\n");
    while (!window->ExitWindow())
    {
        static bool DXR = false;

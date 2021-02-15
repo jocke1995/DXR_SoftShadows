@@ -37,7 +37,7 @@ SwapChain::SwapChain(
 	{
 		m_CurrentModeDescription.Width = m_ScreenWidth - 1;
 		m_CurrentModeDescription.Height = m_ScreenHeight;
-		Log::Print("Choosing (%d, %d) as the new resolution...\n", m_CurrentModeDescription.Width, m_CurrentModeDescription.Height);
+		BL_LOG_INFO("Choosing (%d, %d) as the new resolution...\n", m_CurrentModeDescription.Width, m_CurrentModeDescription.Height);
 	}
 	else
 	{
@@ -231,7 +231,7 @@ const void SwapChain::lookForSupportedResolutions(unsigned int* width, unsigned 
 			}
 		}
 
-		Log::Print("Supported resolutions:\n");
+		BL_LOG_INFO("Supported resolutions:\n");
 		int latestWidth = 0;
 		int latestHeight = 0;
 		for (unsigned int i = 0; i < m_NumberOfSupportedModes; i++)
@@ -241,11 +241,11 @@ const void SwapChain::lookForSupportedResolutions(unsigned int* width, unsigned 
 			{
 				continue;
 			}
-			Log::Print("(%d, %d)\n", m_pSupportedModes[i].Width, m_pSupportedModes[i].Height);
+			BL_LOG_INFO("(%d, %d)\n", m_pSupportedModes[i].Width, m_pSupportedModes[i].Height);
 			latestWidth = m_pSupportedModes[i].Width;
 			latestHeight = m_pSupportedModes[i].Height;
 		}
-		Log::Print("----------------------\n");
+		BL_LOG_INFO("----------------------\n");
 	}
 
 	delete[] m_pSupportedModes;
