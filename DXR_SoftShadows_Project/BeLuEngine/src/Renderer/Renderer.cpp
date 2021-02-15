@@ -152,7 +152,7 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	// Create Device
 	if (!createDevice())
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to Create Device\n");
+		BL_LOG_CRITICAL("Failed to Create Device\n");
 	}
 
 	// Create CommandQueues (copy, compute and direct)
@@ -361,10 +361,10 @@ void Renderer::Execute()
 	/*------------------- Present -------------------*/
 	HRESULT hr = dx12SwapChain->Present(0, 0);
 
-#ifdef _DEBUG
+#ifdef DEBUG
 	if (FAILED(hr))
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "Swapchain Failed to present\n");
+		BL_LOG_CRITICAL("Swapchain Failed to present\n");
 	}
 #endif
 }
@@ -507,10 +507,10 @@ void Renderer::ExecuteDXR()
 	/*------------------- Present -------------------*/
 	HRESULT hr = dx12SwapChain->Present(0, 0);
 
-#ifdef _DEBUG
+#ifdef DEBUG
 	if (FAILED(hr))
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "Swapchain Failed to present\n");
+		BL_LOG_CRITICAL("Swapchain Failed to present\n");
 	}
 #endif
 }
@@ -1264,8 +1264,7 @@ bool Renderer::createDevice()
 {
 	bool deviceCreated = false;
 
-	if (ENABLE_DEBUGLAYER == true)
-	{
+#ifdef DEBUG
 		//Enable the D3D12 debug layer.
 		ID3D12Debug3* debugController = nullptr;
 		HMODULE mD3D12 = LoadLibrary(L"D3D12.dll"); // ist�llet f�r GetModuleHandle
@@ -1301,7 +1300,7 @@ bool Renderer::createDevice()
 		}
 
 		SAFE_RELEASE(&debugController);
-	}
+#endif
 
 	IDXGIFactory6* factory = nullptr;
 	IDXGIAdapter1* adapter = nullptr;
@@ -1354,7 +1353,7 @@ bool Renderer::createDevice()
 		}
 		else
 		{
-			Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to create Device\n");
+			BL_LOG_CRITICAL("Failed to create Device\n");
 		}
 	
 		SAFE_RELEASE(&adapter);
@@ -1362,7 +1361,7 @@ bool Renderer::createDevice()
 	else
 	{
 		// Create warpAdapter if no other suitable adapter was found.
-		Log::PrintSeverity(Log::Severity::WARNING, "Creating warp-adapter...\n");
+		BL_LOG_WARNING("Creating warp-adapter...\n");
 		factory->EnumWarpAdapter(IID_PPV_ARGS(&adapter));
 		D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_pDevice5));
 	}
@@ -1380,7 +1379,7 @@ void Renderer::createCommandQueues()
 	hr = m_pDevice5->CreateCommandQueue(&cqdDirect, IID_PPV_ARGS(&m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]));
 	if (FAILED(hr))
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to Create Direct CommandQueue\n");
+		BL_LOG_CRITICAL("Failed to Create Direct CommandQueue\n");
 	}
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->SetName(L"DirectQueue");
 
@@ -1390,7 +1389,7 @@ void Renderer::createCommandQueues()
 	hr = m_pDevice5->CreateCommandQueue(&cqdCompute, IID_PPV_ARGS(&m_CommandQueues[COMMAND_INTERFACE_TYPE::COMPUTE_TYPE]));
 	if (FAILED(hr))
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to Create Compute CommandQueue\n");
+		BL_LOG_CRITICAL("Failed to Create Compute CommandQueue\n");
 	}
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::COMPUTE_TYPE]->SetName(L"ComputeQueue");
 
@@ -1400,7 +1399,7 @@ void Renderer::createCommandQueues()
 	hr = m_pDevice5->CreateCommandQueue(&cqdCopy, IID_PPV_ARGS(&m_CommandQueues[COMMAND_INTERFACE_TYPE::COPY_TYPE]));
 	if (FAILED(hr))
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to Create Copy CommandQueue\n");
+		BL_LOG_CRITICAL("Failed to Create Copy CommandQueue\n");
 	}
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::COPY_TYPE]->SetName(L"CopyQueue");
 }
@@ -1431,7 +1430,7 @@ void Renderer::createMainDSV()
 	HRESULT hr = m_pSwapChain->GetDX12SwapChain()->GetSourceSize(&resolutionWidth, &resolutionHeight);
 	if (FAILED(hr))
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to GetSourceSize from DX12SwapChain when creating DSV\n");
+		BL_LOG_CRITICAL("Failed to GetSourceSize from DX12SwapChain when creating DSV\n");
 	}
 
 
@@ -1664,7 +1663,7 @@ void Renderer::createFences()
 
 	if (FAILED(hr))
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to Create Fence\n");
+		BL_LOG_CRITICAL("Failed to Create Fence\n");
 	}
 	m_FenceFrameValue = 1;
 
@@ -1713,7 +1712,7 @@ void Renderer::prepareScene(Scene* activeScene)
 
 	if (m_pScenePrimaryCamera == nullptr)
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "No primary camera was set in scenes\n");
+		BL_LOG_CRITICAL("No primary camera was set in scenes\n");
 
 		// Todo: Set default m_pCamera
 	}

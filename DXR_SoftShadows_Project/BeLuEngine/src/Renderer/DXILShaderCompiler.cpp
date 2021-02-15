@@ -27,7 +27,7 @@ HRESULT DXILShaderCompiler::Init()
 	HMODULE dll = LoadLibraryA("dxcompiler.dll");
 	if (dll == false)
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "dxcompiler.dll is missing");
+		BL_LOG_CRITICAL("dxcompiler.dll is missing");
 	}
 
 	DxcCreateInstanceProc pfnDxcCreateInstance = DxcCreateInstanceProc(GetProcAddress(dll, "DxcCreateInstance"));
@@ -65,7 +65,7 @@ HRESULT DXILShaderCompiler::CompileFromFile(DXILCompilationDesc* desc, IDxcBlob*
 		{
 			IDxcOperationResult* pResult = nullptr;
 
-#ifdef _DEBUG
+#ifdef DEBUG
 			IDxcBlob* debugBlob = nullptr;
 			LPWSTR a = L"debugBlobName";
 			hr = m_pCompiler->CompileWithDebug(
@@ -84,10 +84,10 @@ HRESULT DXILShaderCompiler::CompileFromFile(DXILCompilationDesc* desc, IDxcBlob*
 
 			if (FAILED(hr) && debugBlob != nullptr)
 			{
-				Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to compile shader: %S\n", desc->filePath);
+				BL_LOG_CRITICAL("Failed to compile shader: %S\n", desc->filePath);
 
 				const char* errorMsg = static_cast<const char*>(debugBlob->GetBufferPointer());
-				Log::PrintSeverity(Log::Severity::CRITICAL, "%s\n", errorMsg);
+				BL_LOG_CRITICAL("%s\n", errorMsg);
 			}
 #else
 			hr = m_pCompiler->Compile(
@@ -132,7 +132,7 @@ HRESULT DXILShaderCompiler::CompileFromFile(DXILCompilationDesc* desc, IDxcBlob*
 
 							std::wstring b = (LPCWSTR)pPrintBlob16->GetBufferPointer();
 							std::string a = to_string(b);
-							Log::PrintSeverity(Log::Severity::CRITICAL, "%s\n", a.c_str());
+							BL_LOG_CRITICAL("%s\n", a.c_str());
 
 
 							SAFE_RELEASE(&pPrintBlob);

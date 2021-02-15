@@ -63,7 +63,7 @@ Scene* SceneManager::CreateScene(std::string sceneName)
 {
     if (sceneExists(sceneName))
     {
-        Log::PrintSeverity(Log::Severity::CRITICAL, "A scene with the name: \'%s\' already exists.\n", sceneName.c_str());
+		BL_LOG_CRITICAL("A scene with the name: \'%s\' already exists.\n", sceneName.c_str());
         return nullptr;
     }
 
@@ -84,7 +84,7 @@ Scene* SceneManager::GetScene(std::string sceneName) const
         return m_Scenes.at(sceneName);
     }
 	
-    Log::PrintSeverity(Log::Severity::CRITICAL, "No Scene with name: \'%s\' was found.\n", sceneName.c_str());
+	BL_LOG_CRITICAL("No Scene with name: \'%s\' was found.\n", sceneName.c_str());
     return nullptr;
 }
 
@@ -119,7 +119,7 @@ void SceneManager::SetGameOverScene(Scene* scene)
 	}
 	else
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "SetGameOverScene:: scene was nullptr");
+		BL_LOG_CRITICAL("SetGameOverScene:: scene was nullptr");
 	}
 }
 
@@ -127,7 +127,7 @@ void SceneManager::SetScene(Scene* scene)
 {
 	if (scene == m_pActiveScene)
 	{
-		Log::PrintSeverity(Log::Severity::WARNING, "SetScene on same scene %s\n", scene->GetName().c_str());
+		BL_LOG_WARNING("SetScene on same scene %s\n", scene->GetName().c_str());
 		return;
 	}
 

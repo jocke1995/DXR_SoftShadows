@@ -50,7 +50,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int msg, WPARAM wParam, LPARAM lPar
 
 		if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, charArr, &dwSize, sizeof(RAWINPUTHEADER)) != dwSize)
 		{
-			Log::PrintSeverity(Log::Severity::CRITICAL, "GetRawInputData does not return correct size !\n");
+			BL_LOG_CRITICAL("GetRawInputData does not return correct size !\n");
 		}
 
 #pragma region HandleInput

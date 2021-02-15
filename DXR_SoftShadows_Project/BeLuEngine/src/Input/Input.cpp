@@ -26,7 +26,7 @@ void Input::RegisterDevices(const HWND* hWnd)
 
 	if (RegisterRawInputDevices(m_Rid, 2, sizeof(m_Rid[0])) == FALSE)
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL,"Device registration error: %f\n", GetLastError());
+		BL_LOG_CRITICAL("Device registration error: %f\n", GetLastError());
 	}
 }
 

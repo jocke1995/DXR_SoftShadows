@@ -107,7 +107,7 @@ void Resource::SetData(const void* data, unsigned int subResourceIndex) const
 {
 	if (m_Type == RESOURCE_TYPE::DEFAULT)
 	{
-		Log::PrintSeverity(Log::Severity::WARNING, "Trying to Map into default heap\n");
+		BL_LOG_WARNING("Trying to Map into default heap\n");
 		return;
 	}
 
@@ -147,7 +147,7 @@ void Resource::createResource(
 	if (FAILED(hr))
 	{
 		std::string cbName(m_Name.begin(), m_Name.end());
-		Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to create Resource with name: \'%s\'\n", cbName.c_str());
+		BL_LOG_CRITICAL("Failed to create Resource with name: \'%s\'\n", cbName.c_str());
 	}
 
 	m_pResource->SetName(m_Name.c_str());

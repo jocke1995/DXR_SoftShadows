@@ -58,6 +58,6 @@ void Shader::compileShader()
 
 	if (m_pBlob == nullptr)
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "blob is nullptr when loading shader with path: %S\n", m_Path);
+		BL_LOG_CRITICAL("blob is nullptr when loading shader with path: %S\n", m_Path);
 	}
 }
