@@ -186,7 +186,7 @@ Texture* AssetLoader::LoadTexture2D(const std::wstring& path)
 	return texture;
 }
 
-Shader* AssetLoader::loadShader(const std::wstring& fileName, ShaderType type)
+Shader* AssetLoader::loadShader(const std::wstring& fileName, SHADER_TYPE type)
 {
 	// Check if the shader already exists
 	if (m_LoadedShaders.count(fileName) != 0)

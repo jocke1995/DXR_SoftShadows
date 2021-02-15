@@ -9,7 +9,7 @@ ComputeState::ComputeState(ID3D12Device5* device, RootSignature* rootSignature, 
 {
 	m_Cpsd.pRootSignature = rootSignature->GetRootSig();
 
-	m_pCS = createShader(CSName, ShaderType::CS);
+	m_pCS = createShader(CSName, SHADER_TYPE::CS);
 
 	IDxcBlob* csBlob = m_pCS->GetBlob();
 
@@ -35,17 +35,17 @@ const D3D12_COMPUTE_PIPELINE_STATE_DESC* ComputeState::GetCpsd() const
 	return &m_Cpsd;
 }
 
-Shader* ComputeState::GetShader(ShaderType type) const
+Shader* ComputeState::GetShader(SHADER_TYPE type) const
 {
-	if (type == ShaderType::CS)
+	if (type == SHADER_TYPE::CS)
 	{
 		return m_pCS;
 	}
-	else if (type == ShaderType::VS)
+	else if (type == SHADER_TYPE::VS)
 	{
 		BL_LOG_CRITICAL("There is no vertexShader in \'%S\'\n", m_PsoName);
 	}
-	else if (type == ShaderType::PS)
+	else if (type == SHADER_TYPE::PS)
 	{
 		BL_LOG_CRITICAL("There is no pixelShader in \'%S\'\n", m_PsoName);
 	}

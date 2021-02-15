@@ -42,15 +42,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
    {
        scene = SponzaScene(sceneManager);
    }
-   
-   
+      
    // Set scene
    sceneManager->SetScene(scene);
 
-   
-   
-
-   
    BL_LOG("Entering Game-Loop ...\n\n");
    while (!window->ExitWindow())
    {

@@ -29,9 +29,10 @@
 #include "Texture/Texture2DGUI.h"
 #include "Texture/TextureCubeMap.h"
 #include "Model/Material.h"
-#include "DXILShaderCompiler.h"
-
 #include "RenderView.h"
+
+#include "DXILShaderCompiler.h"
+#include "Shader.h"
 
 #include "GPUMemory/GPUMemory.h"
 
@@ -124,9 +125,9 @@ void Renderer::deleteRenderer()
 
 	m_BottomLevelASBuffers.release();
 	m_TopLevelASBuffers.release();
-	SAFE_RELEASE(&m_pHitLibrary);
-	SAFE_RELEASE(&m_pMissLibrary);
-	SAFE_RELEASE(&m_pRayGenLibrary);
+	delete m_pHitShader;
+	delete m_pMissShader;
+	delete m_pRayGenShader;
 	SAFE_RELEASE(&m_pRayGenSignature);
 	SAFE_RELEASE(&m_pMissSignature);
 	SAFE_RELEASE(&m_pHitSignature);
@@ -380,10 +381,7 @@ void Renderer::ExecuteDXR()
 
 	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
 	ID3D12Resource1* swapChainResource = swapChainRenderTarget->GetResource()->GetID3D12Resource1();
-
-	// Standard inits
-	cl->RSSetViewports(1, swapChainRenderTarget->GetRenderView()->GetViewPort());
-	cl->RSSetScissorRects(1, swapChainRenderTarget->GetRenderView()->GetScissorRect());
+	const unsigned int swapChainIndex = swapChainRenderTarget->GetDescriptorHeapIndex();
 	
 	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
 
@@ -392,19 +390,6 @@ void Renderer::ExecuteDXR()
 		swapChainResource,
 		D3D12_RESOURCE_STATE_PRESENT,
 		D3D12_RESOURCE_STATE_RENDER_TARGET));
-
-	DescriptorHeap* renderTargetHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::RTV];
-	DescriptorHeap* depthBufferHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::DSV];
-
-	// RenderTargets
-	const unsigned int swapChainIndex = swapChainRenderTarget->GetDescriptorHeapIndex();
-	D3D12_CPU_DESCRIPTOR_HANDLE cdhSwapChain = renderTargetHeap->GetCPUHeapAt(swapChainIndex);
-	D3D12_CPU_DESCRIPTOR_HANDLE cdhs[] = { cdhSwapChain };
-
-	// Depth
-	D3D12_CPU_DESCRIPTOR_HANDLE dsh = depthBufferHeap->GetCPUHeapAt(m_pMainDepthStencil->GetDSV()->GetDescriptorHeapIndex());
-
-	cl->OMSetRenderTargets(1, cdhs, false, &dsh);
 
 	ID3D12DescriptorHeap* dhSRVUAVCBV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetID3D12DescriptorHeap();
 	cl->SetDescriptorHeaps(1, &dhSRVUAVCBV);
@@ -481,13 +466,15 @@ void Renderer::ExecuteDXR()
 		m_pOutputResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 		D3D12_RESOURCE_STATE_COPY_SOURCE);
 	cl->ResourceBarrier(1, &transition);
+
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(), D3D12_RESOURCE_STATE_RENDER_TARGET,
 		D3D12_RESOURCE_STATE_COPY_DEST);
 	cl->ResourceBarrier(1, &transition);
 
-	cl->CopyResource(swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
-		m_pOutputResource);
+	cl->CopyResource(
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
+		m_pOutputResource);											// Source
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(), D3D12_RESOURCE_STATE_COPY_DEST,
@@ -498,9 +485,7 @@ void Renderer::ExecuteDXR()
 
 	ID3D12CommandList* cLists[] = {cl};
 
-	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
-		1,
-		cLists);
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, cLists);
 
 	waitForGPU();
 
@@ -1069,18 +1054,18 @@ void Renderer::CreateRaytracingPipeline()
 	// set of DXIL libraries. We chose to separate the code in several libraries
 	// by semantic (ray generation, hit, miss) for clarity. Any code layout can be
 	// used.
-	m_pRayGenLibrary = nv_helpers_dx12::CompileShaderLibrary(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/RayGen.hlsl");
-	m_pMissLibrary = nv_helpers_dx12::CompileShaderLibrary(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Miss.hlsl");
-	m_pHitLibrary = nv_helpers_dx12::CompileShaderLibrary(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Hit.hlsl");
+	m_pRayGenShader = new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/RayGen.hlsl", SHADER_TYPE::DXR);
+	m_pMissShader = new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Miss.hlsl", SHADER_TYPE::DXR);
+	m_pHitShader = new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Hit.hlsl", SHADER_TYPE::DXR);
 
 	  // In a way similar to DLLs, each library is associated with a number of
 	  // exported symbols. This
 	  // has to be done explicitly in the lines below. Note that a single library
 	  // can contain an arbitrary number of symbols, whose semantic is given in HLSL
 	  // using the [shader("xxx")] syntax
-	pipeline.AddLibrary(m_pRayGenLibrary, { L"RayGen" });
-	pipeline.AddLibrary(m_pMissLibrary, { L"Miss" });
-	pipeline.AddLibrary(m_pHitLibrary, { L"ClosestHit" });
+	pipeline.AddLibrary(m_pRayGenShader->GetBlob(), { L"RayGen" });
+	pipeline.AddLibrary(m_pMissShader->GetBlob(), { L"Miss" });
+	pipeline.AddLibrary(m_pHitShader->GetBlob(), { L"ClosestHit" });
 
 	// To be used, each DX12 shader needs a root signature defining which
 	// parameters and buffers will be accessed.
@@ -1176,16 +1161,14 @@ void Renderer::CreateShaderResourceHeap()
 	// Get a handle to the heap memory on the CPU side, to be able to write the
 	// descriptors directly
 	m_DhIndexASOB = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetNextDescriptorHeapIndex(1);
-	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle =
-		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetCPUHeapAt(m_DhIndexASOB);
+	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetCPUHeapAt(m_DhIndexASOB);
 
 	// Create the UAV. Based on the root signature we created it is the first
 	// entry. The Create*View methods write the view information directly into
 	// srvHandle
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
 	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-	m_pDevice5->CreateUnorderedAccessView(m_pOutputResource, nullptr, &uavDesc,
-		srvHandle);
+	m_pDevice5->CreateUnorderedAccessView(m_pOutputResource, nullptr, &uavDesc, srvHandle);
 
 	// Add the Top Level AS SRV right after the raytracing output buffer
 	unsigned int nextDhIndex = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetNextDescriptorHeapIndex(1);

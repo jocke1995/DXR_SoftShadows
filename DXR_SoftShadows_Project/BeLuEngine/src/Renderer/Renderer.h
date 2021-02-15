@@ -48,6 +48,7 @@ class BaseCamera;
 class Material;
 struct RenderComponent;
 struct ID3D12Resource1;
+class Shader;
 
 // Copy
 class CopyTask;
@@ -204,10 +205,9 @@ private:
 
 	void CreateRaytracingPipeline();
 
-	IDxcBlob* m_pRayGenLibrary = nullptr;
-	IDxcBlob* m_pHitLibrary = nullptr;
-	IDxcBlob* m_pMissLibrary = nullptr;
-
+	Shader* m_pRayGenShader = nullptr;
+	Shader* m_pHitShader = nullptr;
+	Shader* m_pMissShader = nullptr;
 
 	ID3D12RootSignature* m_pRayGenSignature = nullptr;
 	ID3D12RootSignature* m_pHitSignature = nullptr;

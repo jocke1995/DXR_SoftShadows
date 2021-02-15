@@ -92,12 +92,13 @@ enum SHADOW_RESOLUTION
 	UNDEFINED
 };
 
-enum class ShaderType
+enum class SHADER_TYPE
 {
 	VS = 0,
 	PS = 1,
 	CS = 2,
-	UNSPECIFIED = 3
+	DXR = 3,
+	NUM_SHADER_TYPES
 };
 
 enum class CAMERA_TYPE
