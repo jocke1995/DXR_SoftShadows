@@ -23,6 +23,16 @@ PerspectiveCamera::~PerspectiveCamera()
 
 }
 
+const DirectX::XMMATRIX* PerspectiveCamera::GetProjMatrix() const
+{
+	return &m_ProjMatrix;
+}
+
+const DirectX::XMMATRIX* PerspectiveCamera::GetProjMatrixInverse() const
+{
+	return &DirectX::XMMatrixInverse(nullptr, m_ProjMatrix);
+}
+
 const DirectX::XMMATRIX* PerspectiveCamera::GetViewProjection() const
 {
 	return &m_ViewProjMatrix;

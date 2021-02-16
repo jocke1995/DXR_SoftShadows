@@ -116,7 +116,7 @@ void Renderer::deleteRenderer()
 	delete m_pCbPerFrameData;
 	delete m_pTempCommandInterface;
 
-	// DXR
+	// ----------------------- DXR ----------------------- 
 	
 	for (auto i : m_instances)
 	{
@@ -128,6 +128,10 @@ void Renderer::deleteRenderer()
 	delete m_pHitShader;
 	delete m_pMissShader;
 	delete m_pRayGenShader;
+
+	delete m_pCbCamera;
+	delete m_pCbCameraData;
+
 	SAFE_RELEASE(&m_pRayGenSignature);
 	SAFE_RELEASE(&m_pMissSignature);
 	SAFE_RELEASE(&m_pHitSignature);
@@ -232,6 +236,8 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	// are invoked for each instance in the  AS
 	CreateShaderBindingTable();
 	
+	m_pCbCamera = new ConstantBuffer(m_pDevice5, sizeof(DXR_CAMERA), L"DXR_CAMERA", m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]);
+	m_pCbCameraData = new DXR_CAMERA();
 	submitMeshToCodt(m_pFullScreenQuad);
 }
 
@@ -252,6 +258,12 @@ void Renderer::Update(double dt)
 	m_pCbPerFrameData->camRight = right;
 	m_pCbPerFrameData->camUp = up;
 	m_pCbPerFrameData->camForward = forward;
+
+	// DXR cam
+	m_pCbCameraData->projection  = *m_pScenePrimaryCamera->GetProjMatrix();
+	m_pCbCameraData->projectionI = *m_pScenePrimaryCamera->GetProjMatrixInverse();
+	m_pCbCameraData->view		 = *m_pScenePrimaryCamera->GetViewMatrix();
+	m_pCbCameraData->viewI		 = *m_pScenePrimaryCamera->GetViewMatrixInverse();
 }
 
 void Renderer::SortObjects()
@@ -376,6 +388,25 @@ void Renderer::ExecuteDXR()
 	unsigned int backBufferIndex = dx12SwapChain->GetCurrentBackBufferIndex();
 	unsigned int commandInterfaceIndex = m_FrameCounter++ % NUM_SWAP_BUFFERS;
 
+	/* ------------------------------------- COPY DATA ------------------------------------- */
+	DX12Task::SetCommandInterfaceIndex(commandInterfaceIndex);
+
+	CopyTask* copyTask = nullptr;
+
+	// Copy on demand
+	copyTask = m_CopyTasks[COPY_TASK_TYPE::COPY_ON_DEMAND];
+	copyTask->Execute();
+
+	// Copy per frame
+	copyTask = m_CopyTasks[COPY_TASK_TYPE::COPY_PER_FRAME];
+	copyTask->Execute();
+
+	// TEMP
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
+		m_DirectCommandLists[commandInterfaceIndex].size(),
+		m_DirectCommandLists[commandInterfaceIndex].data());
+	/* ------------------------------------- COPY DATA ------------------------------------- */
+
 	m_pTempCommandInterface->Reset(commandInterfaceIndex);
 	auto cl = m_pTempCommandInterface->GetCommandList(commandInterfaceIndex);
 
@@ -396,6 +427,10 @@ void Renderer::ExecuteDXR()
 
 	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
 	
+	cl->SetComputeRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootConstantBufferView(RS::CBV0		 , m_pCbCamera->GetDefaultResource()->GetGPUVirtualAdress());
+
 	// On the last frame, the raytracing output was used as a copy source, to
 	// copy its contents into the render target. Now we need to transition it to
 	// a UAV so that the shaders can write in it.
@@ -996,7 +1031,8 @@ void Renderer::CreateAccelerationStructures()
 	CreateBottomLevelAS({ {r1, numVertices} });
 
 	// Just one instance for now
-	m_instances = { {m_BottomLevelASBuffers.result->GetID3D12Resource1(), DirectX::XMMatrixIdentity()} };
+	m_instances = { {m_BottomLevelASBuffers.result->GetID3D12Resource1(), DirectX::XMMatrixTranslation(-1.0f, 0.0f, 0.0f)}};
+
 	CreateTopLevelAS(m_instances);
 
 	// Flush the command list and wait for it to finish
@@ -1753,6 +1789,9 @@ void Renderer::submitUploadPerFrameData()
 	{
 		const void* data = static_cast<void*>(m_pCbPerFrameData);
 		cpft->Submit(&std::tuple(m_pCbPerFrame->GetUploadResource(), m_pCbPerFrame->GetDefaultResource(), data));
+
+		const void* data2 = static_cast<void*>(m_pCbCameraData);
+		cpft->Submit(&std::tuple(m_pCbCamera->GetUploadResource(), m_pCbCamera->GetDefaultResource(), data2));
 	}
 }
 

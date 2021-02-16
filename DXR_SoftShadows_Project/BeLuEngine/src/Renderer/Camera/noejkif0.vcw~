@@ -77,6 +77,6 @@ const DirectX::XMMATRIX* BaseCamera::GetViewMatrix() const
 
 const DirectX::XMMATRIX* BaseCamera::GetViewMatrixInverse() const
 {
-	return &DirectX::XMMatrixInverse(nullptr, m_ViewMatrix);
+	return &m_ViewMatrixInverse;
 }
 

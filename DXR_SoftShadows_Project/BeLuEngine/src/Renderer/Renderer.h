@@ -217,8 +217,6 @@ private:
 	ID3D12StateObject* m_pRTStateObject = nullptr;
 	ID3D12StateObjectProperties* m_pRTStateObjectProps = nullptr;
 
-
-
 	// #DXR Resources
 	void CreateRaytracingOutputBuffer();
 	void CreateShaderResourceHeap();
@@ -230,10 +228,10 @@ private:
 	void CreateShaderBindingTable();
 	nv_helpers_dx12::ShaderBindingTableGenerator m_SbtHelper;
 	ID3D12Resource* m_pSbtStorage;
-	
-	
-	
-	
+
+	// Camera
+	DXR_CAMERA* m_pCbCameraData = nullptr;
+	ConstantBuffer* m_pCbCamera = nullptr;
 	// ------------------- DXR temp ----------------
 
 
