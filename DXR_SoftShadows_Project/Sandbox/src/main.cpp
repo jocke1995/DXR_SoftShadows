@@ -46,7 +46,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
    // Set scene
    sceneManager->SetScene(scene);
 
-   unsigned int temp = 0;
+   // Have to update models before using it in the AS buffers
+   renderer->UpdateSceneToGPU();
+   sceneManager->Update(0);
+   renderer->InitDXR();
+
    BL_LOG("Entering Game-Loop ...\n\n");
    while (!window->ExitWindow())
    {
@@ -65,13 +69,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
        renderer->SortObjects();
    
        /* ------ Draw ------ */
-       if (temp == 2)
-       {
-           renderer->InitDXR();
-           Log::Print("DXR initted!\n");
-       }
-       temp++;
-
        if (DXR)
        {
            renderer->ExecuteDXR();

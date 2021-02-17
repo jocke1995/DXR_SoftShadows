@@ -238,6 +238,20 @@ void Renderer::InitDXR()
 	CreateShaderBindingTable();
 }
 
+void Renderer::UpdateSceneToGPU()
+{
+	DX12Task::SetCommandInterfaceIndex(0);
+
+	// Copy on demand
+	m_CopyTasks[COPY_TASK_TYPE::COPY_ON_DEMAND]->Execute();
+
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, &m_DXRCodtCommandLists[0]);
+
+	/*------------------- Post draw stuff -------------------*/
+	waitForGPU();
+
+}
+
 void Renderer::Update(double dt)
 {
 	float3 right = reinterpret_cast<float3&>(m_pScenePrimaryCamera->GetRightVector());
@@ -360,9 +374,10 @@ void Renderer::Execute()
 	/* --------------------------------------------------------------- */
 
 	// Wait if the CPU is to far ahead of the gpu
-	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->Signal(m_pFenceFrame, m_FenceFrameValue);
-	waitForFrame(0);
-	m_FenceFrameValue++;
+	waitForGPU();
+	//m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->Signal(m_pFenceFrame, m_FenceFrameValue);
+	//waitForFrame(0);
+	//m_FenceFrameValue++;
 
 	/*------------------- Post draw stuff -------------------*/
 	// Clear copy on demand
@@ -388,24 +403,16 @@ void Renderer::ExecuteDXR()
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 	DX12Task::SetCommandInterfaceIndex(commandInterfaceIndex);
 
-	CopyTask* copyTask = nullptr;
-
-	// Copy on demand
-	copyTask = m_CopyTasks[COPY_TASK_TYPE::COPY_ON_DEMAND];
-	copyTask->Execute();
-
 	// Copy per frame
-	copyTask = m_CopyTasks[COPY_TASK_TYPE::COPY_PER_FRAME];
-	copyTask->Execute();
+	m_CopyTasks[COPY_TASK_TYPE::COPY_PER_FRAME]->Execute();
 
-	// TEMP
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
-		m_DXRCopyCommandLists[commandInterfaceIndex].size(),
-		m_DXRCopyCommandLists[commandInterfaceIndex].data());
+		1,
+		&m_DXRCpftCommandLists[commandInterfaceIndex]);
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 
-	m_pTempCommandInterface->Reset(commandInterfaceIndex);
-	auto cl = m_pTempCommandInterface->GetCommandList(commandInterfaceIndex);
+	m_pTempCommandInterface->Reset(0);
+	auto cl = m_pTempCommandInterface->GetCommandList(0);
 
 	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
 	ID3D12Resource1* swapChainResource = swapChainRenderTarget->GetResource()->GetID3D12Resource1();
@@ -519,6 +526,7 @@ void Renderer::ExecuteDXR()
 
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, cLists);
 
+	/*------------------- Post draw stuff -------------------*/
 	waitForGPU();
 
 	/*------------------- Present -------------------*/
@@ -1626,13 +1634,13 @@ void Renderer::initRenderTasks()
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)
 	{
 		m_DirectCommandLists[i].push_back(copyOnDemandTask->GetCommandInterface()->GetCommandList(i));
-		m_DXRCopyCommandLists[i].push_back(copyOnDemandTask->GetCommandInterface()->GetCommandList(i));
+		m_DXRCodtCommandLists[i] = copyOnDemandTask->GetCommandInterface()->GetCommandList(i);
 	}
 
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)
 	{
 		m_DirectCommandLists[i].push_back(copyPerFrameTask->GetCommandInterface()->GetCommandList(i));
-		m_DXRCopyCommandLists[i].push_back(copyPerFrameTask->GetCommandInterface()->GetCommandList(i));
+		m_DXRCpftCommandLists[i] = copyPerFrameTask->GetCommandInterface()->GetCommandList(i);
 	}
 
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)

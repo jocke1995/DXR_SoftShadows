@@ -42,6 +42,8 @@ private:
     float m_Pitch = 0.0f;
 
     DirectX::XMMATRIX m_ProjMatrix;
+    DirectX::XMMATRIX m_ProjMatrixInverse;
+
     DirectX::XMMATRIX m_ViewProjMatrix;
     DirectX::XMMATRIX m_ViewProjTranposedMatrix;
 

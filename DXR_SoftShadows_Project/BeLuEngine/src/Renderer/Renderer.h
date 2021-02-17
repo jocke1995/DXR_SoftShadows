@@ -99,6 +99,8 @@ public:
 	void InitD3D12(Window* window, HINSTANCE hInstance, ThreadPool* threadPool);
 	void InitDXR();
 
+	void UpdateSceneToGPU();
+
 	// Call each frame
 	void Update(double dt);
 	void SortObjects();
@@ -260,7 +262,9 @@ private:
 
 	// Commandlists holders
 	std::vector<ID3D12CommandList*> m_DirectCommandLists[NUM_SWAP_BUFFERS];
-	std::vector<ID3D12CommandList*> m_DXRCopyCommandLists[NUM_SWAP_BUFFERS];
+
+	ID3D12CommandList* m_DXRCpftCommandLists[NUM_SWAP_BUFFERS];
+	ID3D12CommandList* m_DXRCodtCommandLists[NUM_SWAP_BUFFERS];
 
 	// DescriptorHeaps
 	std::map<DESCRIPTOR_HEAP_TYPE, DescriptorHeap*> m_DescriptorHeaps = {};

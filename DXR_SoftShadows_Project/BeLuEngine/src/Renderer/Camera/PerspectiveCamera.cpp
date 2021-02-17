@@ -30,7 +30,7 @@ const DirectX::XMMATRIX* PerspectiveCamera::GetProjMatrix() const
 
 const DirectX::XMMATRIX* PerspectiveCamera::GetProjMatrixInverse() const
 {
-	return &DirectX::XMMatrixInverse(nullptr, m_ProjMatrix);
+	return &m_ProjMatrixInverse;
 }
 
 const DirectX::XMMATRIX* PerspectiveCamera::GetViewProjection() const
@@ -84,6 +84,8 @@ void PerspectiveCamera::UpdateMovement(int3 newMovement)
 void PerspectiveCamera::updateProjectionMatrix()
 {
 	m_ProjMatrix = DirectX::XMMatrixPerspectiveFovLH(m_Fov, m_AspectRatio, m_NearZ, m_FarZ);
+
+	m_ProjMatrixInverse = DirectX::XMMatrixInverse(nullptr, m_ProjMatrix);;
 }
 
 void PerspectiveCamera::updateSpecific(double dt)
@@ -94,6 +96,7 @@ void PerspectiveCamera::updateSpecific(double dt)
 	}
 
 	m_ViewMatrix = DirectX::XMMatrixLookAtLH(m_EyeVector, DirectX::XMVectorAdd(m_EyeVector, m_DirectionVector), m_UpVector);
+	m_ViewMatrixInverse = DirectX::XMMatrixInverse(nullptr, m_ViewMatrix);
 
 	m_ViewProjMatrix = m_ViewMatrix * m_ProjMatrix;
 	m_ViewProjTranposedMatrix = DirectX::XMMatrixTranspose(m_ViewProjMatrix);
