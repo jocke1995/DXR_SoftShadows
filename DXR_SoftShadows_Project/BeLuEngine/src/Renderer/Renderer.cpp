@@ -1031,7 +1031,7 @@ void Renderer::CreateAccelerationStructures()
 	CreateBottomLevelAS({ {r1, numVertices} });
 
 	// Just one instance for now
-	m_instances = { {m_BottomLevelASBuffers.result->GetID3D12Resource1(), DirectX::XMMatrixTranslation(-1.0f, 0.0f, 0.0f)}};
+	m_instances = { {m_BottomLevelASBuffers.result->GetID3D12Resource1(), DirectX::XMMatrixTranslation(-1.0f, 0.0f, 0.0f)} };
 
 	CreateTopLevelAS(m_instances);
 

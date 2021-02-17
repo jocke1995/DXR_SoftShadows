@@ -71,6 +71,16 @@ const SlotInfo* Model::GetSlotInfoAt(unsigned int index) const
 	return &m_SlotInfos[index];
 }
 
+void Model::SetBottomLevelResult(ID3D12Resource1* blResult)
+{
+	m_pBottomLevelResult = blResult;
+}
+
+ID3D12Resource1* Model::GetBottomLevelResultP() const
+{
+	return m_pBottomLevelResult;
+}
+
 void Model::updateSlotInfo()
 {
 #ifdef DEBUG
