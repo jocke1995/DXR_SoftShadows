@@ -80,6 +80,7 @@ struct WindowSettingChange;
 
 struct BLModel
 {
+	AccelerationStructureBuffers* ASbuffer;
 	std::vector<std::pair<ID3D12Resource1*, uint32_t>> vertexBuffers;
 	std::vector<std::pair<ID3D12Resource1*, uint32_t>> indexBuffers;
 };
@@ -188,7 +189,6 @@ private:
 	CommandInterface* m_pTempCommandInterface = nullptr;
 
 	// AS
-	AccelerationStructureBuffers m_BottomLevelASBuffers;
 	AccelerationStructureBuffers m_TopLevelASBuffers;
 
 	// Generators
@@ -196,14 +196,12 @@ private:
 	nv_helpers_dx12::TopLevelASGenerator	m_TopLevelAsGenerator = {};
 
 	// All bottomLevel models
-	std::vector<BLModel> m_BottomLevelModels;
+	std::vector<BLModel*> m_BottomLevelModels;
 
 	// Objects
 	std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>> m_instances;
 
-	void CreateBottomLevelAS(
-		std::vector<std::pair<ID3D12Resource1*, uint32_t>> vertexBuffers,
-		std::vector<std::pair<ID3D12Resource1*, uint32_t>> indexBuffers);
+	void CreateBottomLevelAS(BLModel** blModel);
 	void CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>> &instances);
 	void CreateAccelerationStructures();
 

@@ -123,8 +123,8 @@ void Renderer::deleteRenderer()
 		SAFE_RELEASE(&i.first);
 	}
 
-	m_BottomLevelASBuffers.release();
-	m_TopLevelASBuffers.release();
+	m_TopLevelASBuffers.~AccelerationStructureBuffers();
+
 	delete m_pHitShader;
 	delete m_pMissShader;
 	delete m_pRayGenShader;
@@ -144,7 +144,15 @@ void Renderer::deleteRenderer()
 
 	SAFE_RELEASE(&m_pDevice5);
 
+	for (BLModel* blModel : m_BottomLevelModels)
+	{
+		blModel->ASbuffer->release();
+		delete blModel->ASbuffer;
+		delete blModel;
+	}
 	m_BottomLevelModels.clear();
+
+	m_TopLevelASBuffers.release();
 }
 
 void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* threadPool)
@@ -835,15 +843,15 @@ void Renderer::submitModelToGPU(Model* model)
 		return;
 	}
 
-	BLModel bLmodel;
+	BLModel* bLmodel = new BLModel;
 
 	for (unsigned int i = 0; i < model->GetSize(); i++)
 	{
 		Mesh* mesh = model->GetMeshAt(i);
 
 		// DXR
-		bLmodel.vertexBuffers.push_back(std::make_pair(mesh->GetDefaultResourceVertices()->GetID3D12Resource1(), mesh->GetNumVertices()));
-		bLmodel.indexBuffers.push_back(std::make_pair(mesh->GetDefaultResourceIndices()->GetID3D12Resource1(), mesh->GetNumIndices()));
+		bLmodel->vertexBuffers.push_back(std::make_pair(mesh->GetDefaultResourceVertices()->GetID3D12Resource1(), mesh->GetNumVertices()));
+		bLmodel->indexBuffers.push_back(std::make_pair(mesh->GetDefaultResourceIndices()->GetID3D12Resource1(), mesh->GetNumIndices()));
 
 		// Submit Mesh
 		submitMeshToCodt(mesh);
@@ -864,7 +872,11 @@ void Renderer::submitModelToGPU(Model* model)
 		submitTextureToCodt(texture);
 	}
 
+	// DXR
 	m_BottomLevelModels.push_back(bLmodel);
+	CreateBottomLevelAS(&bLmodel);
+	model->SetBottomLevelResult(bLmodel->ASbuffer->result->GetID3D12Resource1());
+
 	AssetLoader::Get()->m_LoadedModels.at(model->GetPath()).first = true;
 }
 
@@ -908,15 +920,13 @@ Window* const Renderer::GetWindow() const
 	return m_pWindow;
 }
 
-void Renderer::CreateBottomLevelAS(
-	std::vector<std::pair<ID3D12Resource1*, uint32_t>> vertexBuffers,
-	std::vector<std::pair<ID3D12Resource1*, uint32_t>> indexBuffers)
+void Renderer::CreateBottomLevelAS(BLModel** blModel)
 {
 	// Adding all vertex buffers and not transforming their position.
-	for (unsigned int i = 0; i < vertexBuffers.size(); i++)
+	for (unsigned int i = 0; i < (*blModel)->vertexBuffers.size(); i++)
 	{
-		std::pair<ID3D12Resource1*, uint32_t> vBuffer = vertexBuffers.at(i);
-		std::pair<ID3D12Resource1*, uint32_t> iBuffer = indexBuffers.at(i);
+		std::pair<ID3D12Resource1*, uint32_t> vBuffer = (*blModel)->vertexBuffers.at(i);
+		std::pair<ID3D12Resource1*, uint32_t> iBuffer = (*blModel)->indexBuffers.at(i);
 
 		m_BottomLevelASGenerator.AddVertexBuffer(
 			vBuffer.first, 0, vBuffer.second, sizeof(Vertex),
@@ -933,14 +943,16 @@ void Renderer::CreateBottomLevelAS(
 	m_BottomLevelASGenerator.ComputeASBufferSizes(m_pDevice5, false, &scratchSizeInBytes,
 		&resultSizeInBytes);
 
+
 	// Scratch
-	m_BottomLevelASBuffers.scratch = new Resource(
-		m_pDevice5, scratchSizeInBytes,
-		RESOURCE_TYPE::DEFAULT, L"scratchBottomLevel",
-		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+	(*blModel)->ASbuffer = new AccelerationStructureBuffers();
+	(*blModel)->ASbuffer->scratch = new Resource(
+	m_pDevice5, scratchSizeInBytes,
+	RESOURCE_TYPE::DEFAULT, L"scratchBottomLevel",
+	D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 
 	// Result
-	m_BottomLevelASBuffers.result = new Resource(
+	(*blModel)->ASbuffer->result = new Resource(
 		m_pDevice5, resultSizeInBytes,
 		RESOURCE_TYPE::DEFAULT, L"resultBottomLevel",
 		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
@@ -949,8 +961,8 @@ void Renderer::CreateBottomLevelAS(
 	// Build the acceleration structure. Note that this call integrates a barrier
 	// on the generated AS, so that it can be used to compute a top-level AS right
 	// after this method.
-	m_BottomLevelASGenerator.Generate(m_pTempCommandInterface->GetCommandList(0), m_BottomLevelASBuffers.scratch->GetID3D12Resource1(),
-		m_BottomLevelASBuffers.result->GetID3D12Resource1(), false, nullptr);
+	m_BottomLevelASGenerator.Generate(m_pTempCommandInterface->GetCommandList(0), (*blModel)->ASbuffer->scratch->GetID3D12Resource1(),
+		(*blModel)->ASbuffer->result->GetID3D12Resource1(), false, nullptr);
 }
 
 void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>>& instances)
@@ -1014,15 +1026,8 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 
 void Renderer::CreateAccelerationStructures()
 {
-	// Build the bottom AS from the Triangle vertex buffer
-	for (auto blModel : m_BottomLevelModels)
-	{
-		CreateBottomLevelAS(blModel.vertexBuffers, blModel.indexBuffers);
-	}
-	
-
 	// Just one instance for now
-	m_instances = { {m_BottomLevelASBuffers.result->GetID3D12Resource1(), *m_RenderComponents.at(0)->tc->GetTransform()->GetWorldMatrix()} };
+	m_instances = { {m_RenderComponents.at(0)->mc->GetModel()->GetBottomLevelResultP(), *m_RenderComponents.at(0)->tc->GetTransform()->GetWorldMatrix()} };
 
 	CreateTopLevelAS(m_instances);
 
