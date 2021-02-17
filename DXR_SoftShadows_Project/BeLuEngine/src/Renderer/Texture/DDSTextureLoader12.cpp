@@ -133,7 +133,7 @@ namespace
     template<UINT TNameLength>
     inline void SetDebugObjectName(_In_ ID3D12DeviceChild* resource, _In_z_ const wchar_t(&name)[TNameLength]) noexcept
     {
-#if !defined(NO_D3D12_DEBUG_NAME) && ( defined(_DEBUG) || defined(PROFILE) )
+#if !defined(NO_D3D12_DEBUG_NAME) && ( defined(DEBUG) || defined(PROFILE) )
         resource->SetName(name);
 #else
         UNREFERENCED_PARAMETER(resource);
@@ -1434,7 +1434,7 @@ namespace
         _In_z_ const wchar_t* fileName,
         _In_ ID3D12Resource** texture) noexcept
     {
-#if !defined(NO_D3D12_DEBUG_NAME) && ( defined(_DEBUG) || defined(PROFILE) )
+#if !defined(NO_D3D12_DEBUG_NAME) && ( defined(DEBUG) || defined(PROFILE) )
         if (texture && *texture)
         {
             const wchar_t* pstrName = wcsrchr(fileName, '\\');
