@@ -67,18 +67,18 @@ int main()
     -q false            // Quit after test
     */
 
-    wchar_t test1Args[] = L"-q 1";
-    wchar_t test1Argsi[] = L"-q 1 -i 1";
+    wchar_t test1Args[] = L"-o ../test1.csv -q 1";
+    wchar_t test1Argsi[] = L"-o ../test2.csv -q 1 -i 1";
 
     // Scene 1
     Printl("Scene 1...........................................");
     TestSandbox(test1Args);
-    Printl("..................................................");
+    Printl("..................................................\n");
 
     // Scene 1 (inline RT)
     Printl("Scene 1 (inline)..................................");
     TestSandbox(test1Argsi);
-    Printl("..................................................");
+    Printl("..................................................\n");
 
 
     Printl("..................................................");

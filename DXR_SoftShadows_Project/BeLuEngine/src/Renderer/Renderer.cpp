@@ -52,6 +52,24 @@
 
 #include "../Misc/CSVExporter.h"
 
+
+
+
+
+
+// Test stuff
+struct TestData
+{
+	std::string GPUcard = "Unknown";
+	double nrOfTests = 5;
+	bool inlineRT = "False";
+	double resultAverage = -1;
+};
+
+TestData testData;
+CSVExporter csvExporter;
+std::vector<double> frameData;
+
 Renderer::Renderer()
 {
 	EventBus::GetInstance().Subscribe(this, &Renderer::toggleFullscreen);
@@ -210,6 +228,8 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	m_pCbPerFrameData = new CB_PER_FRAME_STRUCT();
 
 	// Temp
+	frameData.reserve(testData.nrOfTests);
+
 	m_pTempCommandInterface = new CommandInterface(m_pDevice5, COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
 	m_pTempCommandInterface->Reset(0);
 
@@ -390,15 +410,6 @@ void Renderer::Execute()
 }
 
 
-struct TestData
-{
-	std::string GPUcard = "Unknown";
-	double nrOfTests = 5;
-	bool inlineRT = "False";
-};
-
-TestData testData;
-CSVExporter csvExporter;
 
 #define DX12TEST(fnc) m_DXTimer.Start(cl, 0);fnc;m_DXTimer.Stop(cl, 0);m_DXTimer.ResolveQueryToCPU(cl, 0);
 
@@ -542,18 +553,25 @@ void Renderer::ExecuteDXR()
 	BL_LOG_INFO("DXR deltaTime: %lf\n", dt);
 
 	static unsigned int nrOfFrames = 0;
-	if (nrOfFrames == 0)
-	{
-		// meta data first row
-		csvExporter << testData.GPUcard << "," << testData.nrOfTests << "," << testData.inlineRT <<  "\n";
-	}
 
 	if (nrOfFrames < testData.nrOfTests)
 	{
-		csvExporter << dt << "\n";
+		// Save frame time
+		frameData.push_back(dt);
 	}
 	else if (nrOfFrames == testData.nrOfTests)
 	{
+		// Compute average
+		double sum = 0;
+		for (unsigned int i = 0; i < frameData.size(); i++)
+		{
+			sum += frameData.at(i);
+		}
+
+		testData.resultAverage = sum/frameData.size();
+
+		csvExporter << testData.GPUcard << "," << testData.inlineRT << "," << testData.nrOfTests << "," << testData.resultAverage;
+
 		csvExporter.Export(m_OutputName);
 
 		BL_LOG_INFO("Exported.......\n");

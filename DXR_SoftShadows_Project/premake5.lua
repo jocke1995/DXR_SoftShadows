@@ -70,6 +70,12 @@ project "Sandbox"
     links {
         "BeLuEngine"
     }
+	
+	postbuildcommands
+    {
+        ("{COPY} ../dll ../bin/%{cfg.buildcfg}/Sandbox"),
+		("{COPY} ../bin/%{cfg.buildcfg}/Sandbox ../bin/%{cfg.buildcfg}/PerformanceTest/Sandbox")
+    }
     
     filter "configurations:Debug"
         defines { "DEBUG" }
@@ -82,6 +88,8 @@ project "Sandbox"
     filter "configurations:Dist"
         defines { "DIST", "BT_USE_DOUBLE_PRECISION" }
         optimize "On"
+		
+	
 	
 	
 project "PerformanceTest"
