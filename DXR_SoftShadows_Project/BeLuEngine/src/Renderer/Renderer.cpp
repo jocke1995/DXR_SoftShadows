@@ -548,7 +548,6 @@ void Renderer::ExecuteDXR()
 #endif
 }
 
-
 void Renderer::InitModelComponent(component::ModelComponent* mc)
 {
 	component::TransformComponent* tc = mc->GetParent()->GetComponent<component::TransformComponent>();
@@ -943,7 +942,6 @@ void Renderer::CreateBottomLevelAS(BLModel** blModel)
 	m_BottomLevelASGenerator.ComputeASBufferSizes(m_pDevice5, false, &scratchSizeInBytes,
 		&resultSizeInBytes);
 
-
 	// Scratch
 	(*blModel)->ASbuffer = new AccelerationStructureBuffers();
 	(*blModel)->ASbuffer->scratch = new Resource(
@@ -1017,7 +1015,7 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 	// After all the buffers are allocated, or if only an update is required, we
 	// can build the acceleration structure. Note that in the case of the update
 	// we also pass the existing AS as the 'previous' AS, so that it can be
-	// refitted in place.
+	// refitted in place.m_pTempCommandInterface
 	m_TopLevelAsGenerator.Generate(m_pTempCommandInterface->GetCommandList(0),
 		m_TopLevelASBuffers.scratch->GetID3D12Resource1(),
 		m_TopLevelASBuffers.result->GetID3D12Resource1(),
@@ -1027,7 +1025,11 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 void Renderer::CreateAccelerationStructures()
 {
 	// Just one instance for now
-	m_instances = { {m_RenderComponents.at(0)->mc->GetModel()->GetBottomLevelResultP(), *m_RenderComponents.at(0)->tc->GetTransform()->GetWorldMatrix()} };
+	for (RenderComponent* rc : m_RenderComponents)
+	{
+		std::pair<ID3D12Resource1*, DirectX::XMMATRIX> pair = std::make_pair(rc->mc->GetModel()->GetBottomLevelResultP(), *rc->tc->GetTransform()->GetWorldMatrix());
+		m_instances.push_back(pair);
+	}
 
 	CreateTopLevelAS(m_instances);
 
@@ -1037,9 +1039,10 @@ void Renderer::CreateAccelerationStructures()
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, ppCommandLists);
 
 	// Wait if the CPU is to far ahead of the gpu
-	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->Signal(m_pFenceFrame, m_FenceFrameValue);
-	waitForFrame(0);
-	m_FenceFrameValue++;
+	waitForGPU();
+	//m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->Signal(m_pFenceFrame, m_FenceFrameValue);
+	//waitForFrame(0);
+	//m_FenceFrameValue++;
 }
 
 ID3D12RootSignature* Renderer::CreateRayGenSignature()

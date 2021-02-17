@@ -110,16 +110,16 @@ Scene* TestScene(SceneManager* sm)
     /* ---------------------- Player ---------------------- */
 
     /* ---------------------- Floor ---------------------- */
-    //entity = scene->AddEntity("floor");
-    //mc = entity->AddComponent<component::ModelComponent>();
-    //tc = entity->AddComponent<component::TransformComponent>();
-    //
-    //mc = entity->GetComponent<component::ModelComponent>();
-    //mc->SetModel(floorModel);
-    //mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
-    //tc = entity->GetComponent<component::TransformComponent>();
-    //tc->GetTransform()->SetScale(50, 1, 50);
-    //tc->GetTransform()->SetPosition(0.0f, 0.0f, 0.0f);
+    entity = scene->AddEntity("floor");
+    mc = entity->AddComponent<component::ModelComponent>();
+    tc = entity->AddComponent<component::TransformComponent>();
+    
+    mc = entity->GetComponent<component::ModelComponent>();
+    mc->SetModel(floorModel);
+    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
+    tc = entity->GetComponent<component::TransformComponent>();
+    tc->GetTransform()->SetScale(50, 1, 50);
+    tc->GetTransform()->SetPosition(0.0f, 0.0f, 0.0f);
     /* ---------------------- Floor ---------------------- */
 
     /* ---------------------- Sphere ---------------------- */
