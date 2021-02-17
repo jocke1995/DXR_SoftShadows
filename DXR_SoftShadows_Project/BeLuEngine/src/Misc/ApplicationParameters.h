@@ -7,8 +7,9 @@
 struct ApplicationParameters
 {
     std::wstring scene = L"test";
-    std::wstring outputFile = L"results.csv";
+    std::wstring outputFile = L"noname.csv";
     bool useInlineRaytracing = false;
+    bool quitOnFinish = false;
 };
 
 inline bool ParseParameters(ApplicationParameters* output)
@@ -56,6 +57,23 @@ inline bool ParseParameters(ApplicationParameters* output)
                 else
                 {
                     output->useInlineRaytracing = false;
+                }
+            }
+
+            // Inline Raytracing
+            if (wcscmp(szArglist[i], L"-q") == 0)
+            {
+                ++i;
+
+                if (wcscmp(szArglist[i], L"true") == 0 || wcscmp(szArglist[i], L"True") == 0 || wcscmp(szArglist[i], L"TRUE") == 0 ||
+                    wcscmp(szArglist[i], L"yes") == 0 || wcscmp(szArglist[i], L"Yes") == 0 || wcscmp(szArglist[i], L"YES") == 0 ||
+                    wcscmp(szArglist[i], L"1") == 0)
+                {
+                    output->quitOnFinish = true;
+                }
+                else
+                {
+                    output->quitOnFinish = false;
                 }
             }
         }

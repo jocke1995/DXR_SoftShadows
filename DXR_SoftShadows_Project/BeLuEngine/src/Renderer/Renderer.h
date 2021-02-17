@@ -92,6 +92,9 @@ public:
 	// Call once
 	void InitD3D12(Window* window, HINSTANCE hInstance, ThreadPool* threadPool);
 
+	void SetQuitOnFinish(bool b);
+	void SetResultsFileName(std::wstring outputName);
+
 	// Call each frame
 	void Update(double dt);
 	void SortObjects();
@@ -176,6 +179,8 @@ private:
 
 
 	// ------------------- DXR temp ----------------
+	bool m_QuitOnFinish = false;
+	std::wstring m_OutputName = L"Results.csv";
 	D3D12::D3D12Timer m_DXTimer;
 
 	CommandInterface* m_pTempCommandInterface = nullptr;

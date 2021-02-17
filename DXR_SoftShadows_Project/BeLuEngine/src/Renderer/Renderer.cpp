@@ -244,6 +244,16 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	submitMeshToCodt(m_pFullScreenQuad);
 }
 
+void Renderer::SetQuitOnFinish(bool b)
+{
+	m_QuitOnFinish = b;
+}
+
+void Renderer::SetResultsFileName(std::wstring outputName)
+{
+	m_OutputName = outputName;
+}
+
 void Renderer::Update(double dt)
 {
 	float3 right = reinterpret_cast<float3&>(m_pScenePrimaryCamera->GetRightVector());
@@ -544,9 +554,16 @@ void Renderer::ExecuteDXR()
 	}
 	else if (nrOfFrames == testData.nrOfTests)
 	{
-		csvExporter.Export();
+		csvExporter.Export(m_OutputName);
 
 		BL_LOG_INFO("Exported.......\n");
+
+
+		// Quit on finish
+		if (m_QuitOnFinish)
+		{
+			PostQuitMessage(0);
+		}
 	}
 	nrOfFrames++;
 #pragma endregion TimeMeasurment

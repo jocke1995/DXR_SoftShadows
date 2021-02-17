@@ -8,12 +8,8 @@ void Printl(std::string text)
     std::cout << text << std::endl;
 }
 
-int main()
+int TestSandbox(wchar_t* args)
 {
-    Printl("T");
-
-
-
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
 
@@ -21,9 +17,9 @@ int main()
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
 
-    // Start the child process. 
+    // Start the child process.  
     if (!CreateProcess(L"Sandbox\\Sandbox.exe",   // No module name (use command line)
-        NULL,        // Command line
+        (LPWSTR)args,        // Command line
         NULL,           // Process handle not inheritable
         NULL,           // Thread handle not inheritable
         FALSE,          // Set handle inheritance to FALSE
@@ -45,7 +41,10 @@ int main()
 
     if (GetExitCodeProcess(pi.hProcess, &exitCode))
     {
-        Printl("Exit code was: " + std::to_string(exitCode));
+        if (exitCode != 0)
+        {
+            Printl("SOMETHING WENT WRONG!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        }
     }
 
     // Close process and thread handles. 
@@ -53,6 +52,38 @@ int main()
     CloseHandle(pi.hThread);
 
     Printl("Testing Complete!!!");
+}
+
+int main()
+{
+    Printl("Testing will comence...");
+
+    /*
+    Commandline args:
+
+    -s test             // Scene
+    -o 123.txt          // Output Result File
+    -i false            // Use Inline-Raytracing
+    -q false            // Quit after test
+    */
+
+    wchar_t test1Args[] = L"-q 1";
+    wchar_t test1Argsi[] = L"-q 1 -i 1";
+
+    // Scene 1
+    Printl("Scene 1...........................................");
+    TestSandbox(test1Args);
+    Printl("..................................................");
+
+    // Scene 1 (inline RT)
+    Printl("Scene 1 (inline)..................................");
+    TestSandbox(test1Argsi);
+    Printl("..................................................");
+
+
+    Printl("..................................................");
+    Printl("---------------------FINISHED---------------------");
+    Printl("..................................................");
 
     std::cin.get();
 
