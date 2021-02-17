@@ -68,6 +68,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
        if (temp == 2)
        {
            renderer->InitDXR();
+           Log::Print("DXR initted!\n");
        }
        temp++;
 

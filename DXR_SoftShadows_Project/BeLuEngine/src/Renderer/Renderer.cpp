@@ -400,8 +400,8 @@ void Renderer::ExecuteDXR()
 
 	// TEMP
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
-		m_DirectCommandLists[commandInterfaceIndex].size(),
-		m_DirectCommandLists[commandInterfaceIndex].data());
+		m_DXRCopyCommandLists[commandInterfaceIndex].size(),
+		m_DXRCopyCommandLists[commandInterfaceIndex].data());
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 
 	m_pTempCommandInterface->Reset(commandInterfaceIndex);
@@ -1626,11 +1626,13 @@ void Renderer::initRenderTasks()
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)
 	{
 		m_DirectCommandLists[i].push_back(copyOnDemandTask->GetCommandInterface()->GetCommandList(i));
+		m_DXRCopyCommandLists[i].push_back(copyOnDemandTask->GetCommandInterface()->GetCommandList(i));
 	}
 
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)
 	{
 		m_DirectCommandLists[i].push_back(copyPerFrameTask->GetCommandInterface()->GetCommandList(i));
+		m_DXRCopyCommandLists[i].push_back(copyPerFrameTask->GetCommandInterface()->GetCommandList(i));
 	}
 
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)

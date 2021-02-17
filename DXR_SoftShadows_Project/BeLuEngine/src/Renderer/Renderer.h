@@ -260,7 +260,8 @@ private:
 
 	// Commandlists holders
 	std::vector<ID3D12CommandList*> m_DirectCommandLists[NUM_SWAP_BUFFERS];
-	
+	std::vector<ID3D12CommandList*> m_DXRCopyCommandLists[NUM_SWAP_BUFFERS];
+
 	// DescriptorHeaps
 	std::map<DESCRIPTOR_HEAP_TYPE, DescriptorHeap*> m_DescriptorHeaps = {};
 
