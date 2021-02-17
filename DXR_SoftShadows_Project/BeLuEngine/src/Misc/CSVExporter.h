@@ -11,7 +11,7 @@ public:
 
 	void Clear();
 
-	bool Export(const std::wstring& name = L"Results.csv", const std::wstring& path = L"");
+	bool Export(const std::wstring& name = L"Results.csv", const std::wstring& path = L"./");
 
 	inline void Print()
 	{
@@ -23,6 +23,7 @@ public:
 	friend std::stringstream& operator<<(CSVExporter& exporter, double d);
 	friend std::stringstream& operator<<(CSVExporter& exporter, float d);
 	friend std::stringstream& operator<<(CSVExporter& exporter, int d);
+	friend std::stringstream& operator<<(CSVExporter& exporter, bool d);
 	//friend std::stringstream& operator<<(CSVExporter& exporter, std::wstring wstring); does not work for some reason.
 
 private:

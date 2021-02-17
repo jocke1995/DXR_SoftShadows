@@ -146,24 +146,13 @@ void Renderer::deleteRenderer()
 	SAFE_RELEASE(&m_pDevice5);
 }
 
-bool IsDeveloperModeEnabled() {
-	HKEY hKey;
-	auto err = RegOpenKeyExW(HKEY_LOCAL_MACHINE, LR"(SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock)", 0, KEY_READ, &hKey);
-	if (err != ERROR_SUCCESS)
-		return false;
-	DWORD value{};
-	DWORD dwordSize = sizeof(DWORD);
-	err = RegQueryValueExW(hKey, L"AllowDevelopmentWithoutDevLicense", 0, NULL, reinterpret_cast<LPBYTE>(&value), &dwordSize);
-	RegCloseKey(hKey);
-	if (err != ERROR_SUCCESS)
-		return false;
-	return value != 0;
-}
-
 void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* threadPool)
 {
 	m_pThreadPool = threadPool;
 	m_pWindow = window;
+
+	// Work around for SetStablePowerState to work.
+	D3D12EnableExperimentalFeatures(0, nullptr, nullptr, nullptr);
 
 	// Create Device
 	if (!createDevice())
@@ -171,22 +160,7 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 		BL_LOG_CRITICAL("Failed to Create Device\n");
 	}
 
-	bool isDev = IsDeveloperModeEnabled();
-
-	
-
-	std::string tmpStr = "Developer mode: ";
-	std::string tmp = "False";
-
-	if (isDev)
-	{
-		tmp = "True";
-	}
-	tmpStr += tmp;
-
-	BL_LOG_INFO("%s\n", tmpStr.c_str());
-
-	auto hr = m_pDevice5->SetStablePowerState(true);
+	m_pDevice5->SetStablePowerState(true);
 
 	// Create CommandQueues (copy, compute and direct)
 	createCommandQueues();
@@ -405,17 +379,19 @@ void Renderer::Execute()
 #endif
 }
 
-CSVExporter csvExporter;
 
 struct TestData
 {
 	std::string GPUcard = "Unknown";
-	double nrOfTests = 50;
+	double nrOfTests = 5;
+	bool inlineRT = "False";
 };
 
 TestData testData;
+CSVExporter csvExporter;
 
 #define DX12TEST(fnc) m_DXTimer.Start(cl, 0);fnc;m_DXTimer.Stop(cl, 0);m_DXTimer.ResolveQueryToCPU(cl, 0);
+
 void Renderer::ExecuteDXR()
 {
 	IDXGISwapChain4* dx12SwapChain = m_pSwapChain->GetDX12SwapChain();
@@ -559,7 +535,7 @@ void Renderer::ExecuteDXR()
 	if (nrOfFrames == 0)
 	{
 		// meta data first row
-		csvExporter << testData.GPUcard << "," << testData.nrOfTests << "\n";
+		csvExporter << testData.GPUcard << "," << testData.nrOfTests << "," << testData.inlineRT <<  "\n";
 	}
 
 	if (nrOfFrames < testData.nrOfTests)
@@ -569,6 +545,8 @@ void Renderer::ExecuteDXR()
 	else if (nrOfFrames == testData.nrOfTests)
 	{
 		csvExporter.Export();
+
+		BL_LOG_INFO("Exported.......\n");
 	}
 	nrOfFrames++;
 #pragma endregion TimeMeasurment

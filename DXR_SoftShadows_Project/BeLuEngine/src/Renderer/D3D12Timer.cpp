@@ -203,10 +203,10 @@ namespace D3D12
 
 	void D3D12Timer::InitGPUFrequency(ID3D12CommandQueue* pCommandQueue)
 	{
-		UINT64 queueFreq;
+		UINT64 queueFreq; // Ticks/Second
 		pCommandQueue->GetTimestampFrequency(&queueFreq);
 
-		s_GPUFreqToMS = (1.0 / queueFreq) * 1000.0;
+		s_GPUFreqToMS = (1.0 / queueFreq) * 1000; // ms per tick
 	}
 
 	// Get time from m_Start to m_Stop in nano seconds.

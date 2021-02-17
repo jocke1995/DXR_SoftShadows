@@ -82,3 +82,38 @@ project "Sandbox"
     filter "configurations:Dist"
         defines { "DIST", "BT_USE_DOUBLE_PRECISION" }
         optimize "On"
+	
+	
+project "PerformanceTest"
+    location "PerformanceTest"
+    kind "ConsoleApp"
+    language "C++"
+    targetdir "bin/%{cfg.buildcfg}/%{prj.name}"
+    objdir "bin-int/%{cfg.buildcfg}/%{prj.name}"
+    staticruntime "On"
+    files { "%{prj.location}/src/**.cpp", "%{prj.location}/src/**.h", "%{prj.location}/src/**.hlsl", }
+
+    filter { "files:**.hlsl" }
+        flags "ExcludeFromBuild"
+    
+    filter "configurations:*"
+        cppdialect "C++17"
+    
+    includedirs {"Vendor/Include/", "BeLuEngine/src/"}
+    libdirs { "Vendor/Lib/**" }
+    links {
+	
+    }
+    
+    filter "configurations:Debug"
+        defines { "DEBUG" }
+        symbols "On"
+		debugdir "bin/%{cfg.buildcfg}/%{prj.name}"
+    
+    filter "configurations:Release"
+        defines { "DEBUG" }
+        optimize "On"
+
+    filter "configurations:Dist"
+        defines { "DIST", "BT_USE_DOUBLE_PRECISION" }
+        optimize "On"

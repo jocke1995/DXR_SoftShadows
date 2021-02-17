@@ -59,3 +59,13 @@ std::stringstream& operator<<(CSVExporter& exporter, int d)
 {
 	return operator<<(exporter, std::to_string(d));
 }
+
+std::stringstream& operator<<(CSVExporter& exporter, bool d)
+{
+	std::string boolStr = "False";
+	if (d)
+	{
+		boolStr = "True";
+	}
+	return operator<<(exporter, boolStr);
+}
