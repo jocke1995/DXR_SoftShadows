@@ -46,6 +46,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
    // Set scene
    sceneManager->SetScene(scene);
 
+   unsigned int temp = 0;
    BL_LOG("Entering Game-Loop ...\n\n");
    while (!window->ExitWindow())
    {
@@ -64,6 +65,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
        renderer->SortObjects();
    
        /* ------ Draw ------ */
+       if (temp == 2)
+       {
+           renderer->InitDXR();
+       }
+       temp++;
+
        if (DXR)
        {
            renderer->ExecuteDXR();
@@ -105,23 +112,23 @@ Scene* TestScene(SceneManager* sm)
     /* ---------------------- Player ---------------------- */
 
     /* ---------------------- Floor ---------------------- */
-    entity = scene->AddEntity("floor");
-    mc = entity->AddComponent<component::ModelComponent>();
-    tc = entity->AddComponent<component::TransformComponent>();
-
-    mc = entity->GetComponent<component::ModelComponent>();
-    mc->SetModel(floorModel);
-    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
-    tc = entity->GetComponent<component::TransformComponent>();
-    tc->GetTransform()->SetScale(50, 1, 50);
-    tc->GetTransform()->SetPosition(0.0f, 0.0f, 0.0f);
+    //entity = scene->AddEntity("floor");
+    //mc = entity->AddComponent<component::ModelComponent>();
+    //tc = entity->AddComponent<component::TransformComponent>();
+    //
+    //mc = entity->GetComponent<component::ModelComponent>();
+    //mc->SetModel(floorModel);
+    //mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
+    //tc = entity->GetComponent<component::TransformComponent>();
+    //tc->GetTransform()->SetScale(50, 1, 50);
+    //tc->GetTransform()->SetPosition(0.0f, 0.0f, 0.0f);
     /* ---------------------- Floor ---------------------- */
 
-     /* ---------------------- Sphere ---------------------- */
+    /* ---------------------- Sphere ---------------------- */
     entity = scene->AddEntity("sphere");
     mc = entity->AddComponent<component::ModelComponent>();
     tc = entity->AddComponent<component::TransformComponent>();
-
+    
     mc->SetModel(sphereModel);
     mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
     tc->GetTransform()->SetScale(1.0f);

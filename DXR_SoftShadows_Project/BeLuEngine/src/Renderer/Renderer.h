@@ -78,6 +78,12 @@ namespace component
 struct WindowChange;
 struct WindowSettingChange;
 
+struct BLModel
+{
+	std::vector<std::pair<ID3D12Resource1*, uint32_t>> vertexBuffers;
+	std::vector<std::pair<ID3D12Resource1*, uint32_t>> indexBuffers;
+};
+
 class Renderer
 {
 public:
@@ -91,6 +97,7 @@ public:
 
 	// Call once
 	void InitD3D12(Window* window, HINSTANCE hInstance, ThreadPool* threadPool);
+	void InitDXR();
 
 	// Call each frame
 	void Update(double dt);
@@ -186,17 +193,17 @@ private:
 	nv_helpers_dx12::BottomLevelASGenerator m_BottomLevelASGenerator = {};
 	nv_helpers_dx12::TopLevelASGenerator	m_TopLevelAsGenerator = {};
 
+	// All bottomLevel models
+	std::vector<BLModel> m_BottomLevelModels;
+
 	// Objects
 	std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>> m_instances;
 
-	// Create
-	Resource* m_pUploadTriVertices = nullptr;
-	void createRTTriangle();
-
-	void CreateBottomLevelAS(std::vector<std::pair<ID3D12Resource1*, uint32_t>> vVertexBuffers);
+	void CreateBottomLevelAS(
+		std::vector<std::pair<ID3D12Resource1*, uint32_t>> vertexBuffers,
+		std::vector<std::pair<ID3D12Resource1*, uint32_t>> indexBuffers);
 	void CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>> &instances);
 	void CreateAccelerationStructures();
-
 
 
 	ID3D12RootSignature* CreateRayGenSignature();

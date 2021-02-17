@@ -25,9 +25,9 @@ void Shader::compileShader()
 	DXILShaderCompiler::DXILCompilationDesc shaderCompilerDesc = {};
 
 	shaderCompilerDesc.compileArguments.push_back(L"/Gis"); // ? floating point accuracy?
-#ifdef _DEBUG
+#ifdef DEBUG
 	shaderCompilerDesc.compileArguments.push_back(L"/Zi"); // Debug info
-	shaderCompilerDesc.defines.push_back({ L"_DEBUG" });
+	shaderCompilerDesc.defines.push_back({ L"DEBUG" });
 #endif
 
 	shaderCompilerDesc.filePath = m_Path;

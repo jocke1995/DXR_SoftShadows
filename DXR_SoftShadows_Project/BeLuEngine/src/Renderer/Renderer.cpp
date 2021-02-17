@@ -139,14 +139,12 @@ void Renderer::deleteRenderer()
 	SAFE_RELEASE(&m_pRTStateObject);
 	SAFE_RELEASE(&m_pRTStateObjectProps);
 	
-
-
-
-	delete m_pUploadTriVertices;
 	SAFE_RELEASE(&m_pOutputResource);
 	SAFE_RELEASE(&m_pSbtStorage);
 
 	SAFE_RELEASE(&m_pDevice5);
+
+	m_BottomLevelModels.clear();
 }
 
 void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* threadPool)
@@ -213,12 +211,15 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 
 	initRenderTasks();
 
+	submitMeshToCodt(m_pFullScreenQuad);
 
+	// DXR
+	m_pCbCamera = new ConstantBuffer(m_pDevice5, sizeof(DXR_CAMERA), L"DXR_CAMERA", m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]);
+	m_pCbCameraData = new DXR_CAMERA();
+}
 
-	// RAYTRACING HERE:::::
-
-	createRTTriangle();
-
+void Renderer::InitDXR()
+{
 	CreateAccelerationStructures();
 
 	CreateRaytracingPipeline();
@@ -235,10 +236,6 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	// Create the shader binding table and indicating which shaders
 	// are invoked for each instance in the  AS
 	CreateShaderBindingTable();
-	
-	m_pCbCamera = new ConstantBuffer(m_pDevice5, sizeof(DXR_CAMERA), L"DXR_CAMERA", m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]);
-	m_pCbCameraData = new DXR_CAMERA();
-	submitMeshToCodt(m_pFullScreenQuad);
 }
 
 void Renderer::Update(double dt)
@@ -830,9 +827,15 @@ void Renderer::submitModelToGPU(Model* model)
 		return;
 	}
 
+	BLModel bLmodel;
+
 	for (unsigned int i = 0; i < model->GetSize(); i++)
 	{
 		Mesh* mesh = model->GetMeshAt(i);
+
+		// DXR
+		bLmodel.vertexBuffers.push_back(std::make_pair(mesh->GetDefaultResourceVertices()->GetID3D12Resource1(), mesh->GetNumVertices()));
+		bLmodel.indexBuffers.push_back(std::make_pair(mesh->GetDefaultResourceIndices()->GetID3D12Resource1(), mesh->GetNumIndices()));
 
 		// Submit Mesh
 		submitMeshToCodt(mesh);
@@ -853,6 +856,7 @@ void Renderer::submitModelToGPU(Model* model)
 		submitTextureToCodt(texture);
 	}
 
+	m_BottomLevelModels.push_back(bLmodel);
 	AssetLoader::Get()->m_LoadedModels.at(model->GetPath()).first = true;
 }
 
@@ -896,42 +900,19 @@ Window* const Renderer::GetWindow() const
 	return m_pWindow;
 }
 
-struct VertexTemp
-{
-	DirectX::XMFLOAT3 pos;
-};
-
-void Renderer::createRTTriangle()
-{
-	// Mesh data
-	std::vector<VertexTemp> vertexVector;
-
-	VertexTemp vertices[3] = {};
-	vertices[0].pos = { 0, 1.0f, 0 };
-
-	vertices[1].pos = { 0.866f,  -0.5f, 0, };
-
-	vertices[2].pos = { -0.866f, -0.5f, 0 };
-
-	for (unsigned int i = 0; i < 4; i++)
-	{
-		vertexVector.push_back(vertices[i]);
-	}
-
-
-	// create vertices resource
-	m_pUploadTriVertices = new Resource(m_pDevice5, vertexVector.size() * sizeof(VertexTemp), RESOURCE_TYPE::UPLOAD, L"TRI_VERTEX_UPLOAD");
-	m_pUploadTriVertices->SetData(vertexVector.data());
-
-}
-
-void Renderer::CreateBottomLevelAS(std::vector<std::pair<ID3D12Resource1*, uint32_t>> vVertexBuffers)
+void Renderer::CreateBottomLevelAS(
+	std::vector<std::pair<ID3D12Resource1*, uint32_t>> vertexBuffers,
+	std::vector<std::pair<ID3D12Resource1*, uint32_t>> indexBuffers)
 {
 	// Adding all vertex buffers and not transforming their position.
-	for (const auto& buffer : vVertexBuffers)
+	for (unsigned int i = 0; i < vertexBuffers.size(); i++)
 	{
-		m_BottomLevelASGenerator.AddVertexBuffer(buffer.first, 0, buffer.second,
-			sizeof(VertexTemp), 0, 0);
+		std::pair<ID3D12Resource1*, uint32_t> vBuffer = vertexBuffers.at(i);
+		std::pair<ID3D12Resource1*, uint32_t> iBuffer = indexBuffers.at(i);
+
+		m_BottomLevelASGenerator.AddVertexBuffer(
+			vBuffer.first, 0, vBuffer.second, sizeof(Vertex),
+			iBuffer.first, 0, iBuffer.second, nullptr, 0, true);
 	}
 
 	// The AS build requires some scratch space to store temporary information.
@@ -1026,12 +1007,14 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 void Renderer::CreateAccelerationStructures()
 {
 	// Build the bottom AS from the Triangle vertex buffer
-	ID3D12Resource1* r1 = m_pUploadTriVertices->GetID3D12Resource1();
-	unsigned int numVertices = 4;
-	CreateBottomLevelAS({ {r1, numVertices} });
+	for (auto blModel : m_BottomLevelModels)
+	{
+		CreateBottomLevelAS(blModel.vertexBuffers, blModel.indexBuffers);
+	}
+	
 
 	// Just one instance for now
-	m_instances = { {m_BottomLevelASBuffers.result->GetID3D12Resource1(), DirectX::XMMatrixTranslation(-1.0f, 0.0f, 0.0f)} };
+	m_instances = { {m_BottomLevelASBuffers.result->GetID3D12Resource1(), *m_RenderComponents.at(0)->tc->GetTransform()->GetWorldMatrix()} };
 
 	CreateTopLevelAS(m_instances);
 
