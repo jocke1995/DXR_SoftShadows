@@ -146,6 +146,20 @@ void Renderer::deleteRenderer()
 	SAFE_RELEASE(&m_pDevice5);
 }
 
+bool IsDeveloperModeEnabled() {
+	HKEY hKey;
+	auto err = RegOpenKeyExW(HKEY_LOCAL_MACHINE, LR"(SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock)", 0, KEY_READ, &hKey);
+	if (err != ERROR_SUCCESS)
+		return false;
+	DWORD value{};
+	DWORD dwordSize = sizeof(DWORD);
+	err = RegQueryValueExW(hKey, L"AllowDevelopmentWithoutDevLicense", 0, NULL, reinterpret_cast<LPBYTE>(&value), &dwordSize);
+	RegCloseKey(hKey);
+	if (err != ERROR_SUCCESS)
+		return false;
+	return value != 0;
+}
+
 void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* threadPool)
 {
 	m_pThreadPool = threadPool;
@@ -156,6 +170,23 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	{
 		BL_LOG_CRITICAL("Failed to Create Device\n");
 	}
+
+	bool isDev = IsDeveloperModeEnabled();
+
+	
+
+	std::string tmpStr = "Developer mode: ";
+	std::string tmp = "False";
+
+	if (isDev)
+	{
+		tmp = "True";
+	}
+	tmpStr += tmp;
+
+	BL_LOG_INFO("%s\n", tmpStr.c_str());
+
+	auto hr = m_pDevice5->SetStablePowerState(true);
 
 	// Create CommandQueues (copy, compute and direct)
 	createCommandQueues();
@@ -1356,7 +1387,7 @@ bool Renderer::createDevice()
 		// Check to see if the adapter supports Direct3D 12, but don't create the actual m_pDevice yet.
 		ID3D12Device5* pDevice = nullptr;
 		HRESULT hr = D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&pDevice));
-
+		
 		if (SUCCEEDED(hr))
 		{
 			DXGI_ADAPTER_DESC adapterDesc = {};
