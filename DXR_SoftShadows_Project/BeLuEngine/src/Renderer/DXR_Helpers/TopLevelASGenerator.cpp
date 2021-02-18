@@ -69,7 +69,7 @@ void TopLevelASGenerator::AddInstance(
                                         // positions
     UINT instanceID,                    // Instance ID, which can be used in the shaders to
                                         // identify this specific instance
-    UINT hitGroupIndex                  // Hit group index, corresponding the the index of the
+    UINT hitGroupIndex                  // Hit group index, corresponding the index of the
                                         // hit group in the Shader Binding Table that will be
                                         // invocated upon hitting the geometry
 )

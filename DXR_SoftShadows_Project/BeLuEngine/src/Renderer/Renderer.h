@@ -207,18 +207,22 @@ private:
 
 
 	ID3D12RootSignature* CreateRayGenSignature();
-	ID3D12RootSignature* CreateMissSignature();
 	ID3D12RootSignature* CreateHitSignature();
+	ID3D12RootSignature* CreateMissSignature();
+	ID3D12RootSignature* CreateShadowSignature();
 
 	void CreateRaytracingPipeline();
 
 	Shader* m_pRayGenShader = nullptr;
 	Shader* m_pHitShader = nullptr;
 	Shader* m_pMissShader = nullptr;
+	Shader* m_pShadowShader = nullptr;
 
 	ID3D12RootSignature* m_pRayGenSignature = nullptr;
 	ID3D12RootSignature* m_pHitSignature = nullptr;
 	ID3D12RootSignature* m_pMissSignature = nullptr;
+	ID3D12RootSignature* m_pShadowSignature = nullptr;
+
 
 	// Ray tracing pipeline state
 	ID3D12StateObject* m_pRTStateObject = nullptr;

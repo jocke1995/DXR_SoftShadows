@@ -125,16 +125,18 @@ void Renderer::deleteRenderer()
 
 	m_TopLevelASBuffers.~AccelerationStructureBuffers();
 
+	delete m_pRayGenShader;
 	delete m_pHitShader;
 	delete m_pMissShader;
-	delete m_pRayGenShader;
+	delete m_pShadowShader;
 
 	delete m_pCbCamera;
 	delete m_pCbCameraData;
 
 	SAFE_RELEASE(&m_pRayGenSignature);
-	SAFE_RELEASE(&m_pMissSignature);
 	SAFE_RELEASE(&m_pHitSignature);
+	SAFE_RELEASE(&m_pMissSignature);
+	SAFE_RELEASE(&m_pShadowSignature);
 
 	SAFE_RELEASE(&m_pRTStateObject);
 	SAFE_RELEASE(&m_pRTStateObjectProps);
@@ -968,8 +970,10 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 	// Gather all the instances into the builder helper
 	for (size_t i = 0; i < instances.size(); i++)
 	{
-		m_TopLevelAsGenerator.AddInstance(instances[i].first,
-			instances[i].second, static_cast<unsigned int>(i),
+		m_TopLevelAsGenerator.AddInstance(
+			instances[i].first,
+			instances[i].second, 
+			static_cast<unsigned int>(i),
 			static_cast<unsigned int>(0));
 	}
 
@@ -1070,6 +1074,12 @@ ID3D12RootSignature* Renderer::CreateMissSignature()
 	return rsc.Generate(m_pDevice5, true);
 }
 
+ID3D12RootSignature* Renderer::CreateShadowSignature()
+{
+	nv_helpers_dx12::RootSignatureGenerator rsc;
+	return rsc.Generate(m_pDevice5, true);
+}
+
 ID3D12RootSignature* Renderer::CreateHitSignature()
 {
 	//-----------------------------------------------------------------------------
@@ -1089,9 +1099,10 @@ void Renderer::CreateRaytracingPipeline()
 	// set of DXIL libraries. We chose to separate the code in several libraries
 	// by semantic (ray generation, hit, miss) for clarity. Any code layout can be
 	// used.
-	m_pRayGenShader = new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/RayGen.hlsl", SHADER_TYPE::DXR);
-	m_pMissShader = new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Miss.hlsl", SHADER_TYPE::DXR);
-	m_pHitShader = new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Hit.hlsl", SHADER_TYPE::DXR);
+	m_pRayGenShader = new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/RayGen.hlsl",		SHADER_TYPE::DXR);
+	m_pHitShader	= new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Hit.hlsl",		SHADER_TYPE::DXR);
+	m_pMissShader	= new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Miss.hlsl",		SHADER_TYPE::DXR);
+	m_pShadowShader = new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/ShadowRay.hlsl",  SHADER_TYPE::DXR);
 
 	  // In a way similar to DLLs, each library is associated with a number of
 	  // exported symbols. This
@@ -1099,14 +1110,16 @@ void Renderer::CreateRaytracingPipeline()
 	  // can contain an arbitrary number of symbols, whose semantic is given in HLSL
 	  // using the [shader("xxx")] syntax
 	pipeline.AddLibrary(m_pRayGenShader->GetBlob(), { L"RayGen" });
-	pipeline.AddLibrary(m_pMissShader->GetBlob(), { L"Miss" });
-	pipeline.AddLibrary(m_pHitShader->GetBlob(), { L"ClosestHit" });
+	pipeline.AddLibrary(m_pHitShader->GetBlob(),	{ L"ClosestHit" });
+	pipeline.AddLibrary(m_pMissShader->GetBlob(),	{ L"Miss" });
+	pipeline.AddLibrary(m_pShadowShader->GetBlob(), { L"ShadowClosestHit", L"ShadowMiss" });
 
 	// To be used, each DX12 shader needs a root signature defining which
 	// parameters and buffers will be accessed.
 	m_pRayGenSignature = CreateRayGenSignature();
-	m_pMissSignature = CreateMissSignature();
 	m_pHitSignature = CreateHitSignature();
+	m_pMissSignature = CreateMissSignature();
+	m_pShadowSignature = CreateShadowSignature();
 
 	// 3 different shaders can be invoked to obtain an intersection: an
 	// intersection shader is called
@@ -1126,6 +1139,7 @@ void Renderer::CreateRaytracingPipeline()
 	// Hit group for the triangles, with a shader simply interpolating vertex
 	// colors
 	pipeline.AddHitGroup(L"HitGroup", L"ClosestHit");
+	pipeline.AddHitGroup(L"ShadowHitGroup", L"ShadowClosestHit");
 
 	// The following section associates the root signature to each shader.Note
 	// that we can explicitly show that some shaders share the same root signature
@@ -1133,9 +1147,9 @@ void Renderer::CreateRaytracingPipeline()
 	// to as hit groups, meaning that the underlying intersection, any-hit and
 	// closest-hit shaders share the same root signature.
 	pipeline.AddRootSignatureAssociation(m_pRayGenSignature, { L"RayGen" });
-	pipeline.AddRootSignatureAssociation(m_pMissSignature, { L"Miss" });
 	pipeline.AddRootSignatureAssociation(m_pHitSignature, { L"HitGroup" });
-
+	pipeline.AddRootSignatureAssociation(m_pShadowSignature, { L"ShadowHitGroup" });
+	pipeline.AddRootSignatureAssociation(m_pMissSignature, { L"Miss", L"ShadowMiss" });
 	// The payload size defines the maximum size of the data carried by the rays,
 	// ie. the the data
 	// exchanged between shaders, such as the HitInfo structure in the HLSL code.
@@ -1154,7 +1168,7 @@ void Renderer::CreateRaytracingPipeline()
 	// then requires a trace depth of 1. Note that this recursion depth should be
 	// kept to a minimum for best performance. Path tracing algorithms can be
 	// easily flattened into a simple loop in the ray generation.
-	pipeline.SetMaxRecursionDepth(1);
+	pipeline.SetMaxRecursionDepth(2);
 
 	// Compile the pipeline for execution on the GPU
 	m_pRTStateObject = pipeline.Generate(m_pRootSignature->GetRootSig());
@@ -1245,10 +1259,11 @@ void Renderer::CreateShaderBindingTable()
 	// The miss and hit shaders do not access any external resources: instead they
 	// communicate their results through the ray payload
 	m_SbtHelper.AddMissProgram(L"Miss", {});
+	m_SbtHelper.AddMissProgram(L"ShadowMiss", {});
 
 	// Adding the triangle hit shader
 	m_SbtHelper.AddHitGroup(L"HitGroup", {});
-
+	m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
 
 
 	// Compute the size of the SBT given the number of shaders and their
