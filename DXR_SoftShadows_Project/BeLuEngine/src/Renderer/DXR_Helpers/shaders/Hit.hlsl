@@ -15,13 +15,12 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 	
 	float3 materialColor = float3(1.0f, 1.0f, 1.0f);
 
-	if (InstanceID() == 1)
-	{
+	//if (InstanceID() == 1)
+	//{
 		materialColor = A* barycentrics.x + B * barycentrics.y + C * barycentrics.z;
-	}
+	//}
 	
-
-    float3 lightPos = float3(0.0f, 2.0f, 0.0f);
+    float3 lightPos = float3(425.900238f, 666.148193f, -98.189651f);
     
     // Find the world - space hit position
     float3 worldOrigin = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
@@ -34,7 +33,7 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
     ray.Origin = worldOrigin;
     ray.Direction = lightDir;
     ray.TMin = 0.01;
-    ray.TMax = 100000;
+    ray.TMax = distance(lightPos, worldOrigin);
     
     // Initialize the ray payload
     ShadowHitInfo shadowPayload;

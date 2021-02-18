@@ -977,6 +977,8 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 			static_cast<unsigned int>(0));
 	}
 
+	DirectX::XMMATRIX mat = DirectX::XMMatrixTranslation(2.0f, 3.0f, 5.0f);
+	DirectX::XMMATRIX matTrans = DirectX::XMMatrixTranspose(mat);
 	// As for the bottom-level AS, the building the AS requires some scratch space
 	// to store temporary data in addition to the actual AS. In the case of the
 	// top-level AS, the instance descriptors also need to be stored in GPU
