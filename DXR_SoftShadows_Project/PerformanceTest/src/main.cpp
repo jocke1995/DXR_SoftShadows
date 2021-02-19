@@ -59,6 +59,7 @@ int main(int argc, char* argv[])
 {
     TestParameters params = {};
 
+    // Not being used RN.
     ParseTestParameters(&params);
 
     Printl("Testing will comence...");

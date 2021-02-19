@@ -6,10 +6,7 @@
 
 struct TestParameters
 {
-    std::wstring scene = L"test";
-    std::wstring outputFile = L"noname.csv";
-    bool useInlineRaytracing = false;
-    bool quitOnFinish = false;
+    int numTests = 5;
 };
 
 inline bool ParseTestParameters(TestParameters* output)
@@ -32,50 +29,11 @@ inline bool ParseTestParameters(TestParameters* output)
 #endif
 
             // Scene
-            if (wcscmp(szArglist[i], L"-s") == 0)
+            if (wcscmp(szArglist[i], L"-n") == 0)
             {
-                output->scene = szArglist[++i];
+                output->numTests = std::stoi(szArglist[++i]);
             }
 
-            // Result file
-            if (wcscmp(szArglist[i], L"-o") == 0)
-            {
-                output->outputFile = szArglist[++i];
-            }
-
-            // Inline Raytracing
-            if (wcscmp(szArglist[i], L"-i") == 0)
-            {
-                ++i;
-
-                if (wcscmp(szArglist[i], L"true") == 0 || wcscmp(szArglist[i], L"True") == 0 || wcscmp(szArglist[i], L"TRUE") == 0 ||
-                    wcscmp(szArglist[i], L"yes") == 0 || wcscmp(szArglist[i], L"Yes") == 0 || wcscmp(szArglist[i], L"YES") == 0 ||
-                    wcscmp(szArglist[i], L"1") == 0)
-                {
-                    output->useInlineRaytracing = true;
-                }
-                else
-                {
-                    output->useInlineRaytracing = false;
-                }
-            }
-
-            // Inline Raytracing
-            if (wcscmp(szArglist[i], L"-q") == 0)
-            {
-                ++i;
-
-                if (wcscmp(szArglist[i], L"true") == 0 || wcscmp(szArglist[i], L"True") == 0 || wcscmp(szArglist[i], L"TRUE") == 0 ||
-                    wcscmp(szArglist[i], L"yes") == 0 || wcscmp(szArglist[i], L"Yes") == 0 || wcscmp(szArglist[i], L"YES") == 0 ||
-                    wcscmp(szArglist[i], L"1") == 0)
-                {
-                    output->quitOnFinish = true;
-                }
-                else
-                {
-                    output->quitOnFinish = false;
-                }
-            }
         }
     }
 
