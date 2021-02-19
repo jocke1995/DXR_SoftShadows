@@ -57,16 +57,8 @@
 
 
 
-// Test stuff
-struct TestData
-{
-	std::string GPUcard = "Unknown";
-	double nrOfTests = 5;
-	bool inlineRT = "False";
-	double resultAverage = -1;
-};
-
-TestData testData;
+#define NUM_FRAMES 10
+double resultAverage = -1;
 CSVExporter csvExporter;
 std::vector<double> frameData;
 
@@ -228,7 +220,7 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	m_pCbPerFrameData = new CB_PER_FRAME_STRUCT();
 
 	// Temp
-	frameData.reserve(testData.nrOfTests);
+	frameData.reserve(NUM_FRAMES);
 
 	m_pTempCommandInterface = new CommandInterface(m_pDevice5, COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
 	m_pTempCommandInterface->Reset(0);
@@ -267,6 +259,16 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 void Renderer::SetQuitOnFinish(bool b)
 {
 	m_QuitOnFinish = b;
+}
+
+void Renderer::SetUseInlineRT(bool b)
+{
+	m_UseInlineRT = b;
+}
+
+void Renderer::SetNumLights(int num)
+{
+	m_NumLights = num;
 }
 
 void Renderer::SetResultsFileName(std::wstring outputName)
@@ -554,12 +556,12 @@ void Renderer::ExecuteDXR()
 
 	static unsigned int nrOfFrames = 0;
 
-	if (nrOfFrames < testData.nrOfTests)
+	if (nrOfFrames < NUM_FRAMES)
 	{
 		// Save frame time
 		frameData.push_back(dt);
 	}
-	else if (nrOfFrames == testData.nrOfTests)
+	else if (nrOfFrames == NUM_FRAMES)
 	{
 		// Compute average
 		double sum = 0;
@@ -568,11 +570,16 @@ void Renderer::ExecuteDXR()
 			sum += frameData.at(i);
 		}
 
-		testData.resultAverage = sum/frameData.size();
+		resultAverage = sum/frameData.size();
 
-		csvExporter << testData.GPUcard << "," << testData.inlineRT << "," << testData.nrOfTests << "," << testData.resultAverage;
+		// Comment if empty file
+		if (csvExporter.IsFileEmpty(m_OutputName))
+		{
+			csvExporter << m_GPUName << "," << m_UseInlineRT << "," << NUM_FRAMES << "\n";
+		}
+		csvExporter << m_NumLights << "," << resultAverage << "\n";
 
-		csvExporter.Export(m_OutputName);
+		csvExporter.Append(m_OutputName);
 
 		BL_LOG_INFO("Exported.......\n");
 
@@ -1407,6 +1414,7 @@ bool Renderer::createDevice()
 			adapter->GetDesc(&adapterDesc);
 
 			Log::Print("Adapter: %S\n", adapterDesc.Description);
+			m_GPUName = to_string(adapterDesc.Description);
 			
 			D3D12_FEATURE_DATA_D3D12_OPTIONS5 features5 = {};
 			HRESULT hr = pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &features5, sizeof(D3D12_FEATURE_DATA_D3D12_OPTIONS5));

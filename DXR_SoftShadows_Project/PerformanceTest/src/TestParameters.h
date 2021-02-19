@@ -1,19 +1,18 @@
-#ifndef APPLICATIONPARAMETER_H
-#define APPLICATIONPARAMETER_H
+#ifndef TESTPARAMETER_H
+#define TESTPARAMETER_H
 
-#include "../Headers/Core.h"
+#include "Headers/Core.h"
 #include <shellapi.h> // CommandLineToArgvW
 
-struct ApplicationParameters
+struct TestParameters
 {
     std::wstring scene = L"test";
     std::wstring outputFile = L"noname.csv";
     bool useInlineRaytracing = false;
     bool quitOnFinish = false;
-    int numLights = 1;
 };
 
-inline bool ParseParameters(ApplicationParameters* output)
+inline bool ParseTestParameters(TestParameters* output)
 {
     LPWSTR* szArglist;
     int nArgs;
@@ -28,9 +27,9 @@ inline bool ParseParameters(ApplicationParameters* output)
     {
         for (int i = 0; i < nArgs; i++)
         {
-            #ifdef _DEBUG
-                Log::Print("%d: %ws\n", i, szArglist[i]);
-            #endif
+#ifdef _DEBUG
+            Log::Print("%d: %ws\n", i, szArglist[i]);
+#endif
 
             // Scene
             if (wcscmp(szArglist[i], L"-s") == 0)
@@ -76,12 +75,6 @@ inline bool ParseParameters(ApplicationParameters* output)
                 {
                     output->quitOnFinish = false;
                 }
-            }
-
-            // Result file
-            if (wcscmp(szArglist[i], L"-l") == 0)
-            {
-                output->numLights = std::stoi(szArglist[++i]);
             }
         }
     }

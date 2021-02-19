@@ -21,7 +21,7 @@ bool CSVExporter::Export(const std::wstring& name, const std::wstring& path)
 {
 	std::ofstream outFile;
 	// open file, creates if not exists
-	outFile.open(path + name, std::ofstream::out, std::ofstream::trunc);
+	outFile.open(path + name, std::ofstream::out | std::ofstream::trunc);
 
 	if (!outFile.is_open())
 	{
@@ -36,6 +36,51 @@ bool CSVExporter::Export(const std::wstring& name, const std::wstring& path)
 	outFile.close();
 
 	return true;
+}
+
+bool CSVExporter::Append(const std::wstring& name, const std::wstring& path)
+{
+	std::ofstream outFile;
+	// open file, creates if not exists
+	outFile.open(path + name, std::ofstream::out | std::ofstream::app);
+
+	if (!outFile.is_open())
+	{
+		// Something went wrong
+		return false;
+	}
+
+	// Write to file
+	outFile << entries.rdbuf();
+
+
+	outFile.close();
+
+	return true;
+}
+
+bool CSVExporter::IsFileEmpty(const std::wstring& name, const std::wstring& path)
+{
+	// If file don't exist, it's "empty"
+	if (!std::filesystem::exists(path + name))
+	{
+		return true;
+	}
+
+	std::ifstream file;
+	file.open(path + name, std::ifstream::in | std::ifstream::trunc);
+
+	if (!file.is_open())
+	{
+		// Something went wrong
+		return false;
+	}
+
+	bool r = file.peek() == std::ifstream::traits_type::eof();
+
+	file.close();
+
+	return r;
 }
 
 std::stringstream& operator<<(CSVExporter& exporter, std::string string)

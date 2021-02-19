@@ -37,6 +37,8 @@ void BeLuEngine::Init(HINSTANCE hInstance, int nCmdShow, ApplicationParameters* 
 	m_pRenderer->InitD3D12(m_pWindow, hInstance, m_pThreadPool);
 	m_pRenderer->SetQuitOnFinish(m_ApplicationParams.quitOnFinish); // Quits testing after num tests
 	m_pRenderer->SetResultsFileName(m_ApplicationParams.outputFile);
+	m_pRenderer->SetUseInlineRT(m_ApplicationParams.useInlineRaytracing);
+	m_pRenderer->SetNumLights(m_ApplicationParams.numLights);
 
 	// ECS
 	m_pSceneManager = &SceneManager::GetInstance();

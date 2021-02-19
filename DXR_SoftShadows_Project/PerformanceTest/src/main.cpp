@@ -1,6 +1,7 @@
 #include <iostream>
 #include <Windows.h>
 #include "Misc/Timer.h"
+#include "TestParameters.h"
 #include <string>
 
 void Printl(std::string text)
@@ -54,8 +55,12 @@ int TestSandbox(wchar_t* args)
     Printl("Testing Complete!!!");
 }
 
-int main()
+int main(int argc, char* argv[])
 {
+    TestParameters params = {};
+
+    ParseTestParameters(&params);
+
     Printl("Testing will comence...");
 
     /*
@@ -65,6 +70,7 @@ int main()
     -o 123.txt          // Output Result File
     -i false            // Use Inline-Raytracing
     -q false            // Quit after test
+    -l 10               // Num Lights
     */
 
     wchar_t test1Args[] = L"-o ../test1.csv -q 1";
