@@ -1,3 +1,8 @@
+#include "../../../Headers/GPU_Structs.h"
+ConstantBuffer<CB_PER_OBJECT_STRUCT> cbPerObject	  : register(b1, space3);
+ConstantBuffer<CB_PER_FRAME_STRUCT>  cbPerFrame		  : register(b4, space3);
+ConstantBuffer<DXR_CAMERA>			 cbCameraMatrices : register(b6, space3);
+
 // Hit information, aka ray payload
 // This sample only carries a shading color and hit distance.
 // Note that the payload should be kept as small as possible,
@@ -6,6 +11,12 @@
 struct HitInfo
 {
   float4 colorAndDistance;
+};
+
+// Ray payload for the shadow rays
+struct ShadowHitInfo
+{
+    bool isHit;
 };
 
 // Attributes output by the raytracing when hitting a surface,

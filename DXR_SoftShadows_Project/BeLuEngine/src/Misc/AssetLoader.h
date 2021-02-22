@@ -90,7 +90,7 @@ private:
     Material* loadMaterial(aiMaterial* mat, const std::wstring& folderPath);
     Texture* processTexture(aiMaterial* mat, TEXTURE2D_TYPE texture_type, const std::wstring& filePathWithoutTexture);
    
-    Shader* loadShader(const std::wstring& fileName, ShaderType type);
+    Shader* loadShader(const std::wstring& fileName, SHADER_TYPE type);
 };
 
 #endif

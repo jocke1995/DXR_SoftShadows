@@ -31,6 +31,14 @@ struct SlotInfo
 	unsigned int pad[1];
 };
 
+struct DXR_CAMERA
+{
+	float4x4 view;
+	float4x4 projection;
+	float4x4 viewI;
+	float4x4 projectionI;
+};
+
 struct CB_PER_OBJECT_STRUCT
 {
 	float4x4 worldMatrix;

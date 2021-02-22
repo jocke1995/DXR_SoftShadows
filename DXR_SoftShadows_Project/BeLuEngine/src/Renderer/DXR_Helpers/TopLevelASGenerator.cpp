@@ -69,7 +69,7 @@ void TopLevelASGenerator::AddInstance(
                                         // positions
     UINT instanceID,                    // Instance ID, which can be used in the shaders to
                                         // identify this specific instance
-    UINT hitGroupIndex                  // Hit group index, corresponding the the index of the
+    UINT hitGroupIndex                  // Hit group index, corresponding the index of the
                                         // hit group in the Shader Binding Table that will be
                                         // invocated upon hitting the geometry
 )
@@ -187,8 +187,7 @@ void TopLevelASGenerator::Generate(
     // be accessible from outside
     instanceDescs[i].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
     // Instance transform matrix
-    DirectX::XMMATRIX m = XMMatrixTranspose(
-        m_instances[i].transform); // GLM is column major, the INSTANCE_DESC is row major
+    DirectX::XMMATRIX m = XMMatrixTranspose(m_instances[i].transform); // GLM is column major, the INSTANCE_DESC is row major
     memcpy(instanceDescs[i].Transform, &m, sizeof(instanceDescs[i].Transform));
     // Get access to the bottom level
     instanceDescs[i].AccelerationStructure = m_instances[i].bottomLevelAS->GetGPUVirtualAddress();

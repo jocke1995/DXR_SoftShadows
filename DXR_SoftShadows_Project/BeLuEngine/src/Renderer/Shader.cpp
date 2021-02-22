@@ -2,7 +2,7 @@
 #include "Shader.h"
 #include "DXILShaderCompiler.h"
 
-Shader::Shader(LPCTSTR path, ShaderType type)
+Shader::Shader(LPCTSTR path, SHADER_TYPE type)
 {
 	m_Path = path;
 	m_Type = type;
@@ -25,29 +25,34 @@ void Shader::compileShader()
 	DXILShaderCompiler::DXILCompilationDesc shaderCompilerDesc = {};
 
 	shaderCompilerDesc.compileArguments.push_back(L"/Gis"); // ? floating point accuracy?
-#ifdef _DEBUG
+#ifdef DEBUG
 	shaderCompilerDesc.compileArguments.push_back(L"/Zi"); // Debug info
-	shaderCompilerDesc.defines.push_back({ L"_DEBUG" });
+	shaderCompilerDesc.defines.push_back({ L"DEBUG" });
 #endif
 
 	shaderCompilerDesc.filePath = m_Path;
 	std::wstring entryPoint;
 	std::wstring shaderModelTarget;
 
-	if (m_Type == ShaderType::VS)
+	if (m_Type == SHADER_TYPE::VS)
 	{
 		entryPoint = L"VS_main";
 		shaderModelTarget = L"vs_6_5";
 	}
-	else if (m_Type == ShaderType::PS)
+	else if (m_Type == SHADER_TYPE::PS)
 	{
 		entryPoint = L"PS_main";
 		shaderModelTarget = L"ps_6_5";
 	}
-	else if (m_Type == ShaderType::CS)
+	else if (m_Type == SHADER_TYPE::CS)
 	{
 		entryPoint = L"CS_main";
 		shaderModelTarget = L"cs_6_5";
+	}
+	else if (m_Type == SHADER_TYPE::DXR)
+	{
+		entryPoint = L"";
+		shaderModelTarget = L"lib_6_5";
 	}
 
 	shaderCompilerDesc.entryPoint = entryPoint.c_str();

@@ -20,6 +20,7 @@ struct AccelerationStructureBuffers
 	Resource* result = nullptr;
 	Resource* instanceDesc = nullptr;    // Used only for top-level AS
 	bool allowUpdate = false;
+
 	void release() 
 	{
 		if (scratch) 

@@ -49,6 +49,7 @@ class BaseCamera;
 class Material;
 struct RenderComponent;
 struct ID3D12Resource1;
+class Shader;
 
 // Copy
 class CopyTask;
@@ -78,6 +79,13 @@ namespace component
 struct WindowChange;
 struct WindowSettingChange;
 
+struct BLModel
+{
+	AccelerationStructureBuffers* ASbuffer;
+	std::vector<std::pair<ID3D12Resource1*, uint32_t>> vertexBuffers;
+	std::vector<std::pair<ID3D12Resource1*, uint32_t>> indexBuffers;
+};
+
 class Renderer
 {
 public:
@@ -91,6 +99,9 @@ public:
 
 	// Call once
 	void InitD3D12(Window* window, HINSTANCE hInstance, ThreadPool* threadPool);
+	void InitDXR();
+
+	void UpdateSceneToGPU();
 
 	void SetQuitOnFinish(bool b);
 	void SetUseInlineRT(bool b);
@@ -192,46 +203,44 @@ private:
 	CommandInterface* m_pTempCommandInterface = nullptr;
 
 	// AS
-	AccelerationStructureBuffers m_BottomLevelASBuffers;
 	AccelerationStructureBuffers m_TopLevelASBuffers;
 
 	// Generators
 	nv_helpers_dx12::BottomLevelASGenerator m_BottomLevelASGenerator = {};
 	nv_helpers_dx12::TopLevelASGenerator	m_TopLevelAsGenerator = {};
 
+	// All bottomLevel models
+	std::vector<BLModel*> m_BottomLevelModels;
+
 	// Objects
 	std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>> m_instances;
 
-	// Create
-	Resource* m_pUploadTriVertices = nullptr;
-	void createRTTriangle();
-
-	void CreateBottomLevelAS(std::vector<std::pair<ID3D12Resource1*, uint32_t>> vVertexBuffers);
+	void CreateBottomLevelAS(BLModel** blModel);
 	void CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>> &instances);
 	void CreateAccelerationStructures();
 
 
-
 	ID3D12RootSignature* CreateRayGenSignature();
-	ID3D12RootSignature* CreateMissSignature();
 	ID3D12RootSignature* CreateHitSignature();
+	ID3D12RootSignature* CreateMissSignature();
+	ID3D12RootSignature* CreateShadowSignature();
 
 	void CreateRaytracingPipeline();
 
-	IDxcBlob* m_pRayGenLibrary = nullptr;
-	IDxcBlob* m_pHitLibrary = nullptr;
-	IDxcBlob* m_pMissLibrary = nullptr;
-
+	Shader* m_pRayGenShader = nullptr;
+	Shader* m_pHitShader = nullptr;
+	Shader* m_pMissShader = nullptr;
+	Shader* m_pShadowShader = nullptr;
 
 	ID3D12RootSignature* m_pRayGenSignature = nullptr;
 	ID3D12RootSignature* m_pHitSignature = nullptr;
 	ID3D12RootSignature* m_pMissSignature = nullptr;
+	ID3D12RootSignature* m_pShadowSignature = nullptr;
+
 
 	// Ray tracing pipeline state
 	ID3D12StateObject* m_pRTStateObject = nullptr;
 	ID3D12StateObjectProperties* m_pRTStateObjectProps = nullptr;
-
-
 
 	// #DXR Resources
 	void CreateRaytracingOutputBuffer();
@@ -244,10 +253,10 @@ private:
 	void CreateShaderBindingTable();
 	nv_helpers_dx12::ShaderBindingTableGenerator m_SbtHelper;
 	ID3D12Resource* m_pSbtStorage;
-	
-	
-	
-	
+
+	// Camera
+	DXR_CAMERA* m_pCbCameraData = nullptr;
+	ConstantBuffer* m_pCbCamera = nullptr;
 	// ------------------- DXR temp ----------------
 
 
@@ -269,7 +278,10 @@ private:
 
 	// Commandlists holders
 	std::vector<ID3D12CommandList*> m_DirectCommandLists[NUM_SWAP_BUFFERS];
-	
+
+	ID3D12CommandList* m_DXRCpftCommandLists[NUM_SWAP_BUFFERS];
+	ID3D12CommandList* m_DXRCodtCommandLists[NUM_SWAP_BUFFERS];
+
 	// DescriptorHeaps
 	std::map<DESCRIPTOR_HEAP_TYPE, DescriptorHeap*> m_DescriptorHeaps = {};
 

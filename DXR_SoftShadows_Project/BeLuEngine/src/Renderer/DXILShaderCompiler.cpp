@@ -42,7 +42,7 @@ HRESULT DXILShaderCompiler::Init()
 			{
 				if (SUCCEEDED(hr = pfnDxcCreateInstance(CLSID_DxcLinker, IID_PPV_ARGS(&m_pLinker))))
 				{
-					Log::Print("DXIL Compiler succesfully created!\n");
+					BL_LOG("DXIL Compiler succesfully created!\n");
 				}
 			}
 		}

@@ -92,12 +92,13 @@ enum SHADOW_RESOLUTION
 	UNDEFINED
 };
 
-enum class ShaderType
+enum class SHADER_TYPE
 {
 	VS = 0,
 	PS = 1,
 	CS = 2,
-	UNSPECIFIED = 3
+	DXR = 3,
+	NUM_SHADER_TYPES
 };
 
 enum class CAMERA_TYPE
@@ -205,10 +206,12 @@ private:
 };
 
 #ifdef DEBUG
+	#define BL_LOG(...)			 Log::Print(__VA_ARGS__)
 	#define BL_LOG_INFO(...)	 Log::PrintSeverity(__FILE__, std::to_string(__LINE__), Severity::INFO	  , __VA_ARGS__)
 	#define BL_LOG_WARNING(...)	 Log::PrintSeverity(__FILE__, std::to_string(__LINE__), Severity::WARNING , __VA_ARGS__)
 	#define BL_LOG_CRITICAL(...) Log::PrintSeverity(__FILE__, std::to_string(__LINE__), Severity::CRITICAL, __VA_ARGS__)
 #else
+	#define BL_LOG(...)
 	#define BL_LOG_INFO(...)
 	#define BL_LOG_WARNING(...)
 	#define BL_LOG_CRITICAL(...)

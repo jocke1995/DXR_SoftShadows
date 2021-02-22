@@ -37,6 +37,10 @@ public:
     // SlotInfo
     const SlotInfo* GetSlotInfoAt(unsigned int index) const;
 
+    // DXR
+    void SetBottomLevelResult(ID3D12Resource1* blResult);
+    ID3D12Resource1* GetBottomLevelResultP() const;
+
 protected:
     friend class Renderer;
     friend class AssetLoader;
@@ -48,7 +52,9 @@ protected:
 
     std::vector<Mesh*> m_Meshes;
     std::vector<Material*> m_Materials;
-    std::vector<SlotInfo> m_SlotInfos; 
+    std::vector<SlotInfo> m_SlotInfos;
+
+    ID3D12Resource1* m_pBottomLevelResult = nullptr;
 };
 
 #endif

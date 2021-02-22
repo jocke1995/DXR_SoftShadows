@@ -71,6 +71,16 @@ const SlotInfo* Model::GetSlotInfoAt(unsigned int index) const
 	return &m_SlotInfos[index];
 }
 
+void Model::SetBottomLevelResult(ID3D12Resource1* blResult)
+{
+	m_pBottomLevelResult = blResult;
+}
+
+ID3D12Resource1* Model::GetBottomLevelResultP() const
+{
+	return m_pBottomLevelResult;
+}
+
 void Model::updateSlotInfo()
 {
 #ifdef DEBUG
@@ -84,13 +94,13 @@ void Model::updateSlotInfo()
 	{
 		m_SlotInfos[i] =
 		{
-		m_Meshes[i]->m_pSRV->GetDescriptorHeapIndex(),
-		m_Materials[i]->GetTexture(TEXTURE2D_TYPE::ALBEDO)->GetDescriptorHeapIndex(),
-		m_Materials[i]->GetTexture(TEXTURE2D_TYPE::ROUGHNESS)->GetDescriptorHeapIndex(),
-		m_Materials[i]->GetTexture(TEXTURE2D_TYPE::METALLIC)->GetDescriptorHeapIndex(),
-		m_Materials[i]->GetTexture(TEXTURE2D_TYPE::NORMAL)->GetDescriptorHeapIndex(),
-		m_Materials[i]->GetTexture(TEXTURE2D_TYPE::EMISSIVE)->GetDescriptorHeapIndex(),
-		m_Materials[i]->GetTexture(TEXTURE2D_TYPE::OPACITY)->GetDescriptorHeapIndex()
+			m_Meshes[i]->m_pSRV->GetDescriptorHeapIndex(),
+			m_Materials[i]->GetTexture(TEXTURE2D_TYPE::ALBEDO)->GetDescriptorHeapIndex(),
+			m_Materials[i]->GetTexture(TEXTURE2D_TYPE::ROUGHNESS)->GetDescriptorHeapIndex(),
+			m_Materials[i]->GetTexture(TEXTURE2D_TYPE::METALLIC)->GetDescriptorHeapIndex(),
+			m_Materials[i]->GetTexture(TEXTURE2D_TYPE::NORMAL)->GetDescriptorHeapIndex(),
+			m_Materials[i]->GetTexture(TEXTURE2D_TYPE::EMISSIVE)->GetDescriptorHeapIndex(),
+			m_Materials[i]->GetTexture(TEXTURE2D_TYPE::OPACITY)->GetDescriptorHeapIndex()
 		};
 	}
 }

@@ -339,7 +339,7 @@ void RayTracingPipelineGenerator::BuildShaderExportList(std::vector<std::wstring
   {
     for (const auto& exportName : lib.m_exportedSymbols)
     {
-#ifdef _DEBUG
+#ifdef DEBUG
       // Sanity check in debug mode: check that no name is exported more than once
       if (exports.find(exportName) != exports.end())
       {
@@ -350,7 +350,7 @@ void RayTracingPipelineGenerator::BuildShaderExportList(std::vector<std::wstring
     }
   }
 
-#ifdef _DEBUG
+#ifdef DEBUG
   // Sanity check in debug mode: verify that the hit groups do not reference an unknown shader name
   std::unordered_set<std::wstring> all_exports = exports;
 

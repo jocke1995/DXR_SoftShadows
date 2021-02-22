@@ -29,9 +29,10 @@
 #include "Texture/Texture2DGUI.h"
 #include "Texture/TextureCubeMap.h"
 #include "Model/Material.h"
-#include "DXILShaderCompiler.h"
-
 #include "RenderView.h"
+
+#include "DXILShaderCompiler.h"
+#include "Shader.h"
 
 #include "GPUMemory/GPUMemory.h"
 
@@ -83,13 +84,13 @@ Renderer::~Renderer()
 
 void Renderer::deleteRenderer()
 {
-	Log::Print("----------------------------  Deleting Renderer  ----------------------------------\n");
+	BL_LOG("----------------------------  Deleting Renderer  ----------------------------------\n");
 	waitForGPU();
 
 	SAFE_RELEASE(&m_pFenceFrame);
 	if (!CloseHandle(m_EventHandle))
 	{
-		Log::Print("Failed To Close Handle... ErrorCode: %d\n", GetLastError());
+		BL_LOG_WARNING("Failed To Close Handle... ErrorCode: %d\n", GetLastError());
 	}
 
 	SAFE_RELEASE(&m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]);
@@ -127,33 +128,45 @@ void Renderer::deleteRenderer()
 	delete m_pCbPerFrameData;
 	delete m_pTempCommandInterface;
 
-	// DXR
+	// ----------------------- DXR ----------------------- 
 	
 	for (auto i : m_instances)
 	{
 		SAFE_RELEASE(&i.first);
 	}
 
-	m_BottomLevelASBuffers.release();
-	m_TopLevelASBuffers.release();
-	SAFE_RELEASE(&m_pHitLibrary);
-	SAFE_RELEASE(&m_pMissLibrary);
-	SAFE_RELEASE(&m_pRayGenLibrary);
+	m_TopLevelASBuffers.~AccelerationStructureBuffers();
+
+	delete m_pRayGenShader;
+	delete m_pHitShader;
+	delete m_pMissShader;
+	delete m_pShadowShader;
+
+	delete m_pCbCamera;
+	delete m_pCbCameraData;
+
 	SAFE_RELEASE(&m_pRayGenSignature);
-	SAFE_RELEASE(&m_pMissSignature);
 	SAFE_RELEASE(&m_pHitSignature);
+	SAFE_RELEASE(&m_pMissSignature);
+	SAFE_RELEASE(&m_pShadowSignature);
 
 	SAFE_RELEASE(&m_pRTStateObject);
 	SAFE_RELEASE(&m_pRTStateObjectProps);
 	
-
-
-
-	delete m_pUploadTriVertices;
 	SAFE_RELEASE(&m_pOutputResource);
 	SAFE_RELEASE(&m_pSbtStorage);
 
 	SAFE_RELEASE(&m_pDevice5);
+
+	for (BLModel* blModel : m_BottomLevelModels)
+	{
+		blModel->ASbuffer->release();
+		delete blModel->ASbuffer;
+		delete blModel;
+	}
+	m_BottomLevelModels.clear();
+
+	m_TopLevelASBuffers.release();
 }
 
 void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* threadPool)
@@ -227,12 +240,15 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 
 	initRenderTasks();
 
+	submitMeshToCodt(m_pFullScreenQuad);
 
+	// DXR
+	m_pCbCamera = new ConstantBuffer(m_pDevice5, sizeof(DXR_CAMERA), L"DXR_CAMERA", m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]);
+	m_pCbCameraData = new DXR_CAMERA();
+}
 
-	// RAYTRACING HERE:::::
-
-	createRTTriangle();
-
+void Renderer::InitDXR()
+{
 	CreateAccelerationStructures();
 
 	CreateRaytracingPipeline();
@@ -249,11 +265,22 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	// Create the shader binding table and indicating which shaders
 	// are invoked for each instance in the  AS
 	CreateShaderBindingTable();
-
 	m_DXTimer.Init(m_pDevice5, 1);
 	m_DXTimer.InitGPUFrequency(m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]);
-	
-	submitMeshToCodt(m_pFullScreenQuad);
+}
+
+void Renderer::UpdateSceneToGPU()
+{
+	DX12Task::SetCommandInterfaceIndex(0);
+
+	// Copy on demand
+	m_CopyTasks[COPY_TASK_TYPE::COPY_ON_DEMAND]->Execute();
+
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, &m_DXRCodtCommandLists[0]);
+
+	/*------------------- Post draw stuff -------------------*/
+	waitForGPU();
+
 }
 
 void Renderer::SetQuitOnFinish(bool b)
@@ -293,6 +320,12 @@ void Renderer::Update(double dt)
 	m_pCbPerFrameData->camRight = right;
 	m_pCbPerFrameData->camUp = up;
 	m_pCbPerFrameData->camForward = forward;
+
+	// DXR cam
+	m_pCbCameraData->projection  = *m_pScenePrimaryCamera->GetProjMatrix();
+	m_pCbCameraData->projectionI = *m_pScenePrimaryCamera->GetProjMatrixInverse();
+	m_pCbCameraData->view		 = *m_pScenePrimaryCamera->GetViewMatrix();
+	m_pCbCameraData->viewI		 = *m_pScenePrimaryCamera->GetViewMatrixInverse();
 }
 
 void Renderer::SortObjects()
@@ -392,9 +425,10 @@ void Renderer::Execute()
 	/* --------------------------------------------------------------- */
 
 	// Wait if the CPU is to far ahead of the gpu
-	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->Signal(m_pFenceFrame, m_FenceFrameValue);
-	waitForFrame(0);
-	m_FenceFrameValue++;
+	waitForGPU();
+	//m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->Signal(m_pFenceFrame, m_FenceFrameValue);
+	//waitForFrame(0);
+	//m_FenceFrameValue++;
 
 	/*------------------- Post draw stuff -------------------*/
 	// Clear copy on demand
@@ -421,15 +455,23 @@ void Renderer::ExecuteDXR()
 	unsigned int backBufferIndex = dx12SwapChain->GetCurrentBackBufferIndex();
 	unsigned int commandInterfaceIndex = m_FrameCounter++ % NUM_SWAP_BUFFERS;
 
-	m_pTempCommandInterface->Reset(commandInterfaceIndex);
-	auto cl = m_pTempCommandInterface->GetCommandList(commandInterfaceIndex);
+	/* ------------------------------------- COPY DATA ------------------------------------- */
+	DX12Task::SetCommandInterfaceIndex(commandInterfaceIndex);
+
+	// Copy per frame
+	m_CopyTasks[COPY_TASK_TYPE::COPY_PER_FRAME]->Execute();
+
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
+		1,
+		&m_DXRCpftCommandLists[commandInterfaceIndex]);
+	/* ------------------------------------- COPY DATA ------------------------------------- */
+
+	m_pTempCommandInterface->Reset(0);
+	auto cl = m_pTempCommandInterface->GetCommandList(0);
 
 	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
 	ID3D12Resource1* swapChainResource = swapChainRenderTarget->GetResource()->GetID3D12Resource1();
-
-	// Standard inits
-	cl->RSSetViewports(1, swapChainRenderTarget->GetRenderView()->GetViewPort());
-	cl->RSSetScissorRects(1, swapChainRenderTarget->GetRenderView()->GetScissorRect());
+	const unsigned int swapChainIndex = swapChainRenderTarget->GetDescriptorHeapIndex();
 	
 	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
 
@@ -439,24 +481,15 @@ void Renderer::ExecuteDXR()
 		D3D12_RESOURCE_STATE_PRESENT,
 		D3D12_RESOURCE_STATE_RENDER_TARGET));
 
-	DescriptorHeap* renderTargetHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::RTV];
-	DescriptorHeap* depthBufferHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::DSV];
-
-	// RenderTargets
-	const unsigned int swapChainIndex = swapChainRenderTarget->GetDescriptorHeapIndex();
-	D3D12_CPU_DESCRIPTOR_HANDLE cdhSwapChain = renderTargetHeap->GetCPUHeapAt(swapChainIndex);
-	D3D12_CPU_DESCRIPTOR_HANDLE cdhs[] = { cdhSwapChain };
-
-	// Depth
-	D3D12_CPU_DESCRIPTOR_HANDLE dsh = depthBufferHeap->GetCPUHeapAt(m_pMainDepthStencil->GetDSV()->GetDescriptorHeapIndex());
-
-	cl->OMSetRenderTargets(1, cdhs, false, &dsh);
-
 	ID3D12DescriptorHeap* dhSRVUAVCBV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetID3D12DescriptorHeap();
 	cl->SetDescriptorHeaps(1, &dhSRVUAVCBV);
 
 	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
 	
+	cl->SetComputeRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootConstantBufferView(RS::CBV0		 , m_pCbCamera->GetDefaultResource()->GetGPUVirtualAdress());
+
 	// On the last frame, the raytracing output was used as a copy source, to
 	// copy its contents into the render target. Now we need to transition it to
 	// a UAV so that the shaders can write in it.
@@ -526,13 +559,15 @@ void Renderer::ExecuteDXR()
 		m_pOutputResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 		D3D12_RESOURCE_STATE_COPY_SOURCE);
 	cl->ResourceBarrier(1, &transition);
+
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(), D3D12_RESOURCE_STATE_RENDER_TARGET,
 		D3D12_RESOURCE_STATE_COPY_DEST);
 	cl->ResourceBarrier(1, &transition);
 
-	cl->CopyResource(swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
-		m_pOutputResource);
+	cl->CopyResource(
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
+		m_pOutputResource);											// Source
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(), D3D12_RESOURCE_STATE_COPY_DEST,
@@ -543,10 +578,9 @@ void Renderer::ExecuteDXR()
 
 	ID3D12CommandList* cLists[] = {cl};
 
-	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
-		1,
-		cLists);
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, cLists);
 
+	/*------------------- Post draw stuff -------------------*/
 	waitForGPU();
 
 #pragma region TimeMeasurment
@@ -603,7 +637,6 @@ void Renderer::ExecuteDXR()
 	}
 #endif
 }
-
 
 void Renderer::InitModelComponent(component::ModelComponent* mc)
 {
@@ -899,9 +932,15 @@ void Renderer::submitModelToGPU(Model* model)
 		return;
 	}
 
+	BLModel* bLmodel = new BLModel;
+
 	for (unsigned int i = 0; i < model->GetSize(); i++)
 	{
 		Mesh* mesh = model->GetMeshAt(i);
+
+		// DXR
+		bLmodel->vertexBuffers.push_back(std::make_pair(mesh->GetDefaultResourceVertices()->GetID3D12Resource1(), mesh->GetNumVertices()));
+		bLmodel->indexBuffers.push_back(std::make_pair(mesh->GetDefaultResourceIndices()->GetID3D12Resource1(), mesh->GetNumIndices()));
 
 		// Submit Mesh
 		submitMeshToCodt(mesh);
@@ -921,6 +960,11 @@ void Renderer::submitModelToGPU(Model* model)
 		texture = model->GetMaterialAt(i)->GetTexture(TEXTURE2D_TYPE::OPACITY);
 		submitTextureToCodt(texture);
 	}
+
+	// DXR
+	m_BottomLevelModels.push_back(bLmodel);
+	CreateBottomLevelAS(&bLmodel);
+	model->SetBottomLevelResult(bLmodel->ASbuffer->result->GetID3D12Resource1());
 
 	AssetLoader::Get()->m_LoadedModels.at(model->GetPath()).first = true;
 }
@@ -965,42 +1009,17 @@ Window* const Renderer::GetWindow() const
 	return m_pWindow;
 }
 
-struct VertexTemp
-{
-	DirectX::XMFLOAT3 pos;
-};
-
-void Renderer::createRTTriangle()
-{
-	// Mesh data
-	std::vector<VertexTemp> vertexVector;
-
-	VertexTemp vertices[3] = {};
-	vertices[0].pos = { 0, 1.0f, 0 };
-
-	vertices[1].pos = { 0.866f,  -0.5f, 0, };
-
-	vertices[2].pos = { -0.866f, -0.5f, 0 };
-
-	for (unsigned int i = 0; i < 4; i++)
-	{
-		vertexVector.push_back(vertices[i]);
-	}
-
-
-	// create vertices resource
-	m_pUploadTriVertices = new Resource(m_pDevice5, vertexVector.size() * sizeof(VertexTemp), RESOURCE_TYPE::UPLOAD, L"TRI_VERTEX_UPLOAD");
-	m_pUploadTriVertices->SetData(vertexVector.data());
-
-}
-
-void Renderer::CreateBottomLevelAS(std::vector<std::pair<ID3D12Resource1*, uint32_t>> vVertexBuffers)
+void Renderer::CreateBottomLevelAS(BLModel** blModel)
 {
 	// Adding all vertex buffers and not transforming their position.
-	for (const auto& buffer : vVertexBuffers)
+	for (unsigned int i = 0; i < (*blModel)->vertexBuffers.size(); i++)
 	{
-		m_BottomLevelASGenerator.AddVertexBuffer(buffer.first, 0, buffer.second,
-			sizeof(VertexTemp), 0, 0);
+		std::pair<ID3D12Resource1*, uint32_t> vBuffer = (*blModel)->vertexBuffers.at(i);
+		std::pair<ID3D12Resource1*, uint32_t> iBuffer = (*blModel)->indexBuffers.at(i);
+
+		m_BottomLevelASGenerator.AddVertexBuffer(
+			vBuffer.first, 0, vBuffer.second, sizeof(Vertex),
+			iBuffer.first, 0, iBuffer.second, nullptr, 0, true);
 	}
 
 	// The AS build requires some scratch space to store temporary information.
@@ -1014,13 +1033,14 @@ void Renderer::CreateBottomLevelAS(std::vector<std::pair<ID3D12Resource1*, uint3
 		&resultSizeInBytes);
 
 	// Scratch
-	m_BottomLevelASBuffers.scratch = new Resource(
-		m_pDevice5, scratchSizeInBytes,
-		RESOURCE_TYPE::DEFAULT, L"scratchBottomLevel",
-		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+	(*blModel)->ASbuffer = new AccelerationStructureBuffers();
+	(*blModel)->ASbuffer->scratch = new Resource(
+	m_pDevice5, scratchSizeInBytes,
+	RESOURCE_TYPE::DEFAULT, L"scratchBottomLevel",
+	D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 
 	// Result
-	m_BottomLevelASBuffers.result = new Resource(
+	(*blModel)->ASbuffer->result = new Resource(
 		m_pDevice5, resultSizeInBytes,
 		RESOURCE_TYPE::DEFAULT, L"resultBottomLevel",
 		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
@@ -1029,8 +1049,8 @@ void Renderer::CreateBottomLevelAS(std::vector<std::pair<ID3D12Resource1*, uint3
 	// Build the acceleration structure. Note that this call integrates a barrier
 	// on the generated AS, so that it can be used to compute a top-level AS right
 	// after this method.
-	m_BottomLevelASGenerator.Generate(m_pTempCommandInterface->GetCommandList(0), m_BottomLevelASBuffers.scratch->GetID3D12Resource1(),
-		m_BottomLevelASBuffers.result->GetID3D12Resource1(), false, nullptr);
+	m_BottomLevelASGenerator.Generate(m_pTempCommandInterface->GetCommandList(0), (*blModel)->ASbuffer->scratch->GetID3D12Resource1(),
+		(*blModel)->ASbuffer->result->GetID3D12Resource1(), false, nullptr);
 }
 
 void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>>& instances)
@@ -1038,11 +1058,15 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 	// Gather all the instances into the builder helper
 	for (size_t i = 0; i < instances.size(); i++)
 	{
-		m_TopLevelAsGenerator.AddInstance(instances[i].first,
-			instances[i].second, static_cast<unsigned int>(i),
+		m_TopLevelAsGenerator.AddInstance(
+			instances[i].first,
+			instances[i].second, 
+			static_cast<unsigned int>(i),
 			static_cast<unsigned int>(0));
 	}
 
+	DirectX::XMMATRIX mat = DirectX::XMMatrixTranslation(2.0f, 3.0f, 5.0f);
+	DirectX::XMMATRIX matTrans = DirectX::XMMatrixTranspose(mat);
 	// As for the bottom-level AS, the building the AS requires some scratch space
 	// to store temporary data in addition to the actual AS. In the case of the
 	// top-level AS, the instance descriptors also need to be stored in GPU
@@ -1085,7 +1109,7 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 	// After all the buffers are allocated, or if only an update is required, we
 	// can build the acceleration structure. Note that in the case of the update
 	// we also pass the existing AS as the 'previous' AS, so that it can be
-	// refitted in place.
+	// refitted in place.m_pTempCommandInterface
 	m_TopLevelAsGenerator.Generate(m_pTempCommandInterface->GetCommandList(0),
 		m_TopLevelASBuffers.scratch->GetID3D12Resource1(),
 		m_TopLevelASBuffers.result->GetID3D12Resource1(),
@@ -1094,13 +1118,13 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 
 void Renderer::CreateAccelerationStructures()
 {
-	// Build the bottom AS from the Triangle vertex buffer
-	ID3D12Resource1* r1 = m_pUploadTriVertices->GetID3D12Resource1();
-	unsigned int numVertices = 4;
-	CreateBottomLevelAS({ {r1, numVertices} });
-
 	// Just one instance for now
-	m_instances = { {m_BottomLevelASBuffers.result->GetID3D12Resource1(), DirectX::XMMatrixIdentity()} };
+	for (RenderComponent* rc : m_RenderComponents)
+	{
+		std::pair<ID3D12Resource1*, DirectX::XMMATRIX> pair = std::make_pair(rc->mc->GetModel()->GetBottomLevelResultP(), *rc->tc->GetTransform()->GetWorldMatrix());
+		m_instances.push_back(pair);
+	}
+
 	CreateTopLevelAS(m_instances);
 
 	// Flush the command list and wait for it to finish
@@ -1109,9 +1133,10 @@ void Renderer::CreateAccelerationStructures()
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, ppCommandLists);
 
 	// Wait if the CPU is to far ahead of the gpu
-	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->Signal(m_pFenceFrame, m_FenceFrameValue);
-	waitForFrame(0);
-	m_FenceFrameValue++;
+	waitForGPU();
+	//m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->Signal(m_pFenceFrame, m_FenceFrameValue);
+	//waitForFrame(0);
+	//m_FenceFrameValue++;
 }
 
 ID3D12RootSignature* Renderer::CreateRayGenSignature()
@@ -1139,6 +1164,12 @@ ID3D12RootSignature* Renderer::CreateMissSignature()
 	return rsc.Generate(m_pDevice5, true);
 }
 
+ID3D12RootSignature* Renderer::CreateShadowSignature()
+{
+	nv_helpers_dx12::RootSignatureGenerator rsc;
+	return rsc.Generate(m_pDevice5, true);
+}
+
 ID3D12RootSignature* Renderer::CreateHitSignature()
 {
 	//-----------------------------------------------------------------------------
@@ -1158,24 +1189,27 @@ void Renderer::CreateRaytracingPipeline()
 	// set of DXIL libraries. We chose to separate the code in several libraries
 	// by semantic (ray generation, hit, miss) for clarity. Any code layout can be
 	// used.
-	m_pRayGenLibrary = nv_helpers_dx12::CompileShaderLibrary(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/RayGen.hlsl");
-	m_pMissLibrary = nv_helpers_dx12::CompileShaderLibrary(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Miss.hlsl");
-	m_pHitLibrary = nv_helpers_dx12::CompileShaderLibrary(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Hit.hlsl");
+	m_pRayGenShader = new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/RayGen.hlsl",		SHADER_TYPE::DXR);
+	m_pHitShader	= new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Hit.hlsl",		SHADER_TYPE::DXR);
+	m_pMissShader	= new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Miss.hlsl",		SHADER_TYPE::DXR);
+	m_pShadowShader = new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/ShadowRay.hlsl",  SHADER_TYPE::DXR);
 
 	  // In a way similar to DLLs, each library is associated with a number of
 	  // exported symbols. This
 	  // has to be done explicitly in the lines below. Note that a single library
 	  // can contain an arbitrary number of symbols, whose semantic is given in HLSL
 	  // using the [shader("xxx")] syntax
-	pipeline.AddLibrary(m_pRayGenLibrary, { L"RayGen" });
-	pipeline.AddLibrary(m_pMissLibrary, { L"Miss" });
-	pipeline.AddLibrary(m_pHitLibrary, { L"ClosestHit" });
+	pipeline.AddLibrary(m_pRayGenShader->GetBlob(), { L"RayGen" });
+	pipeline.AddLibrary(m_pHitShader->GetBlob(),	{ L"ClosestHit" });
+	pipeline.AddLibrary(m_pMissShader->GetBlob(),	{ L"Miss" });
+	pipeline.AddLibrary(m_pShadowShader->GetBlob(), { L"ShadowClosestHit", L"ShadowMiss" });
 
 	// To be used, each DX12 shader needs a root signature defining which
 	// parameters and buffers will be accessed.
 	m_pRayGenSignature = CreateRayGenSignature();
-	m_pMissSignature = CreateMissSignature();
 	m_pHitSignature = CreateHitSignature();
+	m_pMissSignature = CreateMissSignature();
+	m_pShadowSignature = CreateShadowSignature();
 
 	// 3 different shaders can be invoked to obtain an intersection: an
 	// intersection shader is called
@@ -1195,6 +1229,7 @@ void Renderer::CreateRaytracingPipeline()
 	// Hit group for the triangles, with a shader simply interpolating vertex
 	// colors
 	pipeline.AddHitGroup(L"HitGroup", L"ClosestHit");
+	pipeline.AddHitGroup(L"ShadowHitGroup", L"ShadowClosestHit");
 
 	// The following section associates the root signature to each shader.Note
 	// that we can explicitly show that some shaders share the same root signature
@@ -1202,9 +1237,9 @@ void Renderer::CreateRaytracingPipeline()
 	// to as hit groups, meaning that the underlying intersection, any-hit and
 	// closest-hit shaders share the same root signature.
 	pipeline.AddRootSignatureAssociation(m_pRayGenSignature, { L"RayGen" });
-	pipeline.AddRootSignatureAssociation(m_pMissSignature, { L"Miss" });
 	pipeline.AddRootSignatureAssociation(m_pHitSignature, { L"HitGroup" });
-
+	pipeline.AddRootSignatureAssociation(m_pShadowSignature, { L"ShadowHitGroup" });
+	pipeline.AddRootSignatureAssociation(m_pMissSignature, { L"Miss", L"ShadowMiss" });
 	// The payload size defines the maximum size of the data carried by the rays,
 	// ie. the the data
 	// exchanged between shaders, such as the HitInfo structure in the HLSL code.
@@ -1223,7 +1258,7 @@ void Renderer::CreateRaytracingPipeline()
 	// then requires a trace depth of 1. Note that this recursion depth should be
 	// kept to a minimum for best performance. Path tracing algorithms can be
 	// easily flattened into a simple loop in the ray generation.
-	pipeline.SetMaxRecursionDepth(1);
+	pipeline.SetMaxRecursionDepth(2);
 
 	// Compile the pipeline for execution on the GPU
 	m_pRTStateObject = pipeline.Generate(m_pRootSignature->GetRootSig());
@@ -1265,16 +1300,14 @@ void Renderer::CreateShaderResourceHeap()
 	// Get a handle to the heap memory on the CPU side, to be able to write the
 	// descriptors directly
 	m_DhIndexASOB = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetNextDescriptorHeapIndex(1);
-	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle =
-		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetCPUHeapAt(m_DhIndexASOB);
+	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetCPUHeapAt(m_DhIndexASOB);
 
 	// Create the UAV. Based on the root signature we created it is the first
 	// entry. The Create*View methods write the view information directly into
 	// srvHandle
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
 	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-	m_pDevice5->CreateUnorderedAccessView(m_pOutputResource, nullptr, &uavDesc,
-		srvHandle);
+	m_pDevice5->CreateUnorderedAccessView(m_pOutputResource, nullptr, &uavDesc, srvHandle);
 
 	// Add the Top Level AS SRV right after the raytracing output buffer
 	unsigned int nextDhIndex = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetNextDescriptorHeapIndex(1);
@@ -1316,10 +1349,11 @@ void Renderer::CreateShaderBindingTable()
 	// The miss and hit shaders do not access any external resources: instead they
 	// communicate their results through the ray payload
 	m_SbtHelper.AddMissProgram(L"Miss", {});
+	m_SbtHelper.AddMissProgram(L"ShadowMiss", {});
 
 	// Adding the triangle hit shader
 	m_SbtHelper.AddHitGroup(L"HitGroup", {});
-
+	m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
 
 
 	// Compute the size of the SBT given the number of shaders and their
@@ -1413,7 +1447,7 @@ bool Renderer::createDevice()
 			DXGI_ADAPTER_DESC adapterDesc = {};
 			adapter->GetDesc(&adapterDesc);
 
-			Log::Print("Adapter: %S\n", adapterDesc.Description);
+			BL_LOG("Adapter: %S\n", adapterDesc.Description);
 			m_GPUName = to_string(adapterDesc.Description);
 			
 			D3D12_FEATURE_DATA_D3D12_OPTIONS5 features5 = {};
@@ -1424,7 +1458,7 @@ bool Renderer::createDevice()
 			{
 				if (features5.RaytracingTier == D3D12_RAYTRACING_TIER_1_1)
 				{
-					Log::Print("Raytracing tier 1.1 supported!\n");
+					BL_LOG("Raytracing tier 1.1 supported!\n");
 					break; // found one!
 				}
 			}
@@ -1714,11 +1748,13 @@ void Renderer::initRenderTasks()
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)
 	{
 		m_DirectCommandLists[i].push_back(copyOnDemandTask->GetCommandInterface()->GetCommandList(i));
+		m_DXRCodtCommandLists[i] = copyOnDemandTask->GetCommandInterface()->GetCommandList(i);
 	}
 
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)
 	{
 		m_DirectCommandLists[i].push_back(copyPerFrameTask->GetCommandInterface()->GetCommandList(i));
+		m_DXRCpftCommandLists[i] = copyPerFrameTask->GetCommandInterface()->GetCommandList(i);
 	}
 
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)
@@ -1860,6 +1896,9 @@ void Renderer::submitUploadPerFrameData()
 	{
 		const void* data = static_cast<void*>(m_pCbPerFrameData);
 		cpft->Submit(&std::tuple(m_pCbPerFrame->GetUploadResource(), m_pCbPerFrame->GetDefaultResource(), data));
+
+		const void* data2 = static_cast<void*>(m_pCbCameraData);
+		cpft->Submit(&std::tuple(m_pCbCamera->GetUploadResource(), m_pCbCamera->GetDefaultResource(), data2));
 	}
 }
 

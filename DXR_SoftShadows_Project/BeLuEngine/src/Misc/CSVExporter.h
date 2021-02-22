@@ -2,6 +2,7 @@
 #define CSVEXPORTER_H
 
 #include <sstream>
+#include "Core.h"
 
 class CSVExporter
 {
@@ -18,8 +19,8 @@ public:
 
 	inline void Print()
 	{
-		std::string a = entries.str();  
-		Log::Print("%s\n", a.c_str());
+		std::string a = entries.str();
+		BL_LOG_INFO("%s\n", a.c_str());
 	}
 
 	friend std::stringstream& operator<<(CSVExporter& exporter, bool d);
