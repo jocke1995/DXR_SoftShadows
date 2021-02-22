@@ -110,7 +110,12 @@ project "PerformanceTest"
     includedirs {"Vendor/Include/", "BeLuEngine/src/"}
     libdirs { "Vendor/Lib/**" }
     links {
+		"Sandbox"
+    }
 	
+	postbuildcommands
+    {
+		("{COPY} ../PerformanceTest/gnuplot/Sample_Data_Timeline.gp ../bin/%{cfg.buildcfg}/PerformanceTest/")
     }
     
     filter "configurations:Debug"

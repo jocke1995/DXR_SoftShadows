@@ -74,8 +74,8 @@ int main(int argc, char* argv[])
     -l 10               // Num Lights
     */
 
-    wchar_t test1Args[] = L"-o ../test1.csv -q 1";
-    wchar_t test1Argsi[] = L"-o ../test2.csv -q 1 -i 1";
+    wchar_t test1Args[] = L"-o ../RTX3080.csv -q 1";
+    wchar_t test1Argsi[] = L"-o ../RTX3080i.csv -q 1 -i 1";
 
     // Scene 1
     Printl("Scene 1...........................................");
