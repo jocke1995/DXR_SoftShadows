@@ -115,7 +115,10 @@ project "PerformanceTest"
 	
 	postbuildcommands
     {
-		("{COPY} ../PerformanceTest/gnuplot/Sample_Data_Timeline.gp ../bin/%{cfg.buildcfg}/PerformanceTest/")
+		("{COPY} ../PerformanceTest/gnuplot/Sample_Data_Timeline.gp ../bin/%{cfg.buildcfg}/PerformanceTest/"),
+		("{COPY} ../BeLuEngine ../bin/%{cfg.buildcfg}/PerformanceTest/BeLuEngine"),
+		("{COPY} ../Sandbox ../bin/%{cfg.buildcfg}/PerformanceTest/Sandbox"),
+		("{COPY} ../Vendor ../bin/%{cfg.buildcfg}/PerformanceTest/Vendor")
     }
     
     filter "configurations:Debug"
