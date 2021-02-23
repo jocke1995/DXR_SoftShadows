@@ -31,25 +31,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     Renderer* const renderer = engine.GetRenderer();
 
     /*------ AssetLoader to load models / textures ------*/
-   AssetLoader* al = AssetLoader::Get();
-   
-   Scene* scene;
-   //if (params.scene == L"test")
-   //{
-   //     scene = TestScene(sceneManager);
-   //}
-   //else
-   //{
-        scene = SponzaScene(sceneManager);
-   //}
-      
-   // Set scene
-   sceneManager->SetScene(scene);
+    AssetLoader* al = AssetLoader::Get();
 
-   // Have to update models before using it in the AS buffers
-   renderer->UpdateSceneToGPU();
-   sceneManager->Update(0);
-   renderer->InitDXR();
+    Scene* scene;
+    //if (params.scene == L"test")
+    //{
+    //     scene = TestScene(sceneManager);
+    //}
+    //else
+    //{
+    scene = SponzaScene(sceneManager);
+    //}
+
+    // Set scene
+    sceneManager->SetScene(scene);
+
+    // Have to update models before using it in the AS buffers
+    renderer->UpdateSceneToGPU();
+    sceneManager->Update(0);
+    renderer->InitDXR();
 
    BL_LOG("Entering Game-Loop ...\n\n");
    while (!window->ExitWindow())

@@ -23,12 +23,19 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 		materialColor = A* barycentrics.x + B * barycentrics.y + C * barycentrics.z;
 	//}
 	
+	
+	uint2 launchIndex = DispatchRaysIndex();
+	float2 dims = float2(DispatchRaysDimensions().xy);
+	// From 0 to 1 ----> -1 to 1
+	float2 d = ((launchIndex.xy + 0.5f) / dims.xy);
+	
+	
     float3 lightPos = float3(425.900238f, 666.148193f, -98.189651f);
 	
 	// Testing light pos
-	lightPos = float3(0, 10, 0);
+	lightPos = float3(0, 50, 0);
 	
-	float lightRadius = 5.0;
+	float lightRadius = 1.0; // To low radius => coneAngle not accurate enough
     
     // Find the world - space hit position
     float3 worldOrigin = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
@@ -46,26 +53,34 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 	float3 toLightEdge = normalize((lightPos + perpL * lightRadius) - worldOrigin);
 	
 	// Angle between L and toLightEdge. Used as the cone angle when sampling shadow rays
-	float coneAngle = acos(dot(lightDir, toLightEdge)) * 2.0f;
+	float coneAngle = acos(dot(lightDir, toLightEdge)) * 2;
 	
 	// Init random floats
-	uint seed = initRand( cbPerFrame.frameCounter, 17);
+	uint frameSeed = cbPerFrame.frameCounter + 200000;
+	uint seed = initRand( frameSeed * d.x , frameSeed * d.y);
+	
+	
+	float sumFactor = 0;
+	int spp = 1;
+	
+	int i;
+	for(i = 0; i < spp; i++)
+	{
 	
 	float3 randDir = getConeSample(seed, lightDir, coneAngle);
-	//randDir = lightDir;
-    
+	
     // Fire a shadow ray. The direction is hard-coded here, but can be fetched
     // from a constant-buffer
     RayDesc ray;
     ray.Origin = worldOrigin;
     ray.Direction = randDir;
     ray.TMin = 0.01;
-    ray.TMax = distance(lightPos, worldOrigin) + lightRadius;
+    ray.TMax = distance(lightPos, ray.Origin);
     
     // Initialize the ray payload
     ShadowHitInfo shadowPayload;
     shadowPayload.isHit = true;
-    
+	
     // Trace the ray
     TraceRay(
         // Acceleration structure
@@ -103,8 +118,12 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
         // Payload associated to the ray, which will be used to communicate
         // between the hit/miss shaders and the raygen
         shadowPayload);
+		
+		float factor = shadowPayload.isHit ? 0.0 : 1.0;
+		sumFactor += factor;
+	}
+	
+	sumFactor /= spp;
 
-    float factor = shadowPayload.isHit ? 0.3 : 1.0;
-
-	payload.colorAndDistance = float4(materialColor * factor, RayTCurrent());
+	payload.colorAndDistance = float4(materialColor * sumFactor, RayTCurrent());
 }
