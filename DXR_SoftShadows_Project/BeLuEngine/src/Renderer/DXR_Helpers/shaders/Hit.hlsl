@@ -1,5 +1,13 @@
 #include "Common.hlsl"
 
+#include "hlslhelpers.hlsl"
+
+struct DATA
+{
+	unsigned int data;
+};
+ConstantBuffer<DATA> cbFrameCounter : register(b7, space3);
+
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0, space2);
 
@@ -21,19 +29,43 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 	//}
 	
     float3 lightPos = float3(425.900238f, 666.148193f, -98.189651f);
+	
+	// Testing light pos
+	lightPos = float3(0, 10, 0);
+	
+	float lightRadius = 10.0;
     
     // Find the world - space hit position
     float3 worldOrigin = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
     
     float3 lightDir = normalize(lightPos - worldOrigin);
+	
+	float3 perpL = cross(lightDir, float3(0.f, 1.0f, 0.f));
+	// Handle case where L = up -> perpL should then be (1,0,0)
+	if (all(perpL == 0.0f))
+	{
+		perpL.x = 1.0;
+	}
+	
+	// Use perpL to get a vector from worldPosition to the edge of the light sphere
+	float3 toLightEdge = normalize((lightPos + perpL * lightRadius) - worldOrigin);
+	
+	// Angle between L and toLightEdge. Used as the cone angle when sampling shadow rays
+	float coneAngle = acos(dot(lightDir, toLightEdge)) * 2.0f;
+	
+	// Init random floats
+	uint seed = initRand( cbFrameCounter.data, 17);
+	
+	float3 randDir = getConeSample(seed, lightDir, coneAngle);
+	//randDir = lightDir;
     
     // Fire a shadow ray. The direction is hard-coded here, but can be fetched
     // from a constant-buffer
     RayDesc ray;
     ray.Origin = worldOrigin;
-    ray.Direction = lightDir;
+    ray.Direction = randDir;
     ray.TMin = 0.01;
-    ray.TMax = distance(lightPos, worldOrigin);
+    ray.TMax = distance(lightPos, worldOrigin) + lightRadius;
     
     // Initialize the ray payload
     ShadowHitInfo shadowPayload;
@@ -56,7 +88,7 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
         // indicates which offset (on 4 bits) to apply to the hit groups for this
         // ray. In this sample we only have one hit group per object, hence an
         // offset of 0.
-        1,
+        0,
         // The offsets in the SBT can be computed from the object ID, its instance
         // ID, but also simply by the order the objects have been pushed in the
         // acceleration structure. This allows the application to group shaders in
