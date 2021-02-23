@@ -56,6 +56,8 @@ struct CB_PER_FRAME_STRUCT
 	float pad2;
 	float3 camForward;
 	float pad3;
+	unsigned int frameCounter;
+	float pad4[3];
 
 
 	// deltaTime ..

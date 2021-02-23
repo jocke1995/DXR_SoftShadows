@@ -132,7 +132,6 @@ void Renderer::deleteRenderer()
 
 	delete m_pCbCamera;
 	delete m_pCbCameraData;
-	delete m_pCbFrameCounter;
 
 	SAFE_RELEASE(&m_pRayGenSignature);
 	SAFE_RELEASE(&m_pHitSignature);
@@ -227,8 +226,6 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	// DXR
 	m_pCbCamera = new ConstantBuffer(m_pDevice5, sizeof(DXR_CAMERA), L"DXR_CAMERA", m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]);
 	m_pCbCameraData = new DXR_CAMERA();
-
-	m_pCbFrameCounter = new ConstantBuffer(m_pDevice5, sizeof(unsigned int), L"CB_FRAME_COUNTER", m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]);
 }
 
 void Renderer::InitDXR()
@@ -282,6 +279,7 @@ void Renderer::Update(double dt)
 	m_pCbPerFrameData->camRight = right;
 	m_pCbPerFrameData->camUp = up;
 	m_pCbPerFrameData->camForward = forward;
+	m_pCbPerFrameData->frameCounter = m_FrameCounter;
 
 	// DXR cam
 	m_pCbCameraData->projection  = *m_pScenePrimaryCamera->GetProjMatrix();
@@ -447,9 +445,6 @@ void Renderer::ExecuteDXR()
 	cl->SetComputeRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
 	cl->SetComputeRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
 	cl->SetComputeRootConstantBufferView(RS::CBV0		 , m_pCbCamera->GetDefaultResource()->GetGPUVirtualAdress());
-	cl->SetComputeRootConstantBufferView(RS::CBV1		 , m_pCbFrameCounter->GetDefaultResource()->GetGPUVirtualAdress());
-
-	BL_LOG_INFO("FrameCounter %d\n", m_FrameCounter);
 
 	// On the last frame, the raytracing output was used as a copy source, to
 	// copy its contents into the render target. Now we need to transition it to
@@ -1812,9 +1807,6 @@ void Renderer::submitUploadPerFrameData()
 
 		const void* data2 = static_cast<void*>(m_pCbCameraData);
 		cpft->Submit(&std::tuple(m_pCbCamera->GetUploadResource(), m_pCbCamera->GetDefaultResource(), data2));
-
-		const void* data3 = static_cast<void*>(m_pCbFrameCounter);
-		cpft->Submit(&std::tuple(m_pCbFrameCounter->GetUploadResource(), m_pCbFrameCounter->GetDefaultResource(), data3));
 	}
 }
 

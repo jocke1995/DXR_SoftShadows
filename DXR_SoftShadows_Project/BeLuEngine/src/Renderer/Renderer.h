@@ -243,7 +243,6 @@ private:
 	// Camera
 	DXR_CAMERA* m_pCbCameraData = nullptr;
 	ConstantBuffer* m_pCbCamera = nullptr;
-	ConstantBuffer* m_pCbFrameCounter = nullptr;
 	// ------------------- DXR temp ----------------
 
 

@@ -2,11 +2,6 @@
 
 #include "hlslhelpers.hlsl"
 
-struct DATA
-{
-	unsigned int data;
-};
-ConstantBuffer<DATA> cbFrameCounter : register(b7, space3);
 
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0, space2);
@@ -33,7 +28,7 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 	// Testing light pos
 	lightPos = float3(0, 10, 0);
 	
-	float lightRadius = 10.0;
+	float lightRadius = 5.0;
     
     // Find the world - space hit position
     float3 worldOrigin = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
@@ -54,7 +49,7 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 	float coneAngle = acos(dot(lightDir, toLightEdge)) * 2.0f;
 	
 	// Init random floats
-	uint seed = initRand( cbFrameCounter.data, 17);
+	uint seed = initRand( cbPerFrame.frameCounter, 17);
 	
 	float3 randDir = getConeSample(seed, lightDir, coneAngle);
 	//randDir = lightDir;
