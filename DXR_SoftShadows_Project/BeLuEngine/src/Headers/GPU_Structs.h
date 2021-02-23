@@ -20,6 +20,8 @@ struct DescriptorHeapIndices
 struct SlotInfo
 {
 	unsigned int vertexDataIndex;
+	unsigned int indicesIndex;	// Only used for DXR
+
 	// TextureIndices
 	unsigned int textureAlbedo;
 	unsigned int textureRoughness;
@@ -27,8 +29,12 @@ struct SlotInfo
 	unsigned int textureNormal;
 	unsigned int textureEmissive;
 	unsigned int textureOpacity;
+};
 
-	unsigned int pad[1];
+struct COLOR_TEMP_STRUCT
+{
+	float4 col;
+	float4 pad[1];
 };
 
 struct DXR_CAMERA

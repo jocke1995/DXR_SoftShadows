@@ -84,7 +84,7 @@ ID3D12Resource1* Model::GetBottomLevelResultP() const
 void Model::updateSlotInfo()
 {
 #ifdef DEBUG
-	if (m_Meshes[0]->m_pSRV == nullptr || m_Materials[0]->GetTexture(TEXTURE2D_TYPE::ALBEDO)->m_pSRV == nullptr)
+	if (m_Meshes[0]->m_pVertexBufferSRV == nullptr || m_Materials[0]->GetTexture(TEXTURE2D_TYPE::ALBEDO)->m_pSRV == nullptr)
 	{
 		BL_LOG_CRITICAL("Model.cpp::updateSlotInfo got unInit:ed variables\n");
 	}
@@ -94,7 +94,8 @@ void Model::updateSlotInfo()
 	{
 		m_SlotInfos[i] =
 		{
-			m_Meshes[i]->m_pSRV->GetDescriptorHeapIndex(),
+			m_Meshes[i]->m_pVertexBufferSRV->GetDescriptorHeapIndex(),
+			m_Meshes[i]->m_pIndexBufferSRV->GetDescriptorHeapIndex(),
 			m_Materials[i]->GetTexture(TEXTURE2D_TYPE::ALBEDO)->GetDescriptorHeapIndex(),
 			m_Materials[i]->GetTexture(TEXTURE2D_TYPE::ROUGHNESS)->GetDescriptorHeapIndex(),
 			m_Materials[i]->GetTexture(TEXTURE2D_TYPE::METALLIC)->GetDescriptorHeapIndex(),
@@ -103,5 +104,7 @@ void Model::updateSlotInfo()
 			m_Materials[i]->GetTexture(TEXTURE2D_TYPE::OPACITY)->GetDescriptorHeapIndex()
 		};
 	}
+
+	// DXR
 }
 

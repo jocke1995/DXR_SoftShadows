@@ -54,6 +54,7 @@ protected:
     std::vector<Material*> m_Materials;
     std::vector<SlotInfo> m_SlotInfos;
 
+    // DXR
     ID3D12Resource1* m_pBottomLevelResult = nullptr;
 };
 

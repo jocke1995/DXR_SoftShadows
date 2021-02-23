@@ -172,6 +172,7 @@ Scene* SponzaScene(SceneManager* sm)
 
     // Get the models needed
     Model* sponza = al->LoadModel(L"../Vendor/Resources/Scenes/Sponza/textures_pbr/sponza.obj");
+    Model* floorModel = al->LoadModel(L"../Vendor/Resources/Models/FloorPBR/floor.obj");
     Model* sphereModel = al->LoadModel(L"../Vendor/Resources/Models/SpherePBR/ball.obj");
 
     /* ---------------------- Player ---------------------- */
@@ -190,7 +191,30 @@ Scene* SponzaScene(SceneManager* sm)
     mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
     tc->GetTransform()->SetPosition({0.0f, 0.0f, 0.0f});
     tc->GetTransform()->SetScale(0.3f, 0.3f, 0.3f);
+
+    entity = scene->AddEntity("sponza1");
+    mc = entity->AddComponent<component::ModelComponent>();
+    tc = entity->AddComponent<component::TransformComponent>();
+
+    mc->SetModel(sponza);
+    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
+    tc->GetTransform()->SetPosition({ 0.0f, 0.0f, -1000.0f });
+    tc->GetTransform()->SetScale(0.3f, 0.3f, 0.3f);
     /* ---------------------- Sponza ---------------------- */
+
+    /* ---------------------- Floor ---------------------- */
+    //entity = scene->AddEntity("floor");
+    //mc = entity->AddComponent<component::ModelComponent>();
+    //tc = entity->AddComponent<component::TransformComponent>();
+    //
+    //mc = entity->GetComponent<component::ModelComponent>();
+    //mc->SetModel(floorModel);
+    //mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
+    //tc = entity->GetComponent<component::TransformComponent>();
+    //tc->GetTransform()->SetScale(1000, 1, 1000);
+    //tc->GetTransform()->SetPosition(0.0f, 0.0f, 0.0f);
+    /* ---------------------- Floor ---------------------- */
+
 
     /* ---------------------- Braziers ---------------------- */
     //entity = scene->AddEntity("Brazier0");

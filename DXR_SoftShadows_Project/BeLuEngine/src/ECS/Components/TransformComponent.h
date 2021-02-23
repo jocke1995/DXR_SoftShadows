@@ -4,6 +4,13 @@
 #include "Component.h"
 class Transform;
 
+class ConstantBuffer;
+class DescriptorHeap;
+
+struct ID3D12Device5;
+
+class Resource;
+
 namespace component
 {
     class TransformComponent : public Component
@@ -21,9 +28,16 @@ namespace component
         void SetTransformOriginalState();
 
         Transform* GetTransform() const;
+        Resource* GetMatrixUploadResource() const;
+
+        void CreateResourceForWorldMatrix(ID3D12Device5* device, DescriptorHeap* descriptorHeap_CBV_UAV_SRV);
+        ConstantBuffer* m_pTempCB = nullptr;
+        COLOR_TEMP_STRUCT c = {};
     private:
         Transform* m_pTransform = nullptr;
         Transform* m_pOriginalTransform = nullptr;
+
+        Resource* m_pResourceWorldMatrixUpload = nullptr;
     };
 }
 

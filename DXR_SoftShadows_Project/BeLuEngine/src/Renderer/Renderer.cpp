@@ -566,6 +566,9 @@ void Renderer::InitModelComponent(component::ModelComponent* mc)
 			rc->mc = mc;
 			rc->tc = tc;
 			
+			// Temp filling with color
+			rc->tc->CreateResourceForWorldMatrix(m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]);
+			
 			// One resource for each mesh
 			for (unsigned int i = 0; i < mc->GetNrOfMeshes(); i++)
 			{
@@ -974,11 +977,9 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 			instances[i].first,
 			instances[i].second, 
 			static_cast<unsigned int>(i),
-			static_cast<unsigned int>(0));
+			static_cast<unsigned int>(i*2));	// two different kinds of hitgroups (Default and Shadows)
 	}
 
-	DirectX::XMMATRIX mat = DirectX::XMMatrixTranslation(2.0f, 3.0f, 5.0f);
-	DirectX::XMMATRIX matTrans = DirectX::XMMatrixTranspose(mat);
 	// As for the bottom-level AS, the building the AS requires some scratch space
 	// to store temporary data in addition to the actual AS. In the case of the
 	// top-level AS, the instance descriptors also need to be stored in GPU
@@ -1085,10 +1086,21 @@ ID3D12RootSignature* Renderer::CreateShadowSignature()
 ID3D12RootSignature* Renderer::CreateHitSignature()
 {
 	//-----------------------------------------------------------------------------
-	// The hit shader communicates only through the ray payload, and therefore does
-	// not require any resources
-	//
+	
+	
 	nv_helpers_dx12::RootSignatureGenerator rsc;
+	//rsc.AddHeapRangesParameter(
+	//	// CBV-Table with slotinfos at t0 (same memory can be referred by multiple instances, for example if we where to draw 10 sponzas, all with same meshes/textures)
+	//	{ {0 /*b0*/, -1 /*bindless num_descriptors */, 4 /*space 4*/,
+	//	  D3D12_DESCRIPTOR_RANGE_TYPE_CBV /* CBV representing the output buffer*/,
+	//	  0 /*Offset from heap start*/} });
+
+	// TEMP COLOR FOR DEBUGGING PURPOSES. Unique per instance (b7, space3)
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_CBV, 7, 3, 1);
+
+	// Constant buffer with matrices. Unique per instance (b8, space3)
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_CBV, 8, 3, 1);
+
 	return rsc.Generate(m_pDevice5, true);
 }
 
@@ -1264,8 +1276,11 @@ void Renderer::CreateShaderBindingTable()
 	m_SbtHelper.AddMissProgram(L"ShadowMiss", {});
 
 	// Adding the triangle hit shader
-	m_SbtHelper.AddHitGroup(L"HitGroup", {});
-	m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
+	for (RenderComponent* rc : m_RenderComponents)
+	{
+		m_SbtHelper.AddHitGroup(L"HitGroup", {(void*)rc->tc->m_pTempCB->GetUploadResource()->GetGPUVirtualAdress(), (void*)nullptr});
+		m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
+	}
 
 
 	// Compute the size of the SBT given the number of shaders and their

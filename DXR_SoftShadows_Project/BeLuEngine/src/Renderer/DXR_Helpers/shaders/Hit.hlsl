@@ -3,6 +3,9 @@
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0, space2);
 
+// Temp
+ConstantBuffer<COLOR_TEMP_STRUCT> cbTemp : register(b7, space3);
+
 [shader("closesthit")] 
 void ClosestHit(inout HitInfo payload, Attributes attrib) 
 {
@@ -13,11 +16,11 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 	const float3 B = float3(0, 1, 0);
 	const float3 C = float3(0, 0, 1);
 	
-	float3 materialColor = float3(1.0f, 1.0f, 1.0f);
+    float3 materialColor = cbTemp.col;//float3(1.0f, 1.0f, 1.0f);
 
 	//if (InstanceID() == 1)
 	//{
-		materialColor = A* barycentrics.x + B * barycentrics.y + C * barycentrics.z;
+		//materialColor = A* barycentrics.x + B * barycentrics.y + C * barycentrics.z;
 	//}
 	
     float3 lightPos = float3(425.900238f, 666.148193f, -98.189651f);
