@@ -54,7 +54,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
    BL_LOG("Entering Game-Loop ...\n\n");
    while (!window->ExitWindow())
    {
-       static bool DXR = false;
+       static bool DXR = true;
        if (window->WasSpacePressed())
        {
            DXR = !DXR;

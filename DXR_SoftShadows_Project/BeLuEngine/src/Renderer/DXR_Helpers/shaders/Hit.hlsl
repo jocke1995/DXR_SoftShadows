@@ -37,14 +37,14 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
     
     // Initialize the ray payload
     ShadowHitInfo shadowPayload;
-    shadowPayload.isHit = false;
+    shadowPayload.isHit = true;
     
     // Trace the ray
     TraceRay(
         // Acceleration structure
         SceneBVH,
         // Flags can be used to specify the behavior upon hitting a surface
-        RAY_FLAG_NONE,
+        RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
         // Instance inclusion mask, which can be used to mask out some geometry to
         // this ray by and-ing the mask with a geometry mask. The 0xFF flag then
         // indicates no geometry will be masked
