@@ -279,6 +279,7 @@ void Renderer::Update(double dt)
 	m_pCbPerFrameData->camRight = right;
 	m_pCbPerFrameData->camUp = up;
 	m_pCbPerFrameData->camForward = forward;
+	m_pCbPerFrameData->frameCounter = m_FrameCounter;
 
 	// DXR cam
 	m_pCbCameraData->projection  = *m_pScenePrimaryCamera->GetProjMatrix();
@@ -986,7 +987,7 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 			instances[i].first,
 			instances[i].second, 
 			static_cast<unsigned int>(i),
-			static_cast<unsigned int>(i*2));	// two different kinds of hitgroups (Default and Shadows)
+			static_cast<unsigned int>(i));	// One hitgroup for each instance
 	}
 
 	// As for the bottom-level AS, the building the AS requires some scratch space
@@ -1127,14 +1128,13 @@ void Renderer::CreateRaytracingPipeline()
 	pipeline.AddLibrary(m_pRayGenShader->GetBlob(), { L"RayGen" });
 	pipeline.AddLibrary(m_pHitShader->GetBlob(),	{ L"ClosestHit" });
 	pipeline.AddLibrary(m_pMissShader->GetBlob(),	{ L"Miss" });
-	pipeline.AddLibrary(m_pShadowShader->GetBlob(), { L"ShadowClosestHit", L"ShadowMiss" });
+	pipeline.AddLibrary(m_pShadowShader->GetBlob(), { L"ShadowMiss" });
 
 	// To be used, each DX12 shader needs a root signature defining which
 	// parameters and buffers will be accessed.
 	m_pRayGenSignature = CreateRayGenSignature();
 	m_pHitSignature = CreateHitSignature();
 	m_pMissSignature = CreateMissSignature();
-	m_pShadowSignature = CreateShadowSignature();
 
 	// 3 different shaders can be invoked to obtain an intersection: an
 	// intersection shader is called
@@ -1154,7 +1154,6 @@ void Renderer::CreateRaytracingPipeline()
 	// Hit group for the triangles, with a shader simply interpolating vertex
 	// colors
 	pipeline.AddHitGroup(L"HitGroup", L"ClosestHit");
-	pipeline.AddHitGroup(L"ShadowHitGroup", L"ShadowClosestHit");
 
 	// The following section associates the root signature to each shader.Note
 	// that we can explicitly show that some shaders share the same root signature
@@ -1163,7 +1162,6 @@ void Renderer::CreateRaytracingPipeline()
 	// closest-hit shaders share the same root signature.
 	pipeline.AddRootSignatureAssociation(m_pRayGenSignature, { L"RayGen" });
 	pipeline.AddRootSignatureAssociation(m_pHitSignature, { L"HitGroup" });
-	pipeline.AddRootSignatureAssociation(m_pShadowSignature, { L"ShadowHitGroup" });
 	pipeline.AddRootSignatureAssociation(m_pMissSignature, { L"Miss", L"ShadowMiss" });
 	// The payload size defines the maximum size of the data carried by the rays,
 	// ie. the the data
@@ -1284,7 +1282,6 @@ void Renderer::CreateShaderBindingTable()
 				(void*)rc->tc->GetMatrixUploadResource()->GetGPUVirtualAdress(), // Unique per instance
 				(void*)rc->mc->GetModel()->GetByteAdressInfoDXR()->GetDefaultResource()->GetGPUVirtualAdress()	// Unique per model
 			});	
-		m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
 	}
 
 

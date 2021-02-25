@@ -31,30 +31,30 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     Renderer* const renderer = engine.GetRenderer();
 
     /*------ AssetLoader to load models / textures ------*/
-   AssetLoader* al = AssetLoader::Get();
-   
-   Scene* scene;
-   if (params.scene == L"test")
-   {
-        scene = TestScene(sceneManager);
-   }
-   else
-   {
-      scene = SponzaScene(sceneManager);
-   }
-      
-   // Set scene
-   sceneManager->SetScene(scene);
+    AssetLoader* al = AssetLoader::Get();
 
-   // Have to update models before using it in the AS buffers
-   renderer->UpdateSceneToGPU();
-   sceneManager->Update(0);
-   renderer->InitDXR();
+    Scene* scene;
+    if (params.scene == L"test")
+    {
+         scene = TestScene(sceneManager);
+    }
+    else
+    {
+        scene = SponzaScene(sceneManager);
+    }
+
+    // Set scene
+    sceneManager->SetScene(scene);
+
+    // Have to update models before using it in the AS buffers
+    renderer->UpdateSceneToGPU();
+    sceneManager->Update(0);
+    renderer->InitDXR();
 
    BL_LOG("Entering Game-Loop ...\n\n");
    while (!window->ExitWindow())
    {
-       static bool DXR = false;
+       static bool DXR = true;
        if (window->WasSpacePressed())
        {
            DXR = !DXR;
@@ -145,7 +145,7 @@ Scene* TestScene(SceneManager* sm)
     mc->SetModel(sphereModel);
     mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
     tc->GetTransform()->SetScale(1.0f);
-    tc->GetTransform()->SetPosition(5, 5, 5);
+    tc->GetTransform()->SetPosition(5, 15, 5);
     
     entity = scene->AddEntity("sphere2");
     mc = entity->AddComponent<component::ModelComponent>();
@@ -154,7 +154,7 @@ Scene* TestScene(SceneManager* sm)
     mc->SetModel(sphereModel);
     mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
     tc->GetTransform()->SetScale(1.0f);
-    tc->GetTransform()->SetPosition(5, 5, 10);
+    tc->GetTransform()->SetPosition(5, 25, 10);
     
     entity = scene->AddEntity("sphere3");
     mc = entity->AddComponent<component::ModelComponent>();
@@ -163,7 +163,7 @@ Scene* TestScene(SceneManager* sm)
     mc->SetModel(sphereModel);
     mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
     tc->GetTransform()->SetScale(1.0f);
-    tc->GetTransform()->SetPosition(5, 5, 15);
+    tc->GetTransform()->SetPosition(5, 35, 15);
     /* ---------------------- Sphere ---------------------- */
 
     
