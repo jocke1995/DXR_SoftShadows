@@ -152,7 +152,7 @@ Model* AssetLoader::LoadModel(const std::wstring& path)
 	m_LoadedModels[path].first = false;
 
 	processModel(assimpScene, &meshes, &materials, path);
-	m_LoadedModels[path].second = new Model(&path, &meshes, &materials);
+	m_LoadedModels[path].second = new Model(&path, &meshes, &materials, m_pDevice, m_pDescriptorHeap_CBV_UAV_SRV);
 
 	return m_LoadedModels[path].second;
 }

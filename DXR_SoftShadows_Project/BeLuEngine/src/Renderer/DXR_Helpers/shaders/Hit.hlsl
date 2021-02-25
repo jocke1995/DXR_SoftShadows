@@ -1,29 +1,45 @@
 #include "Common.hlsl"
 
-// Raytracing acceleration structure, accessed as a SRV
-RaytracingAccelerationStructure SceneBVH : register(t0, space2);
+/* GLOBAL */
+StructuredBuffer<vertex> meshes[] : register(t0, space0);
+StructuredBuffer<unsigned int> indices[] : register(t0, space1);
+Texture2D textures[]   : register (t0, space2);
 
-// Temp
-ConstantBuffer<COLOR_TEMP_STRUCT> cbTemp : register(b7, space3);
+// Raytracing acceleration structure, accessed as a SRV
+RaytracingAccelerationStructure SceneBVH : register(t0, space3);
+
+SamplerState MIN_MAG_MIP_LINEAR__WRAP	: register (s5);
+
+/* LOCAL */
+ConstantBuffer<DXR_WORLDMATRIX_STRUCT> worldMat : register(b7, space3);
+ByteAddressBuffer rawBuffer: register(t0, space4);
 
 [shader("closesthit")] 
-void ClosestHit(inout HitInfo payload, Attributes attrib) 
+void ClosestHit(inout HitInfo payload, in BuiltInTriangleIntersectionAttributes attribs)
 {
-	float3 barycentrics = 
-    float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
-	
-	const float3 A = float3(1, 0, 0);
-	const float3 B = float3(0, 1, 0);
-	const float3 C = float3(0, 0, 1);
-	
-    float3 materialColor = cbTemp.col;//float3(1.0f, 1.0f, 1.0f);
+    float3 bary = float3(1.0 - attribs.barycentrics.x - attribs.barycentrics.y, attribs.barycentrics.x, attribs.barycentrics.y);
 
-	//if (InstanceID() == 1)
-	//{
-		//materialColor = A* barycentrics.x + B * barycentrics.y + C * barycentrics.z;
-	//}
+    SlotInfo info = rawBuffer.Load<SlotInfo>(GeometryIndex() * sizeof(SlotInfo));
+
+    uint vertId = 3 * PrimitiveIndex();
+    uint IndexID1 = indices[info.indicesIndex][vertId + 0];
+    uint IndexID2 = indices[info.indicesIndex][vertId + 1];
+    uint IndexID3 = indices[info.indicesIndex][vertId + 2];
+
+    // Get the normal
+    vertex v1 = meshes[info.vertexDataIndex][IndexID1];
+    vertex v2 = meshes[info.vertexDataIndex][IndexID2];
+    vertex v3 = meshes[info.vertexDataIndex][IndexID3];
+
+    float3 normal = normalize(mul(float4(v1.norm, 0.0f), worldMat.worldMatrix));
+
+    float2 uv = v1.uv * bary.x + v2.uv * bary.y + v3.uv * bary.z;
+   
+    float3 albedo = textures[info.textureAlbedo].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).rgb;
+    float3 materialColor = float3(0.5f, 0.5f, 0.5f);
+    materialColor =  albedo.rgb;
 	
-    float3 lightPos = float3(425.900238f, 666.148193f, -98.189651f);
+    float3 lightPos = float3(-26.42f, 63.0776f, 14.19f);
     
     // Find the world - space hit position
     float3 worldOrigin = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
@@ -80,7 +96,10 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
         // between the hit/miss shaders and the raygen
         shadowPayload);
 
-    float factor = shadowPayload.isHit ? 0.3 : 1.0;
+    float factor = shadowPayload.isHit ? 0.0 : 1.0;
 
-	payload.colorAndDistance = float4(materialColor * factor, RayTCurrent());
+    float nDotL = max(0.0f, dot(normal, lightDir));
+    
+    float3 ambient = materialColor * float3(0.1f, 0.1f, 0.1f);
+	payload.colorAndDistance = float4(materialColor * factor * nDotL + ambient, RayTCurrent());
 }

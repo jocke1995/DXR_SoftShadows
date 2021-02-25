@@ -34,14 +34,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
    AssetLoader* al = AssetLoader::Get();
    
    Scene* scene;
-   //if (params.scene == L"test")
-   //{
-   //     scene = TestScene(sceneManager);
-   //}
-   //else
-   //{
-        scene = SponzaScene(sceneManager);
-   //}
+   if (params.scene == L"test")
+   {
+        scene = TestScene(sceneManager);
+   }
+   else
+   {
+      scene = SponzaScene(sceneManager);
+   }
       
    // Set scene
    sceneManager->SetScene(scene);
@@ -104,6 +104,7 @@ Scene* TestScene(SceneManager* sm)
     AssetLoader* al = AssetLoader::Get();
 
     // Get the models needed
+    Model* sponza = al->LoadModel(L"../Vendor/Resources/Scenes/Sponza/textures_pbr/sponza.obj");
     Model* floorModel = al->LoadModel(L"../Vendor/Resources/Models/FloorPBR/floor.obj");
     Model* sphereModel = al->LoadModel(L"../Vendor/Resources/Models/SpherePBR/ball.obj");
 
@@ -124,19 +125,48 @@ Scene* TestScene(SceneManager* sm)
     mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
     tc = entity->GetComponent<component::TransformComponent>();
     tc->GetTransform()->SetScale(150, 1, 150);
-    tc->GetTransform()->SetPosition(0.0f, 0.0f, 0.0f);
+    tc->GetTransform()->SetPosition(0.0f, -10.0f, 0.0f);
     /* ---------------------- Floor ---------------------- */
 
+    entity = scene->AddEntity("sponza");
+    mc = entity->AddComponent<component::ModelComponent>();
+    tc = entity->AddComponent<component::TransformComponent>();
+    
+    mc->SetModel(sponza);
+    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
+    tc->GetTransform()->SetPosition({ 0.0f, 0.0f, 0.0f });
+    tc->GetTransform()->SetScale(0.3f, 0.3f, 0.3f);
+
     /* ---------------------- Sphere ---------------------- */
-    entity = scene->AddEntity("sphere");
+    entity = scene->AddEntity("sphere1");
     mc = entity->AddComponent<component::ModelComponent>();
     tc = entity->AddComponent<component::TransformComponent>();
     
     mc->SetModel(sphereModel);
     mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
     tc->GetTransform()->SetScale(1.0f);
-    tc->GetTransform()->SetPosition(5, 5, 0);
+    tc->GetTransform()->SetPosition(5, 5, 5);
+    
+    entity = scene->AddEntity("sphere2");
+    mc = entity->AddComponent<component::ModelComponent>();
+    tc = entity->AddComponent<component::TransformComponent>();
+    
+    mc->SetModel(sphereModel);
+    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
+    tc->GetTransform()->SetScale(1.0f);
+    tc->GetTransform()->SetPosition(5, 5, 10);
+    
+    entity = scene->AddEntity("sphere3");
+    mc = entity->AddComponent<component::ModelComponent>();
+    tc = entity->AddComponent<component::TransformComponent>();
+    
+    mc->SetModel(sphereModel);
+    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
+    tc->GetTransform()->SetScale(1.0f);
+    tc->GetTransform()->SetPosition(5, 5, 15);
     /* ---------------------- Sphere ---------------------- */
+
+    
 
     /* ---------------------- dirLight ---------------------- */
     entity = scene->AddEntity("dirLight");
@@ -186,10 +216,10 @@ Scene* SponzaScene(SceneManager* sm)
     entity = scene->AddEntity("sponza");
     mc = entity->AddComponent<component::ModelComponent>();
     tc = entity->AddComponent<component::TransformComponent>();
-
+    
     mc->SetModel(sponza);
     mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
-    tc->GetTransform()->SetPosition({0.0f, 0.0f, 0.0f});
+    tc->GetTransform()->SetPosition({ 0.0f, 0.0f, 0.0f });
     tc->GetTransform()->SetScale(0.3f, 0.3f, 0.3f);
 
     entity = scene->AddEntity("sponza1");
@@ -212,7 +242,7 @@ Scene* SponzaScene(SceneManager* sm)
     //mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
     //tc = entity->GetComponent<component::TransformComponent>();
     //tc->GetTransform()->SetScale(1000, 1, 1000);
-    //tc->GetTransform()->SetPosition(0.0f, 0.0f, 0.0f);
+    //tc->GetTransform()->SetPosition(0.0f, -30.0f, 0.0f);
     /* ---------------------- Floor ---------------------- */
 
 
@@ -280,5 +310,7 @@ void TestUpdateScene(SceneManager* sm, double dt)
 
 void SponzaUpdateScene(SceneManager* sm, double dt)
 {
-
+    //static double a = 0.0f;
+    //a += 0.001f;
+    //sm->GetScene("SponzaScene")->GetEntity("sponza")->GetComponent<component::TransformComponent>()->GetTransform()->SetRotationZ(abs(sinf(a)));
 }

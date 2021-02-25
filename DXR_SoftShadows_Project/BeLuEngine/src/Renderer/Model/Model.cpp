@@ -7,7 +7,15 @@
 #include "../Texture/Texture2D.h"
 #include "../GPUMemory/GPUMemory.h"
 
-Model::Model(const std::wstring* path, std::vector<Mesh*>* meshes, std::vector<Material*>* materials)
+#include "Core.h"
+#include <filesystem>
+
+Model::Model(
+	const std::wstring* path,
+	std::vector<Mesh*>* meshes,
+	std::vector<Material*>* materials,
+	ID3D12Device5* device,
+	DescriptorHeap* dHeap)
 {
 	m_Path = *path;
 	m_Size = (*meshes).size();
@@ -18,10 +26,23 @@ Model::Model(const std::wstring* path, std::vector<Mesh*>* meshes, std::vector<M
 	// Fill slotinfo with empty slotinfos
 	m_SlotInfos.resize(m_Size);
 	updateSlotInfo();
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC rawBufferDesc = {};
+	rawBufferDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+	rawBufferDesc.Buffer.FirstElement = 0;
+	rawBufferDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+	rawBufferDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	rawBufferDesc.Buffer.NumElements = m_Size;
+	rawBufferDesc.Buffer.StructureByteStride = 0;
+	rawBufferDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+
+	std::string fileName = std::filesystem::path(to_string(m_Path)).filename().string();
+	m_SlotInfoByteAdressBuffer = new ShaderResource(device, sizeof(SlotInfo) * m_Size, to_wstring(fileName) + L"_RAWBUFFER_SLOTINFO", &rawBufferDesc, dHeap);
 }
 
 Model::~Model()
 {
+	delete m_SlotInfoByteAdressBuffer;
 }
 
 bool Model::operator==(const Model& other)
@@ -81,6 +102,11 @@ ID3D12Resource1* Model::GetBottomLevelResultP() const
 	return m_pBottomLevelResult;
 }
 
+ShaderResource* Model::GetByteAdressInfoDXR() const
+{
+	return m_SlotInfoByteAdressBuffer;
+}
+
 void Model::updateSlotInfo()
 {
 #ifdef DEBUG
@@ -104,7 +130,5 @@ void Model::updateSlotInfo()
 			m_Materials[i]->GetTexture(TEXTURE2D_TYPE::OPACITY)->GetDescriptorHeapIndex()
 		};
 	}
-
-	// DXR
 }
 

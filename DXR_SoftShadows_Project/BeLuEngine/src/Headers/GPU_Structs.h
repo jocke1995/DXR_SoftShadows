@@ -31,10 +31,9 @@ struct SlotInfo
 	unsigned int textureOpacity;
 };
 
-struct COLOR_TEMP_STRUCT
+struct DXR_WORLDMATRIX_STRUCT
 {
-	float4 col;
-	float4 pad[1];
+	float4x4 worldMatrix;
 };
 
 struct DXR_CAMERA

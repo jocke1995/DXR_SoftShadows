@@ -440,6 +440,7 @@ void Renderer::ExecuteDXR()
 	cl->SetDescriptorHeaps(1, &dhSRVUAVCBV);
 
 	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
+	cl->SetComputeRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
 	
 	cl->SetComputeRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
 	cl->SetComputeRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
@@ -481,8 +482,7 @@ void Renderer::ExecuteDXR()
 
 
 
-	// The hit groups section start after the miss shaders. In this sample we
-	// have one 1 hit group for the triangle
+	// The hit groups section start after the miss shaders.
 	uint32_t hitGroupsSectionSize = m_SbtHelper.GetHitGroupSectionSize();
 	desc.HitGroupTable.StartAddress = m_pSbtStorage->GetGPUVirtualAddress() +
 		rayGenerationSectionSizeInBytes +
@@ -566,7 +566,6 @@ void Renderer::InitModelComponent(component::ModelComponent* mc)
 			rc->mc = mc;
 			rc->tc = tc;
 			
-			// Temp filling with color
 			rc->tc->CreateResourceForWorldMatrix(m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]);
 			
 			// One resource for each mesh
@@ -876,6 +875,14 @@ void Renderer::submitModelToGPU(Model* model)
 		submitTextureToCodt(texture);
 	}
 
+	// Submit slotInfo (DXR)
+	CopyOnDemandTask* codt = static_cast<CopyOnDemandTask*>(m_CopyTasks[COPY_TASK_TYPE::COPY_ON_DEMAND]);
+	const void* data = static_cast<const void*>(model->m_SlotInfos.data());
+	codt->Submit(&std::make_tuple(
+		model->m_SlotInfoByteAdressBuffer->GetUploadResource(), 
+		model->m_SlotInfoByteAdressBuffer->GetDefaultResource(),
+		data));
+
 	// DXR
 	m_BottomLevelModels.push_back(bLmodel);
 	CreateBottomLevelAS(&bLmodel);
@@ -926,6 +933,9 @@ Window* const Renderer::GetWindow() const
 
 void Renderer::CreateBottomLevelAS(BLModel** blModel)
 {
+	// reset vertexbuffers
+	m_BottomLevelASGenerator = {};
+
 	// Adding all vertex buffers and not transforming their position.
 	for (unsigned int i = 0; i < (*blModel)->vertexBuffers.size(); i++)
 	{
@@ -970,7 +980,6 @@ void Renderer::CreateBottomLevelAS(BLModel** blModel)
 
 void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>>& instances)
 {
-	// Gather all the instances into the builder helper
 	for (size_t i = 0; i < instances.size(); i++)
 	{
 		m_TopLevelAsGenerator.AddInstance(
@@ -1031,7 +1040,6 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 
 void Renderer::CreateAccelerationStructures()
 {
-	// Just one instance for now
 	for (RenderComponent* rc : m_RenderComponents)
 	{
 		std::pair<ID3D12Resource1*, DirectX::XMMATRIX> pair = std::make_pair(rc->mc->GetModel()->GetBottomLevelResultP(), *rc->tc->GetTransform()->GetWorldMatrix());
@@ -1086,20 +1094,13 @@ ID3D12RootSignature* Renderer::CreateShadowSignature()
 ID3D12RootSignature* Renderer::CreateHitSignature()
 {
 	//-----------------------------------------------------------------------------
-	
-	
 	nv_helpers_dx12::RootSignatureGenerator rsc;
-	//rsc.AddHeapRangesParameter(
-	//	// CBV-Table with slotinfos at t0 (same memory can be referred by multiple instances, for example if we where to draw 10 sponzas, all with same meshes/textures)
-	//	{ {0 /*b0*/, -1 /*bindless num_descriptors */, 4 /*space 4*/,
-	//	  D3D12_DESCRIPTOR_RANGE_TYPE_CBV /* CBV representing the output buffer*/,
-	//	  0 /*Offset from heap start*/} });
 
-	// TEMP COLOR FOR DEBUGGING PURPOSES. Unique per instance (b7, space3)
+	// ConstantBuffer with worldMatrix. Unique per Instance (b7, space3)
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_CBV, 7, 3, 1);
 
-	// Constant buffer with matrices. Unique per instance (b8, space3)
-	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_CBV, 8, 3, 1);
+	// ByteBuffer with SlotInfos. Unique per Model (t0, space4)
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_SRV, 0, 4, 1);
 
 	return rsc.Generate(m_pDevice5, true);
 }
@@ -1278,7 +1279,11 @@ void Renderer::CreateShaderBindingTable()
 	// Adding the triangle hit shader
 	for (RenderComponent* rc : m_RenderComponents)
 	{
-		m_SbtHelper.AddHitGroup(L"HitGroup", {(void*)rc->tc->m_pTempCB->GetUploadResource()->GetGPUVirtualAdress(), (void*)nullptr});
+		m_SbtHelper.AddHitGroup(L"HitGroup", 
+			{
+				(void*)rc->tc->GetMatrixUploadResource()->GetGPUVirtualAdress(), // Unique per instance
+				(void*)rc->mc->GetModel()->GetByteAdressInfoDXR()->GetDefaultResource()->GetGPUVirtualAdress()	// Unique per model
+			});	
 		m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
 	}
 
