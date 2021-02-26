@@ -6,6 +6,7 @@ class ThreadPool;
 class Window;
 
 #include "DXR_Helpers/DXRHelperrr.h"
+#include "D3D12Timer.h"
 
 // Renderer Engine
 class RootSignature;
@@ -102,6 +103,11 @@ public:
 
 	void UpdateSceneToGPU();
 
+	void SetQuitOnFinish(bool b);
+	void SetUseInlineRT(bool b);
+	void SetNumLights(int num);
+	void SetResultsFileName(std::wstring outputName);
+
 	// Call each frame
 	void Update(double dt);
 	void SortObjects();
@@ -186,6 +192,14 @@ private:
 
 
 	// ------------------- DXR temp ----------------
+	// Test variables
+	std::string m_GPUName = "Unknown";
+	bool m_QuitOnFinish = false;
+	bool m_UseInlineRT = false;
+	int m_NumLights = 1;
+	std::wstring m_OutputName = L"Results.csv";
+	D3D12::D3D12Timer m_DXTimer;
+
 	CommandInterface* m_pTempCommandInterface = nullptr;
 
 	// AS

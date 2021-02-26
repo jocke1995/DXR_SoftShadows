@@ -51,6 +51,18 @@
 // Event
 #include "../Events/EventBus.h"
 
+#include "../Misc/CSVExporter.h"
+
+
+
+
+
+
+#define NUM_FRAMES 10
+double resultAverage = -1;
+CSVExporter csvExporter;
+std::vector<double> frameData;
+
 Renderer::Renderer()
 {
 	EventBus::GetInstance().Subscribe(this, &Renderer::toggleFullscreen);
@@ -162,11 +174,16 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	m_pThreadPool = threadPool;
 	m_pWindow = window;
 
+	// Work around for SetStablePowerState to work.
+	D3D12EnableExperimentalFeatures(0, nullptr, nullptr, nullptr);
+
 	// Create Device
 	if (!createDevice())
 	{
 		BL_LOG_CRITICAL("Failed to Create Device\n");
 	}
+
+	m_pDevice5->SetStablePowerState(true);
 
 	// Create CommandQueues (copy, compute and direct)
 	createCommandQueues();
@@ -216,6 +233,8 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	m_pCbPerFrameData = new CB_PER_FRAME_STRUCT();
 
 	// Temp
+	frameData.reserve(NUM_FRAMES);
+
 	m_pTempCommandInterface = new CommandInterface(m_pDevice5, COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
 	m_pTempCommandInterface->Reset(0);
 
@@ -246,6 +265,8 @@ void Renderer::InitDXR()
 	// Create the shader binding table and indicating which shaders
 	// are invoked for each instance in the  AS
 	CreateShaderBindingTable();
+	m_DXTimer.Init(m_pDevice5, 1);
+	m_DXTimer.InitGPUFrequency(m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]);
 }
 
 void Renderer::UpdateSceneToGPU()
@@ -260,6 +281,26 @@ void Renderer::UpdateSceneToGPU()
 	/*------------------- Post draw stuff -------------------*/
 	waitForGPU();
 
+}
+
+void Renderer::SetQuitOnFinish(bool b)
+{
+	m_QuitOnFinish = b;
+}
+
+void Renderer::SetUseInlineRT(bool b)
+{
+	m_UseInlineRT = b;
+}
+
+void Renderer::SetNumLights(int num)
+{
+	m_NumLights = num;
+}
+
+void Renderer::SetResultsFileName(std::wstring outputName)
+{
+	m_OutputName = outputName;
 }
 
 void Renderer::Update(double dt)
@@ -405,6 +446,10 @@ void Renderer::Execute()
 #endif
 }
 
+
+
+#define DX12TEST(fnc) m_DXTimer.Start(cl, 0);fnc;m_DXTimer.Stop(cl, 0);m_DXTimer.ResolveQueryToCPU(cl, 0);
+
 void Renderer::ExecuteDXR()
 {
 	IDXGISwapChain4* dx12SwapChain = m_pSwapChain->GetDX12SwapChain();
@@ -503,9 +548,8 @@ void Renderer::ExecuteDXR()
 	// Bind the raytracing pipeline
 	cl->SetPipelineState1(m_pRTStateObject);
 	// Dispatch the rays and write to the raytracing output
-	cl->DispatchRays(&desc);
 
-
+	DX12TEST(cl->DispatchRays(&desc));
 
 	// The raytracing output needs to be copied to the actual render target used
 	// for display. For this, we need to transition the raytracing output from a
@@ -539,6 +583,50 @@ void Renderer::ExecuteDXR()
 
 	/*------------------- Post draw stuff -------------------*/
 	waitForGPU();
+
+#pragma region TimeMeasurment
+	auto timestamps = m_DXTimer.GetTimestampPair(0);
+	double dt = (timestamps.Stop - timestamps.Start) * m_DXTimer.GetGPUFreq();
+	BL_LOG_INFO("DXR deltaTime: %lf\n", dt);
+
+	static unsigned int nrOfFrames = 0;
+
+	if (nrOfFrames < NUM_FRAMES)
+	{
+		// Save frame time
+		frameData.push_back(dt);
+	}
+	else if (nrOfFrames == NUM_FRAMES)
+	{
+		// Compute average
+		double sum = 0;
+		for (unsigned int i = 0; i < frameData.size(); i++)
+		{
+			sum += frameData.at(i);
+		}
+
+		resultAverage = sum/frameData.size();
+
+		// Comment if empty file
+		if (csvExporter.IsFileEmpty(m_OutputName))
+		{
+			csvExporter << m_GPUName << "," << m_UseInlineRT << "," << NUM_FRAMES << "\n";
+		}
+		csvExporter << m_NumLights << "," << resultAverage << "\n";
+
+		csvExporter.Append(m_OutputName);
+
+		BL_LOG_INFO("Exported.......\n");
+
+
+		// Quit on finish
+		if (m_QuitOnFinish)
+		{
+			PostQuitMessage(0);
+		}
+	}
+	nrOfFrames++;
+#pragma endregion TimeMeasurment
 
 	/*------------------- Present -------------------*/
 	HRESULT hr = dx12SwapChain->Present(0, 0);
@@ -1370,13 +1458,14 @@ bool Renderer::createDevice()
 		// Check to see if the adapter supports Direct3D 12, but don't create the actual m_pDevice yet.
 		ID3D12Device5* pDevice = nullptr;
 		HRESULT hr = D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&pDevice));
-
+		
 		if (SUCCEEDED(hr))
 		{
 			DXGI_ADAPTER_DESC adapterDesc = {};
 			adapter->GetDesc(&adapterDesc);
 
 			BL_LOG("Adapter: %S\n", adapterDesc.Description);
+			m_GPUName = to_string(adapterDesc.Description);
 			
 			D3D12_FEATURE_DATA_D3D12_OPTIONS5 features5 = {};
 			HRESULT hr = pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &features5, sizeof(D3D12_FEATURE_DATA_D3D12_OPTIONS5));
