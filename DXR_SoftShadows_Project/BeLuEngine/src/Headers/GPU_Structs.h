@@ -20,6 +20,8 @@ struct DescriptorHeapIndices
 struct SlotInfo
 {
 	unsigned int vertexDataIndex;
+	unsigned int indicesIndex;	// Only used for DXR
+
 	// TextureIndices
 	unsigned int textureAlbedo;
 	unsigned int textureRoughness;
@@ -27,8 +29,11 @@ struct SlotInfo
 	unsigned int textureNormal;
 	unsigned int textureEmissive;
 	unsigned int textureOpacity;
+};
 
-	unsigned int pad[1];
+struct DXR_WORLDMATRIX_STRUCT
+{
+	float4x4 worldMatrix;
 };
 
 struct DXR_CAMERA
@@ -56,6 +61,8 @@ struct CB_PER_FRAME_STRUCT
 	float pad2;
 	float3 camForward;
 	float pad3;
+	unsigned int frameCounter;
+	float pad4[3];
 
 
 	// deltaTime ..

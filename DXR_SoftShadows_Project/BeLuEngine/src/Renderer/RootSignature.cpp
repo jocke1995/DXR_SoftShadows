@@ -56,7 +56,7 @@ void RootSignature::createRootSignatureStructure()
 	dtCBV.pDescriptorRanges = dtRangesCBV;
 
 	// DescriptorTable for SRV's (bindless)
-	D3D12_DESCRIPTOR_RANGE dtRangesSRV[2]{};
+	D3D12_DESCRIPTOR_RANGE dtRangesSRV[3]{};
 	dtRangesSRV[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	dtRangesSRV[0].NumDescriptors = -1;		// Bindless
 	dtRangesSRV[0].BaseShaderRegister = 0;	// t0
@@ -66,6 +66,11 @@ void RootSignature::createRootSignatureStructure()
 	dtRangesSRV[1].NumDescriptors = -1;		// Bindless
 	dtRangesSRV[1].BaseShaderRegister = 0;	// t0
 	dtRangesSRV[1].RegisterSpace = 1;		// space1
+
+	dtRangesSRV[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	dtRangesSRV[2].NumDescriptors = -1;		// Bindless
+	dtRangesSRV[2].BaseShaderRegister = 0;	// t0
+	dtRangesSRV[2].RegisterSpace = 2;		// space2
 
 	D3D12_ROOT_DESCRIPTOR_TABLE dtSRV = {};
 	dtSRV.NumDescriptorRanges = ARRAYSIZE(dtRangesSRV);
@@ -81,7 +86,7 @@ void RootSignature::createRootSignatureStructure()
 	rayTracingRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	rayTracingRange[1].NumDescriptors = 1;		// 1 descriptor
 	rayTracingRange[1].BaseShaderRegister = 0;	// t0
-	rayTracingRange[1].RegisterSpace = 2;		// space2
+	rayTracingRange[1].RegisterSpace = 3;		// space3
 	rayTracingRange[1].OffsetInDescriptorsFromTableStart = 1;	// The uav is on 0
 
 	D3D12_ROOT_PARAMETER rootParam[RS::NUM_PARAMS]{};
@@ -172,7 +177,7 @@ void RootSignature::createRootSignatureStructure()
 	ssd[5].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	ssd[5].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	ssd[5].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-	ssd[5].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	ssd[5].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 	ssd[5].MinLOD = 0;
 	ssd[5].MaxLOD = D3D12_FLOAT32_MAX;
 	ssd[5].MipLODBias = 0.0f;
