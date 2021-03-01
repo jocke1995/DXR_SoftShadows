@@ -3,7 +3,7 @@
 
 // Light defines
 #define MAX_DIR_LIGHTS   10
-#define MAX_POINT_LIGHTS 20
+#define MAX_POINT_LIGHTS 50
 #define MAX_SPOT_LIGHTS  10
 
 // This struct can be used to send specific indices as a root constant to the GPU.
@@ -79,6 +79,12 @@ struct CB_PER_SCENE_STRUCT
 	unsigned int Num_Point_Lights;
 	unsigned int Num_Spot_Lights;
 	unsigned int pad1;
+};
+
+struct LightHeader
+{
+	unsigned int numLights;
+	unsigned int pad[3];	// TODO: add more info if needed
 };
 
 struct BaseLight

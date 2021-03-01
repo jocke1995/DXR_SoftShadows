@@ -120,6 +120,27 @@ void Resource::SetData(const void* data, unsigned int subResourceIndex) const
 	m_pResource->Unmap(subResourceIndex, nullptr);
 }
 
+void Resource::SetDataAppend(const std::vector<std::pair<const void*, unsigned int>>& dataVec, unsigned int subResourceIndex) const
+{
+	if (m_Type == RESOURCE_TYPE::DEFAULT)
+	{
+		BL_LOG_WARNING("Trying to Map into default heap\n");
+		return;
+	}
+
+	uint8_t* dataBegin = nullptr;
+
+	// Set up the heap data
+
+	m_pResource->Map(subResourceIndex, nullptr, (void**)&dataBegin); // Get a dataBegin pointer where we can copy data to
+	for (std::pair<const void*, unsigned int> data_size : dataVec)
+	{
+		memcpy(dataBegin, data_size.first, data_size.second);
+		dataBegin += data_size.second;
+	}
+	m_pResource->Unmap(subResourceIndex, nullptr);
+}
+
 void Resource::setupHeapProperties(D3D12_HEAP_TYPE heapType)
 {
 	m_HeapProperties.Type = heapType;

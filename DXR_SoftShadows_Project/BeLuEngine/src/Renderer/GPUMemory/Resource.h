@@ -44,6 +44,7 @@ public:
 
     // Only to be used if the resource is of type: UPLOAD
     void SetData(const void* data, unsigned int subResourceIndex = 0) const;
+    void SetDataAppend(const std::vector<std::pair<const void*, unsigned int>>& dataVec, unsigned int subResourceIndex = 0) const;
 protected:
     inline static unsigned int s_IdCounter = 0;
     unsigned int m_Id = 0;

@@ -7,6 +7,7 @@ class Window;
 
 #include "DXR_Helpers/DXRHelperrr.h"
 #include "D3D12Timer.h"
+#include "DX12Tasks/CopyTask.h"
 
 // Renderer Engine
 class RootSignature;
@@ -81,6 +82,12 @@ struct BLModel
 	std::vector<std::pair<ID3D12Resource1*, uint32_t>> indexBuffers;
 };
 
+struct PointLightRawBufferData
+{
+	LightHeader header;
+	std::vector<PointLight> pls;
+};
+
 class Renderer
 {
 public:
@@ -140,6 +147,7 @@ private:
 
 	//SubmitToCpft functions
 	void submitToCpft(std::tuple<Resource*, Resource*, const void*>* Upload_Default_Data);
+	void submitToCpftAppend(ShaderResource_ContinousMemory* shaderResource_contMem);
 	void clearSpecificCpft(Resource* upload);
 
 	DescriptorHeap* getCBVSRVUAVdHeap() const;
@@ -251,7 +259,13 @@ private:
 	std::vector<RenderComponent*> m_RenderComponents;
 
 	ViewPool* m_pViewPool = nullptr;
-	std::map<LIGHT_TYPE, std::vector<std::pair<Light*, ConstantBuffer*>>> m_Lights;
+
+	std::map<LIGHT_TYPE, std::vector<Light*>> m_Lights;
+
+	// ShaderResource will be interpreted as a raw buffer. With a header including common information, and then the lights following.
+	std::map<LIGHT_TYPE, ShaderResource_ContinousMemory*> m_LightRawBuffers;
+	PointLightRawBufferData plRawBufferData = {};
+	void createRawBuffersForLights();
 
 	// Current scene to be drawn
 	Scene* m_pCurrActiveScene = nullptr;
