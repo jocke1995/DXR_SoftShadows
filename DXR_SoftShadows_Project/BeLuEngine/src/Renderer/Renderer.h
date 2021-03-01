@@ -32,11 +32,6 @@ class Resource;
 enum COMMAND_INTERFACE_TYPE;
 enum class DESCRIPTOR_HEAP_TYPE;
 
-// techniques
-class ShadowInfo;
-class MousePicker;
-class Bloom;
-
 // ECS
 class Scene;
 class Light;
@@ -168,9 +163,6 @@ private:
 	// RenderTargets
 	// Swapchain (inheriting from 'RenderTarget')
 	SwapChain* m_pSwapChain = nullptr;
-	
-	// Bloom (includes rtv, uav and srv)
-	Bloom* m_pBloomResources = nullptr;
 
 	// Depthbuffer
 	DepthStencil* m_pMainDepthStencil = nullptr;
@@ -178,18 +170,12 @@ private:
 	// Rootsignature
 	RootSignature* m_pRootSignature = nullptr;
 
-	// Picking
-	MousePicker* m_pMousePicker = nullptr;
-	Entity* m_pPickedEntity = nullptr;
-
 	// Tasks
 	std::vector<ComputeTask*> m_ComputeTasks;
 	std::vector<CopyTask*>    m_CopyTasks;
 	std::vector<RenderTask*>  m_RenderTasks;
 
 	Mesh* m_pFullScreenQuad = nullptr;
-
-
 
 	// ------------------- DXR temp ----------------
 	// Test variables
@@ -265,7 +251,7 @@ private:
 	std::vector<RenderComponent*> m_RenderComponents;
 
 	ViewPool* m_pViewPool = nullptr;
-	std::map<LIGHT_TYPE, std::vector<std::tuple<Light*, ConstantBuffer*, ShadowInfo*>>> m_Lights;
+	std::map<LIGHT_TYPE, std::vector<std::pair<Light*, ConstantBuffer*>>> m_Lights;
 
 	// Current scene to be drawn
 	Scene* m_pCurrActiveScene = nullptr;

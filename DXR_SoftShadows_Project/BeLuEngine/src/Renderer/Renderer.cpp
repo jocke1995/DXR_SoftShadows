@@ -100,7 +100,6 @@ void Renderer::deleteRenderer()
 	delete m_pRootSignature;
 	delete m_pFullScreenQuad;
 	delete m_pSwapChain;
-	delete m_pBloomResources;
 	delete m_pMainDepthStencil;
 
 	for (auto& pair : m_DescriptorHeaps)
@@ -116,10 +115,6 @@ void Renderer::deleteRenderer()
 
 	for (RenderTask* renderTask : m_RenderTasks)
 		delete renderTask;
-
-	
-
-	delete m_pMousePicker;
 
 	delete m_pViewPool;
 	delete m_pCbPerScene;
@@ -679,7 +674,7 @@ void Renderer::InitDirectionalLightComponent(component::DirectionalLightComponen
 	ConstantBuffer* cb = new ConstantBuffer(m_pDevice5, sizeof(DirectionalLight), resourceName, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]);
 
 	// Save in m_pRenderer
-	m_Lights[LIGHT_TYPE::DIRECTIONAL_LIGHT].push_back(std::make_tuple(component, cb, nullptr));
+	m_Lights[LIGHT_TYPE::DIRECTIONAL_LIGHT].push_back(std::make_pair(component, cb));
 
 	
 	// Submit to gpu
@@ -708,11 +703,8 @@ void Renderer::InitPointLightComponent(component::PointLightComponent* component
 	std::wstring resourceName = L"PointLight";
 	ConstantBuffer* cb = new ConstantBuffer(m_pDevice5, sizeof(PointLight), resourceName, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]);
 
-	// Assign views required for shadows from the lightPool
-	ShadowInfo* si = nullptr;
-
 	// Save in m_pRenderer
-	m_Lights[LIGHT_TYPE::POINT_LIGHT].push_back(std::make_tuple(component, cb, si));
+	m_Lights[LIGHT_TYPE::POINT_LIGHT].push_back(std::make_pair(component, cb));
 
 	// Submit to gpu
 	CopyTask* copyTask = nullptr;
@@ -740,7 +732,7 @@ void Renderer::InitSpotLightComponent(component::SpotLightComponent* component)
 	ConstantBuffer* cb = new ConstantBuffer(m_pDevice5, sizeof(SpotLight), resourceName, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]);
 
 	// Save in m_pRenderer
-	m_Lights[LIGHT_TYPE::SPOT_LIGHT].push_back(std::make_tuple(component, cb, nullptr));
+	m_Lights[LIGHT_TYPE::SPOT_LIGHT].push_back(std::make_pair(component, cb));
 
 	// Submit to gpu
 	CopyTask* copyTask = nullptr;
@@ -799,20 +791,19 @@ void Renderer::UnInitDirectionalLightComponent(component::DirectionalLightCompon
 {
 	LIGHT_TYPE type = LIGHT_TYPE::DIRECTIONAL_LIGHT;
 	unsigned int count = 0;
-	for (auto& tuple : m_Lights[type])
+	for (auto& pair : m_Lights[type])
 	{
-		Light* light = std::get<0>(tuple);
+		Light* light = pair.first;
 
 		component::DirectionalLightComponent* dlc = static_cast<component::DirectionalLightComponent*>(light);
 
 		// Remove light if it matches the entity
 		if (component == dlc)
 		{
-			auto& [light, cb, si] = tuple;
+			auto& [light, cb] = pair;
 
 			// Free memory so other m_Entities can use it
 			delete cb;
-			delete si;
 			
 			// Remove from CopyPerFrame
 			CopyPerFrameTask* cpft = nullptr;
@@ -834,9 +825,9 @@ void Renderer::UnInitPointLightComponent(component::PointLightComponent* compone
 {
 	LIGHT_TYPE type = LIGHT_TYPE::POINT_LIGHT;
 	unsigned int count = 0;
-	for (auto& tuple : m_Lights[type])
+	for (auto& pair : m_Lights[type])
 	{
-		Light* light = std::get<0>(tuple);
+		Light* light = pair.first;
 
 		component::PointLightComponent* plc = static_cast<component::PointLightComponent*>(light);
 
@@ -844,7 +835,7 @@ void Renderer::UnInitPointLightComponent(component::PointLightComponent* compone
 		if (component == plc)
 		{
 			// Free memory so other m_Entities can use it
-			auto& [light, cb, si] = tuple;
+			auto& [light, cb] = pair;
 
 			delete cb;
 
@@ -868,9 +859,9 @@ void Renderer::UnInitSpotLightComponent(component::SpotLightComponent* component
 {
 	LIGHT_TYPE type = LIGHT_TYPE::SPOT_LIGHT;
 	unsigned int count = 0;
-	for (auto& tuple : m_Lights[type])
+	for (auto& pair : m_Lights[type])
 	{
-		Light* light = std::get<0>(tuple);
+		Light* light = pair.first;
 
 		component::SpotLightComponent* slc = static_cast<component::SpotLightComponent*>(light);
 
@@ -878,10 +869,9 @@ void Renderer::UnInitSpotLightComponent(component::SpotLightComponent* component
 		if (component == slc)
 		{
 			// Free memory so other m_Entities can use it
-			auto& [light, cb, si] = tuple;
+			auto& [light, cb] = pair;
 
 			delete cb;
-			delete si;
 
 			// Remove from CopyPerFrame
 			CopyPerFrameTask* cpft = nullptr;
