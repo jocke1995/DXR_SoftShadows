@@ -72,6 +72,11 @@ void RootSignature::createRootSignatureStructure()
 	dtRangesSRV[2].BaseShaderRegister = 0;	// t0
 	dtRangesSRV[2].RegisterSpace = 2;		// space2
 
+	//dtRangesSRV[3].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	//dtRangesSRV[3].NumDescriptors = -1;		// Bindless
+	//dtRangesSRV[3].BaseShaderRegister = 0;	// t0
+	//dtRangesSRV[3].RegisterSpace = 3;		// space3
+
 	D3D12_ROOT_DESCRIPTOR_TABLE dtSRV = {};
 	dtSRV.NumDescriptorRanges = ARRAYSIZE(dtRangesSRV);
 	dtSRV.pDescriptorRanges = dtRangesSRV;
@@ -86,7 +91,7 @@ void RootSignature::createRootSignatureStructure()
 	rayTracingRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	rayTracingRange[1].NumDescriptors = 1;		// 1 descriptor
 	rayTracingRange[1].BaseShaderRegister = 0;	// t0
-	rayTracingRange[1].RegisterSpace = 3;		// space3
+	rayTracingRange[1].RegisterSpace = 4;		// space4
 	rayTracingRange[1].OffsetInDescriptorsFromTableStart = 1;	// The uav is on 0
 
 	D3D12_ROOT_PARAMETER rootParam[RS::NUM_PARAMS]{};
@@ -99,15 +104,15 @@ void RootSignature::createRootSignatureStructure()
 	rootParam[RS::dtSRV].DescriptorTable = dtSRV;
 	rootParam[RS::dtSRV].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
+	rootParam[RS::SRV0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
+	rootParam[RS::SRV0].Descriptor.ShaderRegister = 0;	// t0
+	rootParam[RS::SRV0].Descriptor.RegisterSpace = 3;	// space3
+	rootParam[RS::SRV0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
 	rootParam[RS::dtRaytracing].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	rootParam[RS::dtRaytracing].DescriptorTable.NumDescriptorRanges = 2;
 	rootParam[RS::dtRaytracing].DescriptorTable.pDescriptorRanges = rayTracingRange;
 	rootParam[RS::dtRaytracing].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-	rootParam[RS::SRV0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
-	rootParam[RS::SRV0].Descriptor.ShaderRegister = 3;
-	rootParam[RS::SRV0].Descriptor.RegisterSpace = 3;
-	rootParam[RS::SRV0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 	rootParam[RS::UAV0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
 	rootParam[RS::UAV0].Descriptor.ShaderRegister = 4;

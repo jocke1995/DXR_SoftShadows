@@ -71,14 +71,8 @@ struct CB_PER_FRAME_STRUCT
 
 struct CB_PER_SCENE_STRUCT
 {
-	float4 dirLightIndices[MAX_DIR_LIGHTS];
-	float4 pointLightIndices[MAX_POINT_LIGHTS];
-	float4 spotLightIndices[MAX_SPOT_LIGHTS];
-
-	unsigned int Num_Dir_Lights;
-	unsigned int Num_Point_Lights;
-	unsigned int Num_Spot_Lights;
-	unsigned int pad1;
+	unsigned int pointLightRawBufferIndex;
+	unsigned int pad[3];
 };
 
 struct LightHeader

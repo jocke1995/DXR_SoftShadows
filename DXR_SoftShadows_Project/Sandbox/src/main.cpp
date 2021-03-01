@@ -167,18 +167,32 @@ Scene* TestScene(SceneManager* sm)
     /* ---------------------- Sphere ---------------------- */
 
     
+    //
+    /* ---------------------- PointLight1 ---------------------- */
+    entity = scene->AddEntity("pointLight1");
+    plc = entity->AddComponent<component::PointLightComponent>();
+    plc->SetColor({ 1.0f, 0.3f, 0.3f });
+    plc->SetPosition({ -26.42f, 63.0776f, 14.19f });
+    
+    /* ---------------------- PointLight1 ---------------------- */
+    
+    /* ---------------------- PointLight2 ---------------------- */
+    entity = scene->AddEntity("pointLight2");
+    plc = entity->AddComponent<component::PointLightComponent>();
+    plc->SetColor({ 0.3f, 0.3f, 1.0f });
+    plc->SetPosition({ -10.895118f, 56.448929f, 150.611298f });
 
-    /* ---------------------- dirLight ---------------------- */
-    entity = scene->AddEntity("dirLight");
-    dlc = entity->AddComponent<component::DirectionalLightComponent>(FLAG_LIGHT::CAST_SHADOW);
-    dlc->SetColor({ 0.6f, 0.6f, 0.6f });
-    dlc->SetDirection({ 1.0f, -1.0f, 0.0f });
-    dlc->SetCameraTop(30.0f);
-    dlc->SetCameraBot(-30.0f);
-    dlc->SetCameraLeft(-70.0f);
-    dlc->SetCameraRight(70.0f);
-    /* ---------------------- dirLight ---------------------- */
+    /* ---------------------- PointLight2 ---------------------- */
 
+
+    // Todo: Gives wierd round circles below light?? changes when modifying the lightRadius (cone width)
+    /* ---------------------- PointLight2 ---------------------- */
+    //entity = scene->AddEntity("pointLight3");
+    //plc = entity->AddComponent<component::PointLightComponent>();
+    //plc->SetColor({ 0.9f, 0.9f, 0.9f });
+    //plc->SetPosition({ 346.4f, 631.f, -106.8f});
+
+    /* ---------------------- PointLight2 ---------------------- */
     /* ---------------------- Update Function ---------------------- */
     scene->SetUpdateScene(&TestUpdateScene);
     return scene;

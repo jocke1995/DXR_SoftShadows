@@ -222,6 +222,7 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 		);
 	
 	m_pCbPerSceneData = new CB_PER_SCENE_STRUCT();
+	*m_pCbPerSceneData = {};
 
 	// Allocate memory for cbPerFrame
 	m_pCbPerFrame = new ConstantBuffer(
@@ -331,6 +332,15 @@ void Renderer::Update(double dt)
 	m_pCbCameraData->projectionI = *m_pScenePrimaryCamera->GetProjMatrixInverse();
 	m_pCbCameraData->view		 = *m_pScenePrimaryCamera->GetViewMatrix();
 	m_pCbCameraData->viewI		 = *m_pScenePrimaryCamera->GetViewMatrixInverse();
+
+	// Lights
+	//*m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->dataSizeVec =
+	//{
+	//	{&plRawBufferData.header, sizeof(LightHeader)},
+	//	{plRawBufferData.pls.data(), MAX_POINT_LIGHTS * sizeof(PointLight)}
+	//};
+
+	//m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->SetDataAppend(m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->dataSizeVec, 0);
 }
 
 void Renderer::SortObjects()
@@ -495,6 +505,7 @@ void Renderer::ExecuteDXR()
 	cl->SetComputeRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
 	cl->SetComputeRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
 	cl->SetComputeRootConstantBufferView(RS::CBV0		 , m_pCbCamera->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootShaderResourceView(RS::SRV0		 , m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
 
 	// On the last frame, the raytracing output was used as a copy source, to
 	// copy its contents into the render target. Now we need to transition it to
@@ -591,7 +602,7 @@ void Renderer::ExecuteDXR()
 #pragma region TimeMeasurment
 	auto timestamps = m_DXTimer.GetTimestampPair(0);
 	double dt = (timestamps.Stop - timestamps.Start) * m_DXTimer.GetGPUFreq();
-	BL_LOG_INFO("DXR deltaTime: %lf\n", dt);
+	//BL_LOG_INFO("DXR deltaTime: %lf\n", dt);
 
 	static unsigned int nrOfFrames = 0;
 
@@ -690,6 +701,24 @@ void Renderer::InitPointLightComponent(component::PointLightComponent* component
 {
 	// Assign CBV from the lightPool
 	std::wstring resourceName = L"PointLight";
+
+	// Bad solution!
+	// Remove from copyPerFrameTask, and add it again at the end of the function, but with the updated data.
+	CopyPerFrameTask* cpft = static_cast<CopyPerFrameTask*>(m_CopyTasks[COPY_TASK_TYPE::COPY_PER_FRAME]);
+	cpft->ClearSpecific(m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource());
+
+	plRawBufferData.header.numLights++;
+
+	PointLight pl = *(static_cast<PointLight*>(component->GetLightData()));
+	plRawBufferData.pls.push_back(pl);
+
+	m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->dataSizeVec =
+	{
+		{&plRawBufferData.header, sizeof(LightHeader)},
+		{plRawBufferData.pls.data(), MAX_POINT_LIGHTS * sizeof(PointLight)}
+	};
+
+	submitToCpftAppend(m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]);
 
 	// Save in m_pRenderer
 	m_Lights[LIGHT_TYPE::POINT_LIGHT].push_back(component);
@@ -1089,8 +1118,8 @@ ID3D12RootSignature* Renderer::CreateHitSignature()
 	// ConstantBuffer with worldMatrix. Unique per Instance (b7, space3)
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_CBV, 7, 3, 1);
 
-	// ByteBuffer with SlotInfos. Unique per Model (t0, space4)
-	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_SRV, 0, 4, 1);
+	// ByteBuffer with SlotInfos. Unique per Model (t0, space5)
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_SRV, 0, 5, 1);
 
 	return rsc.Generate(m_pDevice5, true);
 }
@@ -1315,16 +1344,8 @@ void Renderer::createRawBuffersForLights()
 		&rawBufferDesc,
 		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]);
 
+	//int a = m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetSRV()->GetDescriptorHeapIndex();
 	plRawBufferData.header = {};
-	plRawBufferData.pls.resize(MAX_POINT_LIGHTS);
-
-	m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->dataSizeVec =
-	{
-		{&plRawBufferData.header, sizeof(LightHeader)},
-		{plRawBufferData.pls.data(), plRawBufferData.pls.size() * sizeof(PointLight)}
-	};
-
-	submitToCpftAppend(m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]);
 }
 
 void Renderer::setRenderTasksPrimaryCamera()
@@ -1799,6 +1820,8 @@ void Renderer::prepareScene(Scene* activeScene)
 
 void Renderer::submitUploadPerSceneData()
 {
+	m_pCbPerSceneData->pointLightRawBufferIndex = m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetSRV()->GetDescriptorHeapIndex();
+
 	// Submit CB_PER_SCENE to be uploaded to VRAM
 	CopyOnDemandTask* codt = static_cast<CopyOnDemandTask*>(m_CopyTasks[COPY_TASK_TYPE::COPY_ON_DEMAND]);
 	const void* data = static_cast<const void*>(m_pCbPerSceneData);
