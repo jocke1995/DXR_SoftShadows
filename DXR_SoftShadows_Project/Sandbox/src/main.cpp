@@ -72,16 +72,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
        if (isF1)
        {
            mode = 0;
+           Log::Print("Mode: Raster\n");
        }
 
        if (isF2)
        {
            mode = 1;
+           Log::Print("Mode: RT\n");
        }
 
        if (isF3)
        {
            mode = 2;
+           Log::Print("Mode: inline RT\n");
        }
 
        if (window->WasSpacePressed())
