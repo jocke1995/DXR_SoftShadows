@@ -487,7 +487,7 @@ void Renderer::ExecuteDXR()
 	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
 	ID3D12Resource1* swapChainResource = swapChainRenderTarget->GetResource()->GetID3D12Resource1();
 	const unsigned int swapChainIndex = swapChainRenderTarget->GetDescriptorHeapIndex();
-	
+
 	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
 
 	// Change state on front/backbuffer
@@ -501,11 +501,11 @@ void Renderer::ExecuteDXR()
 
 	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
 	cl->SetComputeRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
-	
+
 	cl->SetComputeRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
 	cl->SetComputeRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
-	cl->SetComputeRootConstantBufferView(RS::CBV0		 , m_pCbCamera->GetDefaultResource()->GetGPUVirtualAdress());
-	cl->SetComputeRootShaderResourceView(RS::SRV0		 , m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootConstantBufferView(RS::CBV0, m_pCbCamera->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
 
 	// On the last frame, the raytracing output was used as a copy source, to
 	// copy its contents into the render target. Now we need to transition it to
@@ -527,7 +527,7 @@ void Renderer::ExecuteDXR()
 	desc.RayGenerationShaderRecord.StartAddress = m_pSbtStorage->GetGPUVirtualAddress();
 	desc.RayGenerationShaderRecord.SizeInBytes = rayGenerationSectionSizeInBytes;
 
-	
+
 
 
 	// The miss shaders are in the second SBT section, right after the ray
@@ -592,7 +592,7 @@ void Renderer::ExecuteDXR()
 
 	cl->Close();
 
-	ID3D12CommandList* cLists[] = {cl};
+	ID3D12CommandList* cLists[] = { cl };
 
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, cLists);
 
@@ -620,7 +620,197 @@ void Renderer::ExecuteDXR()
 			sum += frameData.at(i);
 		}
 
-		resultAverage = sum/frameData.size();
+		resultAverage = sum / frameData.size();
+
+		// Comment if empty file
+		if (csvExporter.IsFileEmpty(m_OutputName))
+		{
+			csvExporter << m_GPUName << "," << m_UseInlineRT << "," << NUM_FRAMES << "\n";
+		}
+		csvExporter << m_NumLights << "," << resultAverage << "\n";
+
+		csvExporter.Append(m_OutputName);
+
+		BL_LOG_INFO("Exported.......\n");
+
+
+		// Quit on finish
+		if (m_QuitOnFinish)
+		{
+			PostQuitMessage(0);
+		}
+	}
+	nrOfFrames++;
+#pragma endregion TimeMeasurment
+
+	/*------------------- Present -------------------*/
+	HRESULT hr = dx12SwapChain->Present(0, 0);
+
+#ifdef DEBUG
+	if (FAILED(hr))
+	{
+		BL_LOG_CRITICAL("Swapchain Failed to present\n");
+	}
+#endif
+}
+
+void Renderer::ExecuteDXRi()
+{
+	IDXGISwapChain4* dx12SwapChain = m_pSwapChain->GetDX12SwapChain();
+	unsigned int backBufferIndex = dx12SwapChain->GetCurrentBackBufferIndex();
+	unsigned int commandInterfaceIndex = m_FrameCounter++ % NUM_SWAP_BUFFERS;
+
+	/* ------------------------------------- COPY DATA ------------------------------------- */
+	DX12Task::SetCommandInterfaceIndex(commandInterfaceIndex);
+
+	// Copy per frame
+	m_CopyTasks[COPY_TASK_TYPE::COPY_PER_FRAME]->Execute();
+
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
+		1,
+		&m_DXRCpftCommandLists[commandInterfaceIndex]);
+	/* ------------------------------------- COPY DATA ------------------------------------- */
+
+	m_pTempCommandInterface->Reset(0);
+	auto cl = m_pTempCommandInterface->GetCommandList(0);
+
+	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
+	ID3D12Resource1* swapChainResource = swapChainRenderTarget->GetResource()->GetID3D12Resource1();
+	const unsigned int swapChainIndex = swapChainRenderTarget->GetDescriptorHeapIndex();
+
+	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
+
+	// Change state on front/backbuffer
+	cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		swapChainResource,
+		D3D12_RESOURCE_STATE_PRESENT,
+		D3D12_RESOURCE_STATE_RENDER_TARGET));
+
+	ID3D12DescriptorHeap* dhSRVUAVCBV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetID3D12DescriptorHeap();
+	cl->SetDescriptorHeaps(1, &dhSRVUAVCBV);
+
+	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
+	cl->SetComputeRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
+
+	cl->SetComputeRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootConstantBufferView(RS::CBV0, m_pCbCamera->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
+
+	// On the last frame, the raytracing output was used as a copy source, to
+	// copy its contents into the render target. Now we need to transition it to
+	// a UAV so that the shaders can write in it.
+	CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pOutputResource, D3D12_RESOURCE_STATE_COPY_SOURCE,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	cl->ResourceBarrier(1, &transition);
+
+
+	// Setup the raytracing task
+	D3D12_DISPATCH_RAYS_DESC desc = {};
+	// The layout of the SBT is as follows: ray generation shader, miss
+	// shaders, hit groups. As described in the CreateShaderBindingTable method,
+	// all SBT entries of a given type have the same size to allow a fixed stride.
+
+	// The ray generation shaders are always at the beginning of the SBT. 
+	uint32_t rayGenerationSectionSizeInBytes = m_SbtHelper.GetRayGenSectionSize();
+	desc.RayGenerationShaderRecord.StartAddress = m_pSbtStorage->GetGPUVirtualAddress();
+	desc.RayGenerationShaderRecord.SizeInBytes = rayGenerationSectionSizeInBytes;
+
+
+
+
+	// The miss shaders are in the second SBT section, right after the ray
+	// generation shader. We have one miss shader for the camera rays and one
+	// for the shadow rays, so this section has a size of 2*m_sbtEntrySize. We
+	// also indicate the stride between the two miss shaders, which is the size
+	// of a SBT entry
+	uint32_t missSectionSizeInBytes = m_SbtHelper.GetMissSectionSize();
+	desc.MissShaderTable.StartAddress = m_pSbtStorage->GetGPUVirtualAddress() + rayGenerationSectionSizeInBytes;
+	desc.MissShaderTable.SizeInBytes = missSectionSizeInBytes;
+	desc.MissShaderTable.StrideInBytes = m_SbtHelper.GetMissEntrySize();
+
+
+
+
+	// The hit groups section start after the miss shaders.
+	uint32_t hitGroupsSectionSize = m_SbtHelper.GetHitGroupSectionSize();
+	desc.HitGroupTable.StartAddress = m_pSbtStorage->GetGPUVirtualAddress() +
+		rayGenerationSectionSizeInBytes +
+		missSectionSizeInBytes;
+	desc.HitGroupTable.SizeInBytes = hitGroupsSectionSize;
+	desc.HitGroupTable.StrideInBytes = m_SbtHelper.GetHitGroupEntrySize();
+
+
+
+	// Dimensions of the image to render, identical to a kernel launch dimension
+	desc.Width = m_pWindow->GetScreenWidth();
+	desc.Height = m_pWindow->GetScreenHeight();
+	desc.Depth = 1;
+
+
+
+	// Bind the raytracing pipeline
+	cl->SetPipelineState1(m_pRTStateObject);
+	// Dispatch the rays and write to the raytracing output
+
+	DX12TEST(cl->DispatchRays(&desc));
+
+	// The raytracing output needs to be copied to the actual render target used
+	// for display. For this, we need to transition the raytracing output from a
+	// UAV to a copy source, and the render target buffer to a copy destination.
+	// We can then do the actual copy, before transitioning the render target
+	// buffer into a render target, that will be then used to display the image
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pOutputResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		D3D12_RESOURCE_STATE_COPY_SOURCE);
+	cl->ResourceBarrier(1, &transition);
+
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(), D3D12_RESOURCE_STATE_RENDER_TARGET,
+		D3D12_RESOURCE_STATE_COPY_DEST);
+	cl->ResourceBarrier(1, &transition);
+
+	cl->CopyResource(
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
+		m_pOutputResource);											// Source
+
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(), D3D12_RESOURCE_STATE_COPY_DEST,
+		D3D12_RESOURCE_STATE_PRESENT);
+	cl->ResourceBarrier(1, &transition);
+
+	cl->Close();
+
+	ID3D12CommandList* cLists[] = { cl };
+
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, cLists);
+
+	/*------------------- Post draw stuff -------------------*/
+	waitForGPU();
+
+#pragma region TimeMeasurment
+	auto timestamps = m_DXTimer.GetTimestampPair(0);
+	double dt = (timestamps.Stop - timestamps.Start) * m_DXTimer.GetGPUFreq();
+	//BL_LOG_INFO("DXR deltaTime: %lf\n", dt);
+
+	static unsigned int nrOfFrames = 0;
+
+	if (nrOfFrames < NUM_FRAMES)
+	{
+		// Save frame time
+		frameData.push_back(dt);
+	}
+	else if (nrOfFrames == NUM_FRAMES)
+	{
+		// Compute average
+		double sum = 0;
+		for (unsigned int i = 0; i < frameData.size(); i++)
+		{
+			sum += frameData.at(i);
+		}
+
+		resultAverage = sum / frameData.size();
 
 		// Comment if empty file
 		if (csvExporter.IsFileEmpty(m_OutputName))

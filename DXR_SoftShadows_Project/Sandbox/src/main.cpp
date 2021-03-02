@@ -29,6 +29,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     ThreadPool* const threadPool = engine.GetThreadPool();
     SceneManager* const sceneManager = engine.GetSceneHandler();
     Renderer* const renderer = engine.GetRenderer();
+    Input* const input = &Input::GetInstance();
+
+    
 
     /*------ AssetLoader to load models / textures ------*/
     AssetLoader* al = AssetLoader::Get();
@@ -55,10 +58,34 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
    while (!window->ExitWindow())
    {
        static bool DXR = true;
+
+       // 0: Raster
+       // 1: RT
+       // 2: inline RT
+       static int mode = 0;
+
+       // Check if change mode
+       bool isF1 = input->GetKeyState(SCAN_CODES::F1);
+       bool isF2 = input->GetKeyState(SCAN_CODES::F2);
+       bool isF3 = input->GetKeyState(SCAN_CODES::F3);
+
+       if (isF1)
+       {
+           mode = 0;
+       }
+
+       if (isF2)
+       {
+           mode = 1;
+       }
+
+       if (isF3)
+       {
+           mode = 2;
+       }
+
        if (window->WasSpacePressed())
        {
-           DXR = !DXR;
-
            Log::Print("CamPos: x: %f, y: %f, z: %f \n", 
                sceneManager->GetActiveScene()->GetMainCamera()->GetPosition().x,
                sceneManager->GetActiveScene()->GetMainCamera()->GetPosition().y,
@@ -74,13 +101,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
        renderer->SortObjects();
    
        /* ------ Draw ------ */
-       if (DXR)
+       switch (mode)
        {
-           renderer->ExecuteDXR();
-       }
-       else
-       {
+       case 0:
            renderer->Execute();
+           break;
+       case 1:
+           renderer->ExecuteDXR();
+           break;
+       case 2:
+           renderer->ExecuteDXRi();
+           break;
+       default:
+           Log::Print("Unknown rendering mode!!!!!!!!!!!!!!!!!!!!!!\n");
+           break;
        }
    }
     

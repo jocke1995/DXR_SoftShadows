@@ -115,6 +115,7 @@ public:
 	void SortObjects();
 	void Execute();
 	void ExecuteDXR();
+	void ExecuteDXRi();
 
 	// Render inits, these functions are called by respective components through SetScene to prepare for drawing
 	void InitModelComponent(component::ModelComponent* component);
