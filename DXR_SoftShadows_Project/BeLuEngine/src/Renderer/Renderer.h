@@ -282,6 +282,7 @@ private:
 
 	ID3D12CommandList* m_DXRCpftCommandLists[NUM_SWAP_BUFFERS];
 	ID3D12CommandList* m_DXRCodtCommandLists[NUM_SWAP_BUFFERS];
+	ID3D12CommandList* m_DepthPrePassCommandLists[NUM_SWAP_BUFFERS];
 
 	// DescriptorHeaps
 	std::map<DESCRIPTOR_HEAP_TYPE, DescriptorHeap*> m_DescriptorHeaps = {};

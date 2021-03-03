@@ -30,6 +30,7 @@
 #include "Texture/TextureCubeMap.h"
 #include "Model/Material.h"
 #include "RenderView.h"
+#include "PipelineState/GraphicsState.h"
 
 #include "DXILShaderCompiler.h"
 #include "Shader.h"
@@ -332,15 +333,6 @@ void Renderer::Update(double dt)
 	m_pCbCameraData->projectionI = *m_pScenePrimaryCamera->GetProjMatrixInverse();
 	m_pCbCameraData->view		 = *m_pScenePrimaryCamera->GetViewMatrix();
 	m_pCbCameraData->viewI		 = *m_pScenePrimaryCamera->GetViewMatrixInverse();
-
-	// Lights
-	//*m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->dataSizeVec =
-	//{
-	//	{&plRawBufferData.header, sizeof(LightHeader)},
-	//	{plRawBufferData.pls.data(), MAX_POINT_LIGHTS * sizeof(PointLight)}
-	//};
-
-	//m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->SetDataAppend(m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->dataSizeVec, 0);
 }
 
 void Renderer::SortObjects()
@@ -665,114 +657,93 @@ void Renderer::ExecuteDXRi()
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
 		1,
 		&m_DXRCpftCommandLists[commandInterfaceIndex]);
+
+	// Matrices are uploaded here temporarily
+	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
+
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
+		1,
+		&m_DepthPrePassCommandLists[commandInterfaceIndex]);
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 
 	m_pTempCommandInterface->Reset(0);
-	auto cl = m_pTempCommandInterface->GetCommandList(0);
+	ID3D12GraphicsCommandList5* cl = m_pTempCommandInterface->GetCommandList(0);
 
 	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
 	ID3D12Resource1* swapChainResource = swapChainRenderTarget->GetResource()->GetID3D12Resource1();
 	const unsigned int swapChainIndex = swapChainRenderTarget->GetDescriptorHeapIndex();
 
-	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
+	cl->SetGraphicsRootSignature(m_pRootSignature->GetRootSig());
 
-	ID3D12DescriptorHeap* dhSRVUAVCBV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetID3D12DescriptorHeap();
-	cl->SetDescriptorHeaps(1, &dhSRVUAVCBV);
+	DescriptorHeap* descriptorHeap_CBV_UAV_SRV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV];
+	ID3D12DescriptorHeap* d3d12DescriptorHeap = descriptorHeap_CBV_UAV_SRV->GetID3D12DescriptorHeap();
+	cl->SetDescriptorHeaps(1, &d3d12DescriptorHeap);
 
-	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
-	cl->SetComputeRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
+	cl->SetGraphicsRootDescriptorTable(RS::dtCBV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
+	cl->SetGraphicsRootDescriptorTable(RS::dtSRV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
 
-	cl->SetComputeRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
-	cl->SetComputeRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
-	cl->SetComputeRootConstantBufferView(RS::CBV0, m_pCbCamera->GetDefaultResource()->GetGPUVirtualAdress());
-	cl->SetComputeRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
+	// Change state on front/backbuffer
+	cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		swapChainResource,
+		D3D12_RESOURCE_STATE_PRESENT,
+		D3D12_RESOURCE_STATE_RENDER_TARGET));
 
-	// On the last frame, the raytracing output was used as a copy source, to
-	// copy its contents into the render target. Now we need to transition it to
-	// a UAV so that the shaders can write in it.
-	CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_pOutputResource,
-		D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
-	cl->ResourceBarrier(1, &transition);
+	DescriptorHeap* renderTargetHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::RTV];
+	DescriptorHeap* depthBufferHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::DSV];
 
+	// RenderTargets
+	D3D12_CPU_DESCRIPTOR_HANDLE cdhSwapChain = renderTargetHeap->GetCPUHeapAt(swapChainIndex);
+	D3D12_CPU_DESCRIPTOR_HANDLE cdhs[] = { cdhSwapChain };
 
-	// Setup the raytracing task
-	D3D12_DISPATCH_RAYS_DESC desc = {};
-	// The layout of the SBT is as follows: ray generation shader, miss
-	// shaders, hit groups. As described in the CreateShaderBindingTable method,
-	// all SBT entries of a given type have the same size to allow a fixed stride.
+	// Depth
+	D3D12_CPU_DESCRIPTOR_HANDLE dsh = depthBufferHeap->GetCPUHeapAt(m_pMainDepthStencil->GetDSV()->GetDescriptorHeapIndex());
 
-	// The ray generation shaders are always at the beginning of the SBT. 
-	uint32_t rayGenerationSectionSizeInBytes = m_SbtHelper.GetRayGenSectionSize();
-	desc.RayGenerationShaderRecord.StartAddress = m_pSbtStorage->GetGPUVirtualAddress();
-	desc.RayGenerationShaderRecord.SizeInBytes = rayGenerationSectionSizeInBytes;
+	cl->OMSetRenderTargets(1, cdhs, true, &dsh);
 
+	float clearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+	cl->ClearRenderTargetView(cdhSwapChain, clearColor, 0, nullptr);
 
+	const D3D12_VIEWPORT viewPortSwapChain = *swapChainRenderTarget->GetRenderView()->GetViewPort();
+	const D3D12_RECT rectSwapChain = *swapChainRenderTarget->GetRenderView()->GetScissorRect();
 
+	const D3D12_RECT* rect = swapChainRenderTarget->GetRenderView()->GetScissorRect();
+	cl->RSSetViewports(1, &viewPortSwapChain);
+	cl->RSSetScissorRects(1, &rectSwapChain);
+	cl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	// The miss shaders are in the second SBT section, right after the ray
-	// generation shader. We have one miss shader for the camera rays and one
-	// for the shadow rays, so this section has a size of 2*m_sbtEntrySize. We
-	// also indicate the stride between the two miss shaders, which is the size
-	// of a SBT entry
-	uint32_t missSectionSizeInBytes = m_SbtHelper.GetMissSectionSize();
-	desc.MissShaderTable.StartAddress = m_pSbtStorage->GetGPUVirtualAddress() + rayGenerationSectionSizeInBytes;
-	desc.MissShaderTable.SizeInBytes = missSectionSizeInBytes;
-	desc.MissShaderTable.StrideInBytes = m_SbtHelper.GetMissEntrySize();
+	// Set cbvs
+	cl->SetGraphicsRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetGraphicsRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
 
+	const DirectX::XMMATRIX* viewProjMatTrans = m_pScenePrimaryCamera->GetViewProjectionTranposed();
 
+	// Draw for every Rendercomponent with stencil testing disabled
+	ID3D12PipelineState* pipelineState = m_RenderTasks[RENDER_TASK_TYPE::FORWARD_RENDER]->GetPipelineState(0)->GetPSO();
+	cl->SetPipelineState(pipelineState);
+	for (int i = 0; i < m_RenderComponents.size(); i++)
+	{
+		RenderComponent* rc = m_RenderComponents.at(i);
+		component::ModelComponent* mc = rc->mc;
+		component::TransformComponent* tc = rc->tc;
 
+		// Draw for every m_pMesh the meshComponent has
+		for (unsigned int j = 0; j < mc->GetNrOfMeshes(); j++)
+		{
+			Mesh* m = mc->GetMeshAt(j);
+			unsigned int num_Indices = m->GetNumIndices();
 
-	// The hit groups section start after the miss shaders.
-	uint32_t hitGroupsSectionSize = m_SbtHelper.GetHitGroupSectionSize();
-	desc.HitGroupTable.StartAddress = m_pSbtStorage->GetGPUVirtualAddress() +
-		rayGenerationSectionSizeInBytes +
-		missSectionSizeInBytes;
-	desc.HitGroupTable.SizeInBytes = hitGroupsSectionSize;
-	desc.HitGroupTable.StrideInBytes = m_SbtHelper.GetHitGroupEntrySize();
+			cl->SetGraphicsRootConstantBufferView(RS::CB_PER_OBJECT_CBV, rc->CB_PER_OBJECT_UPLOAD_RESOURCES[j]->GetGPUVirtualAdress());
 
+			cl->IASetIndexBuffer(m->GetIndexBufferView());
+			cl->DrawIndexedInstanced(num_Indices, 1, 0, 0, 0);
+		}
+	}
 
-
-	// Dimensions of the image to render, identical to a kernel launch dimension
-	desc.Width = m_pWindow->GetScreenWidth();
-	desc.Height = m_pWindow->GetScreenHeight();
-	desc.Depth = 1;
-
-
-
-	// Bind the raytracing pipeline
-	cl->SetPipelineState1(m_pRTStateObject);
-	// Dispatch the rays and write to the raytracing output
-
-	DX12TEST(cl->DispatchRays(&desc));
-
-	// The raytracing output needs to be copied to the actual render target used
-	// for display. For this, we need to transition the raytracing output from a
-	// UAV to a copy source, and the render target buffer to a copy destination.
-	// We can then do the actual copy, before transitioning the render target
-	// buffer into a render target, that will be then used to display the image
-	transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_pOutputResource,
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // StateBefore
-		D3D12_RESOURCE_STATE_COPY_SOURCE);	   // StateAfter
-	cl->ResourceBarrier(1, &transition);
-
-	transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
-		D3D12_RESOURCE_STATE_PRESENT,	 // StateBefore
-		D3D12_RESOURCE_STATE_COPY_DEST); // StateAfter
-	cl->ResourceBarrier(1, &transition);
-
-	cl->CopyResource(
-		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
-		m_pOutputResource);											// Source
-
-	transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
-		D3D12_RESOURCE_STATE_COPY_DEST, // StateBefore
-		D3D12_RESOURCE_STATE_PRESENT);	// StateAfter
-	cl->ResourceBarrier(1, &transition);
+	// Change state on front/backbuffer
+	cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		swapChainResource,
+		D3D12_RESOURCE_STATE_RENDER_TARGET,
+		D3D12_RESOURCE_STATE_PRESENT));
 
 	cl->Close();
 
@@ -1915,6 +1886,7 @@ void Renderer::initRenderTasks()
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)
 	{
 		m_DirectCommandLists[i].push_back(DepthPrePassRenderTask->GetCommandInterface()->GetCommandList(i));
+		m_DepthPrePassCommandLists[i] = DepthPrePassRenderTask->GetCommandInterface()->GetCommandList(i);
 	}
 
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)
