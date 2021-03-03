@@ -38,7 +38,8 @@ void ClosestHit(inout HitInfo payload, in BuiltInTriangleIntersectionAttributes 
     vertex v2 = meshes[info.vertexDataIndex][IndexID2];
     vertex v3 = meshes[info.vertexDataIndex][IndexID3];
 
-    float3 normal = normalize(mul(float4(v1.norm, 0.0f), worldMat.worldMatrix));
+    float3 norm = v1.norm * bary.x + v2.norm * bary.y + v3.norm * bary.z;
+    float3 normal = normalize(mul(float4(norm, 0.0f), worldMat.worldMatrix));
 
     float2 uv = v1.uv * bary.x + v2.uv * bary.y + v3.uv * bary.z;
    

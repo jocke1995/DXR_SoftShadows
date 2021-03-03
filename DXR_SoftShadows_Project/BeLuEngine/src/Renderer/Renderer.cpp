@@ -460,8 +460,6 @@ void Renderer::Execute()
 #endif
 }
 
-
-
 #define DX12TEST(fnc) m_DXTimer.Start(cl, 0);fnc;m_DXTimer.Stop(cl, 0);m_DXTimer.ResolveQueryToCPU(cl, 0);
 
 void Renderer::ExecuteDXR()
@@ -490,12 +488,6 @@ void Renderer::ExecuteDXR()
 
 	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
 
-	// Change state on front/backbuffer
-	cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		swapChainResource,
-		D3D12_RESOURCE_STATE_PRESENT,
-		D3D12_RESOURCE_STATE_RENDER_TARGET));
-
 	ID3D12DescriptorHeap* dhSRVUAVCBV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetID3D12DescriptorHeap();
 	cl->SetDescriptorHeaps(1, &dhSRVUAVCBV);
 
@@ -511,8 +503,9 @@ void Renderer::ExecuteDXR()
 	// copy its contents into the render target. Now we need to transition it to
 	// a UAV so that the shaders can write in it.
 	CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_pOutputResource, D3D12_RESOURCE_STATE_COPY_SOURCE,
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		m_pOutputResource, 
+		D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
 	cl->ResourceBarrier(1, &transition);
 
 
@@ -572,13 +565,15 @@ void Renderer::ExecuteDXR()
 	// We can then do the actual copy, before transitioning the render target
 	// buffer into a render target, that will be then used to display the image
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_pOutputResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-		D3D12_RESOURCE_STATE_COPY_SOURCE);
+		m_pOutputResource,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // StateBefore
+		D3D12_RESOURCE_STATE_COPY_SOURCE);	   // StateAfter
 	cl->ResourceBarrier(1, &transition);
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		swapChainRenderTarget->GetResource()->GetID3D12Resource1(), D3D12_RESOURCE_STATE_RENDER_TARGET,
-		D3D12_RESOURCE_STATE_COPY_DEST);
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_PRESENT,	 // StateBefore
+		D3D12_RESOURCE_STATE_COPY_DEST); // StateAfter
 	cl->ResourceBarrier(1, &transition);
 
 	cl->CopyResource(
@@ -586,8 +581,9 @@ void Renderer::ExecuteDXR()
 		m_pOutputResource);											// Source
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		swapChainRenderTarget->GetResource()->GetID3D12Resource1(), D3D12_RESOURCE_STATE_COPY_DEST,
-		D3D12_RESOURCE_STATE_PRESENT);
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_COPY_DEST, // StateBefore
+		D3D12_RESOURCE_STATE_PRESENT);	// StateAfter
 	cl->ResourceBarrier(1, &transition);
 
 	cl->Close();
@@ -680,12 +676,6 @@ void Renderer::ExecuteDXRi()
 
 	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
 
-	// Change state on front/backbuffer
-	cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		swapChainResource,
-		D3D12_RESOURCE_STATE_PRESENT,
-		D3D12_RESOURCE_STATE_RENDER_TARGET));
-
 	ID3D12DescriptorHeap* dhSRVUAVCBV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetID3D12DescriptorHeap();
 	cl->SetDescriptorHeaps(1, &dhSRVUAVCBV);
 
@@ -701,8 +691,9 @@ void Renderer::ExecuteDXRi()
 	// copy its contents into the render target. Now we need to transition it to
 	// a UAV so that the shaders can write in it.
 	CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_pOutputResource, D3D12_RESOURCE_STATE_COPY_SOURCE,
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		m_pOutputResource,
+		D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
 	cl->ResourceBarrier(1, &transition);
 
 
@@ -762,13 +753,15 @@ void Renderer::ExecuteDXRi()
 	// We can then do the actual copy, before transitioning the render target
 	// buffer into a render target, that will be then used to display the image
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_pOutputResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-		D3D12_RESOURCE_STATE_COPY_SOURCE);
+		m_pOutputResource,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // StateBefore
+		D3D12_RESOURCE_STATE_COPY_SOURCE);	   // StateAfter
 	cl->ResourceBarrier(1, &transition);
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		swapChainRenderTarget->GetResource()->GetID3D12Resource1(), D3D12_RESOURCE_STATE_RENDER_TARGET,
-		D3D12_RESOURCE_STATE_COPY_DEST);
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_PRESENT,	 // StateBefore
+		D3D12_RESOURCE_STATE_COPY_DEST); // StateAfter
 	cl->ResourceBarrier(1, &transition);
 
 	cl->CopyResource(
@@ -776,8 +769,9 @@ void Renderer::ExecuteDXRi()
 		m_pOutputResource);											// Source
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		swapChainRenderTarget->GetResource()->GetID3D12Resource1(), D3D12_RESOURCE_STATE_COPY_DEST,
-		D3D12_RESOURCE_STATE_PRESENT);
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_COPY_DEST, // StateBefore
+		D3D12_RESOURCE_STATE_PRESENT);	// StateAfter
 	cl->ResourceBarrier(1, &transition);
 
 	cl->Close();

@@ -210,7 +210,6 @@ Scene* TestScene(SceneManager* sm)
     plc = entity->AddComponent<component::PointLightComponent>();
     plc->SetColor({ 1.0f, 0.3f, 0.3f });
     plc->SetPosition({ -26.42f, 63.0776f, 14.19f });
-    
     /* ---------------------- PointLight1 ---------------------- */
     
     /* ---------------------- PointLight2 ---------------------- */
@@ -218,18 +217,16 @@ Scene* TestScene(SceneManager* sm)
     plc = entity->AddComponent<component::PointLightComponent>();
     plc->SetColor({ 0.3f, 0.3f, 1.0f });
     plc->SetPosition({ -10.895118f, 56.448929f, 150.611298f });
-
     /* ---------------------- PointLight2 ---------------------- */
 
 
     // Todo: Gives wierd round circles below light?? changes when modifying the lightRadius (cone width)
-    /* ---------------------- PointLight2 ---------------------- */
+    /* ---------------------- PointLight3 ---------------------- */
     //entity = scene->AddEntity("pointLight3");
     //plc = entity->AddComponent<component::PointLightComponent>();
     //plc->SetColor({ 0.9f, 0.9f, 0.9f });
     //plc->SetPosition({ 346.4f, 631.f, -106.8f});
-
-    /* ---------------------- PointLight2 ---------------------- */
+    /* ---------------------- PointLight3 ---------------------- */
     /* ---------------------- Update Function ---------------------- */
     scene->SetUpdateScene(&TestUpdateScene);
     return scene;
