@@ -59,9 +59,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
    {
        static bool DXR = true;
 
-       // 0: Raster
-       // 1: RT
-       // 2: inline RT
+       // 0: RT
+       // 1: Inline RT (Pixel shader)
+       // 2: inline RT (Compute shader)
        static int mode = 0;
 
        // Check if change mode
@@ -72,19 +72,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
        if (isF1)
        {
            mode = 0;
-           Log::Print("Mode: Raster\n");
+           Log::Print("Mode: RT\n");
        }
-
        if (isF2)
        {
            mode = 1;
-           Log::Print("Mode: RT\n");
+           Log::Print("Mode: Inline RT (Pixel shader)\n");
        }
-
        if (isF3)
        {
            mode = 2;
-           Log::Print("Mode: inline RT\n");
+           Log::Print("Mode: inline RT (Compute shader)\n");
        }
 
        if (window->WasSpacePressed())
@@ -107,13 +105,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
        switch (mode)
        {
        case 0:
-           renderer->Execute();
-           break;
-       case 1:
            renderer->ExecuteDXR();
            break;
-       case 2:
+       case 1:
            renderer->ExecuteDXRi();
+           break;
+       case 2:
+           //renderer->ExecuteDXRi();
+           Log::Print("Inline RT not yet implemented with compute shader!\n");
            break;
        default:
            Log::Print("Unknown rendering mode!!!!!!!!!!!!!!!!!!!!!!\n");

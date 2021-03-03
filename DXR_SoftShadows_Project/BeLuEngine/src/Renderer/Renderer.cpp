@@ -679,8 +679,10 @@ void Renderer::ExecuteDXRi()
 	ID3D12DescriptorHeap* d3d12DescriptorHeap = descriptorHeap_CBV_UAV_SRV->GetID3D12DescriptorHeap();
 	cl->SetDescriptorHeaps(1, &d3d12DescriptorHeap);
 
+	cl->SetGraphicsRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
 	cl->SetGraphicsRootDescriptorTable(RS::dtCBV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
 	cl->SetGraphicsRootDescriptorTable(RS::dtSRV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
+	cl->SetGraphicsRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
 
 	// Change state on front/backbuffer
 	cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
@@ -1390,8 +1392,6 @@ void Renderer::CreateShaderResourceHeap()
 {
 	// Create a SRV/UAV/CBV descriptor heap. We need 2 entries - 1 UAV for the
 	// raytracing output and 1 SRV for the TLAS
-
-	//m_pSrvUavHeap = new DescriptorHeap(m_pDevice5, DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV);
 
 	// Get a handle to the heap memory on the CPU side, to be able to write the
 	// descriptors directly

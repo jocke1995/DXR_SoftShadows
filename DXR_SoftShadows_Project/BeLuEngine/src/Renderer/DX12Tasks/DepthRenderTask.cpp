@@ -95,6 +95,7 @@ void DepthRenderTask::drawRenderComponent(
 
 		// Temp, should not SetData here
 		rc->CB_PER_OBJECT_UPLOAD_RESOURCES[i]->SetData(&perObject);
+
 		cl->SetGraphicsRootConstantBufferView(RS::CB_PER_OBJECT_CBV, rc->CB_PER_OBJECT_UPLOAD_RESOURCES[i]->GetGPUVirtualAdress());
 
 		cl->IASetIndexBuffer(m->GetIndexBufferView());
