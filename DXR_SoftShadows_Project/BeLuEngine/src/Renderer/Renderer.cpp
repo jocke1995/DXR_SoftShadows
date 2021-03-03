@@ -37,6 +37,7 @@
 
 #include "GPUMemory/GPUMemory.h"
 #include "GPUMemory/Bloom.h"
+#include "GPUMemory/PingPongResource.h"
 
 // Graphics
 #include "DX12Tasks/RenderTask.h"
@@ -604,9 +605,24 @@ void Renderer::ExecuteDXR()
 
 	// Filip test, blurra swapchain
 	
+	// Create SRV
+	auto format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+
+	// Create UAV
+	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+	uavDesc.Format = format;
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+
+	auto pingPongR = new PingPongResource(m_pOutputResource, m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], &srvDesc, &uavDesc);
+
 	m_BlurComputeTask->SetBackBufferIndex(backBufferIndex);
 	m_BlurComputeTask->SetCommandInterfaceIndex(commandInterfaceIndex);
-	m_BlurComputeTask->SetBlurTarget(m_pOutputResource);
+	m_BlurComputeTask->SetBlurPingPongResource(pingPongR);
 	m_BlurComputeTask->Execute();
 	ID3D12CommandList* blurCL = m_BlurComputeTask->GetCommandInterface()->GetCommandList(commandInterfaceIndex);
 

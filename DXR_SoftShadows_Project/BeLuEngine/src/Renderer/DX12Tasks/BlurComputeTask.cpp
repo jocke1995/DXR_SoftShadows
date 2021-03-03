@@ -14,16 +14,16 @@
 BlurComputeTask::BlurComputeTask(
 	ID3D12Device5* device,
 	RootSignature* rootSignature,
+	DescriptorHeap* dHeap_CBV_SRV_UAV,
 	std::vector<std::pair< std::wstring, std::wstring>> csNamePSOName,
 	COMMAND_INTERFACE_TYPE interfaceType,
-	const PingPongResource* Bloom0_RESOURCE,
-	const PingPongResource* Bloom1_RESOURCE,
 	unsigned int screenWidth, unsigned int screenHeight,
 	unsigned int FLAG_THREAD)
 	:ComputeTask(device, rootSignature, csNamePSOName, FLAG_THREAD, interfaceType)
 {
-	m_PingPongResources[0] = Bloom0_RESOURCE;
-	m_PingPongResources[1] = Bloom1_RESOURCE;
+	auto dxgiFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	createTempResource(device, screenWidth, screenHeight, dxgiFormat);
+	createTempPingPongResource(device, dHeap_CBV_SRV_UAV, dxgiFormat);
 
 	m_HorizontalThreadGroupsX = static_cast<unsigned int>(ceilf(static_cast<float>(screenWidth) / m_ThreadsPerGroup));
 	m_HorizontalThreadGroupsY = screenHeight;
@@ -37,9 +37,9 @@ BlurComputeTask::~BlurComputeTask()
 
 }
 
-void BlurComputeTask::SetBlurTarget(ID3D12Resource* target)
+void BlurComputeTask::SetBlurPingPongResource(PingPongResource* target)
 {
-	m_pTargetResource = target;
+	m_pTargetPingPongResource = target;
 }
 
 void BlurComputeTask::Execute()
@@ -61,22 +61,22 @@ void BlurComputeTask::Execute()
 
 	// Descriptorheap indices for the textures to blur
 	// Horizontal pass
-	m_DhIndices.index0 = m_PingPongResources[0]->GetSRV()->GetDescriptorHeapIndex();	// Read
-	m_DhIndices.index1 = m_PingPongResources[1]->GetUAV()->GetDescriptorHeapIndex();	// Write
+	m_DhIndices.index0 = m_pTargetPingPongResource->GetSRV()->GetDescriptorHeapIndex();	// Read
+	m_DhIndices.index1 = m_pTempPingPongResource->GetUAV()->GetDescriptorHeapIndex();	// Write
 	// Vertical pass
-	m_DhIndices.index2 = m_PingPongResources[1]->GetSRV()->GetDescriptorHeapIndex();	// Read
-	m_DhIndices.index3 = m_PingPongResources[0]->GetUAV()->GetDescriptorHeapIndex();	// Write
+	m_DhIndices.index2 = m_pTempPingPongResource->GetSRV()->GetDescriptorHeapIndex();	// Read
+	m_DhIndices.index3 = m_pTargetPingPongResource->GetUAV()->GetDescriptorHeapIndex();	// Write
 
 	// Send the indices to gpu
 	commandList->SetComputeRoot32BitConstants(RS::RC_4, 4, &m_DhIndices, 0);
 
 	// The resource to read (Resource Barrier)
-	TransResourceState(commandList, const_cast<Resource*>(m_PingPongResources[0]->GetSRV()->GetResource()),
+	TransResourceState(commandList, const_cast<Resource*>(m_pTargetPingPongResource->GetSRV()->GetResource()),
 		D3D12_RESOURCE_STATE_RENDER_TARGET,
 		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
 	// The resource to write (Resource Barrier)
-	TransResourceState(commandList, const_cast<Resource*>(m_PingPongResources[1]->GetUAV()->GetResource()),
+	TransResourceState(commandList, const_cast<Resource*>(m_pTempPingPongResource->GetUAV()->GetResource()),
 		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
@@ -85,12 +85,12 @@ void BlurComputeTask::Execute()
 	commandList->Dispatch(m_HorizontalThreadGroupsX, m_HorizontalThreadGroupsY, 1);
 
 	// The resource to write to (Resource Barrier)
-	TransResourceState(commandList, const_cast<Resource*>(m_PingPongResources[1]->GetSRV()->GetResource()),
+	TransResourceState(commandList, const_cast<Resource*>(m_pTempPingPongResource->GetSRV()->GetResource()),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
 	// The resource to read (Resource Barrier)
-	TransResourceState(commandList, const_cast<Resource*>(m_PingPongResources[0]->GetUAV()->GetResource()),
+	TransResourceState(commandList, const_cast<Resource*>(m_pTargetPingPongResource->GetUAV()->GetResource()),
 		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
@@ -105,9 +105,54 @@ void BlurComputeTask::Execute()
 
 	
 	// Resource barrier back to original states
-	TransResourceState(commandList, const_cast<Resource*>(m_PingPongResources[0]->GetSRV()->GetResource()),
+	TransResourceState(commandList, const_cast<Resource*>(m_pTargetPingPongResource->GetSRV()->GetResource()),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 		D3D12_RESOURCE_STATE_RENDER_TARGET);
 
 	commandList->Close();
+}
+
+void BlurComputeTask::createTempResource(ID3D12Device5* device, unsigned int width, unsigned int height, DXGI_FORMAT format)
+{
+	D3D12_RESOURCE_DESC desc = {};
+	desc.DepthOrArraySize = 1;
+	desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	// The backbuffer is actually DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, but sRGB
+	// formats cannot be used with UAVs. For accuracy we should convert to sRGB
+	// ourselves in the shader
+	desc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+
+	desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+	desc.Width = width;
+	desc.Height = height;
+	desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	desc.MipLevels = 1;
+	desc.SampleDesc.Count = 1;
+
+	D3D12_CLEAR_VALUE clearColor = {};
+	clearColor.Format = format;
+	clearColor.Color[0] = 0;
+	clearColor.Color[1] = 0;
+	clearColor.Color[2] = 0;
+	clearColor.Color[3] = 0;
+
+	// Init temp Resource
+	m_pTempResource = new Resource(device, &desc, &clearColor, L"BlurTaskTempDefaultResource", D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+}
+
+void BlurComputeTask::createTempPingPongResource(ID3D12Device5* device, DescriptorHeap* dHeap, DXGI_FORMAT format)
+{
+	// Create SRV
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+
+	// Create UAV
+	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+	uavDesc.Format = format;
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+
+	m_pTempPingPongResource = new PingPongResource(m_pTempResource, device, dHeap, &srvDesc, &uavDesc);
 }
