@@ -28,6 +28,7 @@ class ShaderResource;
 class UnorderedAccess;
 class DepthStencil;
 class Resource;
+class Bloom;
 
 // Enums
 enum COMMAND_INTERFACE_TYPE;
@@ -52,6 +53,7 @@ class CopyTask;
 
 // Compute
 class ComputeTask;
+class BlurComputeTask;
 
 // DX12 Forward Declarations
 struct ID3D12CommandQueue;
@@ -195,6 +197,8 @@ private:
 	std::wstring m_OutputName = L"Results.csv";
 	D3D12::D3D12Timer m_DXTimer;
 
+	
+
 	CommandInterface* m_pTempCommandInterface = nullptr;
 
 	// AS
@@ -213,6 +217,11 @@ private:
 	void CreateBottomLevelAS(BLModel** blModel);
 	void CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>> &instances);
 	void CreateAccelerationStructures();
+
+	// Blur task
+	BlurComputeTask* m_BlurComputeTask = nullptr;
+	Bloom* m_pBloomResources = nullptr;
+	void createBlurTask();
 
 
 	ID3D12RootSignature* CreateRayGenSignature();

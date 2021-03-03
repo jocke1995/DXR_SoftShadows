@@ -10,6 +10,7 @@ enum RS
 {
 	dtCBV,
 	dtSRV,
+	dtUAV,
 	dtRaytracing,
 	SRV0,
 	UAV0,
@@ -17,6 +18,7 @@ enum RS
 	CB_PER_OBJECT_CBV,
 	CB_PER_FRAME,
 	CB_PER_SCENE,
+	RC_4,
 	NUM_PARAMS
 };
 

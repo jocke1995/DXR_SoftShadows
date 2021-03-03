@@ -36,6 +36,7 @@
 #include "Shader.h"
 
 #include "GPUMemory/GPUMemory.h"
+#include "GPUMemory/Bloom.h"
 
 // Graphics
 #include "DX12Tasks/RenderTask.h"
@@ -48,6 +49,7 @@
 
 // Compute
 #include "DX12Tasks/ComputeTask.h"
+#include "DX12Tasks/BlurComputeTask.h"
 
 // Event
 #include "../Events/EventBus.h"
@@ -242,6 +244,9 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	m_pTempCommandInterface = new CommandInterface(m_pDevice5, COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
 	m_pTempCommandInterface->Reset(0);
 
+
+	createBlurTask();
+
 	initRenderTasks();
 
 	submitMeshToCodt(m_pFullScreenQuad);
@@ -251,6 +256,34 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	// DXR
 	m_pCbCamera = new ConstantBuffer(m_pDevice5, sizeof(DXR_CAMERA), L"DXR_CAMERA", m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]);
 	m_pCbCameraData = new DXR_CAMERA();
+}
+
+void Renderer::createBlurTask()
+{
+	UINT resolutionWidth = 0;
+	UINT resolutionHeight = 0;
+	m_pSwapChain->GetDX12SwapChain()->GetSourceSize(&resolutionWidth, &resolutionHeight);
+
+	m_pBloomResources = new Bloom(m_pDevice5,
+		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::RTV],
+		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV],
+		m_pSwapChain
+	);
+
+	// ComputeTasks
+	std::vector<std::pair<std::wstring, std::wstring>> csNamePSOName;
+	csNamePSOName.push_back(std::make_pair(L"ComputeBlurHorizontal.hlsl", L"blurHorizontalPSO"));
+	csNamePSOName.push_back(std::make_pair(L"ComputeBlurVertical.hlsl", L"blurVerticalPSO"));
+	ComputeTask* blurComputeTask = new BlurComputeTask(
+		m_pDevice5, m_pRootSignature,
+		csNamePSOName,
+		COMMAND_INTERFACE_TYPE::DIRECT_TYPE,
+		m_pBloomResources->GetPingPongResource(0),
+		m_pBloomResources->GetPingPongResource(1),
+		resolutionWidth, resolutionHeight,
+		FLAG_THREAD::RENDER);
+
+	blurComputeTask->SetDescriptorHeaps(m_DescriptorHeaps);
 }
 
 void Renderer::InitDXR()
@@ -568,6 +601,19 @@ void Renderer::ExecuteDXR()
 		D3D12_RESOURCE_STATE_COPY_DEST); // StateAfter
 	cl->ResourceBarrier(1, &transition);
 
+
+	// Filip test, blurra swapchain
+	
+	m_BlurComputeTask->SetBackBufferIndex(backBufferIndex);
+	m_BlurComputeTask->SetCommandInterfaceIndex(commandInterfaceIndex);
+	m_BlurComputeTask->SetBlurTarget(m_pOutputResource);
+	m_BlurComputeTask->Execute();
+	ID3D12CommandList* blurCL = m_BlurComputeTask->GetCommandInterface()->GetCommandList(commandInterfaceIndex);
+
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
+		1,
+		&blurCL);
+	
 	cl->CopyResource(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
 		m_pOutputResource);											// Source
