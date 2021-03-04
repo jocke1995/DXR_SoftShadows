@@ -22,8 +22,8 @@ public:
 	bool operator == (const DepthStencil& other);
 	bool operator != (const DepthStencil& other);
 
-	const Resource* const GetDefaultResource() const;
-	const DepthStencilView* const GetDSV() const;
+	Resource* const GetDefaultResource() const;
+	DepthStencilView* const GetDSV() const;
 
 private:
 	Resource* m_pDefaultResource = nullptr;

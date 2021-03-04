@@ -28,6 +28,7 @@ class ShaderResource;
 class UnorderedAccess;
 class DepthStencil;
 class Resource;
+class ShaderResourceView;
 
 // Enums
 enum COMMAND_INTERFACE_TYPE;
@@ -175,6 +176,7 @@ private:
 
 	// Depthbuffer
 	DepthStencil* m_pMainDepthStencil = nullptr;
+	ShaderResourceView* m_pDepthBufferSRV = nullptr;
 
 	// Rootsignature
 	RootSignature* m_pRootSignature = nullptr;

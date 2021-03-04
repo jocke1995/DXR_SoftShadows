@@ -11,11 +11,10 @@ Texture2D textures[]   : register (t0, space2);
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0, space4);
 
-SamplerState MIN_MAG_MIP_LINEAR__WRAP	: register (s5);
+SamplerState MIN_MAG_MIP_LINEAR__WRAP : register(s5);
 
-// Only includes buffer-dh-indices atm.
-ConstantBuffer<CB_PER_SCENE_STRUCT>  cbPerScene  : register(b5, space3);
-ByteAddressBuffer rawBufferLights: register(t0, space3);
+ConstantBuffer<CB_PER_SCENE_STRUCT> cbPerScene : register(b5, space3);
+ByteAddressBuffer rawBufferLights : register(t0, space3);
 
 /* LOCAL */
 ConstantBuffer<DXR_WORLDMATRIX_STRUCT> worldMat : register(b7, space3);

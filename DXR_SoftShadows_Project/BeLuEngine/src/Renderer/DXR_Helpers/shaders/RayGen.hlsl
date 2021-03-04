@@ -6,6 +6,9 @@ RWTexture2D< float4 > gOutput : register(u0);
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0, space4);
 
+Texture2D textures[]   : register (t0, space2);
+SamplerState MIN_MAG_MIP_LINEAR__WRAP : register(s5);
+
 [shader("raygeneration")] 
 void RayGen() {
 	// Initialize the ray payload
@@ -21,6 +24,9 @@ void RayGen() {
 	// From 0 to 1 ----> -1 to 1
 	float2 d = (((launchIndex.xy + 0.5f) / dims.xy) * 2.f - 1.f);
 	
+	//float2 uv = ((launchIndex.xy + 0.5f) / dims.xy);
+	//float depth = textures[2].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).r;
+
 	// Define a ray, consisting of origin, direction, and the min-max distance values
 	RayDesc ray;
 	// from view -> world
@@ -80,4 +86,5 @@ void RayGen() {
 	payload);
 
 	gOutput[launchIndex] = float4(payload.colorAndDistance.rgb, 1.f);
+	//gOutput[launchIndex] = float4(depth, 0.0f, 0.0f, 1.0f);
 }

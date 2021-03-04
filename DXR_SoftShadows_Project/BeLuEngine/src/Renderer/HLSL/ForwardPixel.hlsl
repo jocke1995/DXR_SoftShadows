@@ -21,7 +21,7 @@ ConstantBuffer<CB_PER_FRAME_STRUCT>  cbPerFrame  : register(b4, space3);
 PS_OUTPUT PS_main(VS_OUT input)
 {
 	// Sample from texture
-	float4 albedo   = textures[cbPerObject.info.textureAlbedo	].Sample(Anisotropic16_Wrap, input.uv);
+	float4 albedo   = textures[cbPerObject.info.textureAlbedo].Sample(Anisotropic16_Wrap, input.uv);
 
 	float3 finalColor = float3(0.0f, 0.0f, 0.0f);
 
@@ -37,5 +37,9 @@ PS_OUTPUT PS_main(VS_OUT input)
 	finalColor += albedo * float3(0.1f, 0.1f, 0.1f);
 	PS_OUTPUT output;
 	output.sceneColor = float4(finalColor.rgb, 1.0f);
+
+	// DEBUG DEPTH TEXTURE (Can only see things when an object is really really close to the nearPlane, else everything is just red)
+	// float depth = textures[2].Sample(Anisotropic16_Wrap, input.uv);
+	// output.sceneColor = float4(depth, 0.0f, 0.0f, 1.0f);
 	return output;
 }
