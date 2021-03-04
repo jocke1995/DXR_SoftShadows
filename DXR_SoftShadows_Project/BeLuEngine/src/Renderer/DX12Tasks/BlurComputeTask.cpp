@@ -34,7 +34,8 @@ BlurComputeTask::BlurComputeTask(
 
 BlurComputeTask::~BlurComputeTask()
 {
-
+	delete m_pTempPingPongResource;
+	delete m_pTempResource;
 }
 
 void BlurComputeTask::SetBlurPingPongResource(PingPongResource* target)
