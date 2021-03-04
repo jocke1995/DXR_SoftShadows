@@ -159,6 +159,7 @@ void Renderer::deleteRenderer()
 	SAFE_RELEASE(&m_pRTStateObjectProps);
 	
 	delete m_pOutputResource;
+	delete m_BlurComputeTask;
 	SAFE_RELEASE(&m_pSbtStorage);
 
 	SAFE_RELEASE(&m_pDevice5);
@@ -265,17 +266,11 @@ void Renderer::createBlurTask()
 	UINT resolutionHeight = 0;
 	m_pSwapChain->GetDX12SwapChain()->GetSourceSize(&resolutionWidth, &resolutionHeight);
 
-	m_pBloomResources = new Bloom(m_pDevice5,
-		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::RTV],
-		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV],
-		m_pSwapChain
-	);
-
 	// ComputeTasks
 	std::vector<std::pair<std::wstring, std::wstring>> csNamePSOName;
 	csNamePSOName.push_back(std::make_pair(L"ComputeBlurHorizontal.hlsl", L"blurHorizontalPSO"));
 	csNamePSOName.push_back(std::make_pair(L"ComputeBlurVertical.hlsl", L"blurVerticalPSO"));
-	ComputeTask* blurComputeTask = new BlurComputeTask(
+	m_BlurComputeTask = new BlurComputeTask(
 		m_pDevice5, m_pRootSignature,
 		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV],
 		csNamePSOName,
@@ -283,7 +278,7 @@ void Renderer::createBlurTask()
 		resolutionWidth, resolutionHeight,
 		FLAG_THREAD::RENDER);
 
-	blurComputeTask->SetDescriptorHeaps(m_DescriptorHeaps);
+	m_BlurComputeTask->SetDescriptorHeaps(m_DescriptorHeaps);
 }
 
 void Renderer::InitDXR()
@@ -647,6 +642,8 @@ void Renderer::ExecuteDXR()
 
 	/*------------------- Post draw stuff -------------------*/
 	waitForGPU();
+
+	delete pingPongR;
 
 #pragma region TimeMeasurment
 	auto timestamps = m_DXTimer.GetTimestampPair(0);

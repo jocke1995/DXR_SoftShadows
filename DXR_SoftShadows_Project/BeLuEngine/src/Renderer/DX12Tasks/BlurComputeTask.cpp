@@ -72,7 +72,7 @@ void BlurComputeTask::Execute()
 
 	// The resource to read (Resource Barrier)
 	TransResourceState(commandList, const_cast<Resource*>(m_pTargetPingPongResource->GetSRV()->GetResource()),
-		D3D12_RESOURCE_STATE_RENDER_TARGET,
+		D3D12_RESOURCE_STATE_COPY_SOURCE,
 		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
 	// The resource to write (Resource Barrier)
@@ -107,7 +107,7 @@ void BlurComputeTask::Execute()
 	// Resource barrier back to original states
 	TransResourceState(commandList, const_cast<Resource*>(m_pTargetPingPongResource->GetSRV()->GetResource()),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-		D3D12_RESOURCE_STATE_RENDER_TARGET);
+		D3D12_RESOURCE_STATE_COPY_SOURCE);
 
 	commandList->Close();
 }
@@ -129,15 +129,8 @@ void BlurComputeTask::createTempResource(ID3D12Device5* device, unsigned int wid
 	desc.MipLevels = 1;
 	desc.SampleDesc.Count = 1;
 
-	D3D12_CLEAR_VALUE clearColor = {};
-	clearColor.Format = format;
-	clearColor.Color[0] = 0;
-	clearColor.Color[1] = 0;
-	clearColor.Color[2] = 0;
-	clearColor.Color[3] = 0;
-
 	// Init temp Resource
-	m_pTempResource = new Resource(device, &desc, &clearColor, L"BlurTaskTempDefaultResource", D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	m_pTempResource = new Resource(device, &desc, nullptr, L"BlurTaskTempDefaultResource", D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 }
 
 void BlurComputeTask::createTempPingPongResource(ID3D12Device5* device, DescriptorHeap* dHeap, DXGI_FORMAT format)

@@ -3,7 +3,7 @@
 Texture2D<float4> textures[]   : register (t0);
 RWTexture2D<float4> textureToBlur[] : register(u0);
 
-ConstantBuffer<DescriptorHeapIndices> dhIndices : register(b2, space3);
+ConstantBuffer<DescriptorHeapIndices> dhIndices : register(b9, space3);
 
 static const int g_BlurRadius = 4;
 static const int g_NumThreads = 256;
@@ -23,17 +23,23 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 		int x = max(dispatchThreadID.x - g_BlurRadius, 0);
 		g_SharedMem[groupThreadID.x] = textures[readIndex][int2(x, dispatchThreadID.y)];
 	}
+
+	uint mipLevel;
+	uint width;
+	uint height;
+	uint numLevels;
+	textures[readIndex].GetDimensions(mipLevel, width, height, numLevels);
 	
 	// right side
 	if (groupThreadID.x >= g_NumThreads - g_BlurRadius)
 	{
-		int x = min(dispatchThreadID.x + g_BlurRadius, textures[readIndex].Length.x - 1);
+		int x = min(dispatchThreadID.x + g_BlurRadius, width - 1);
 		g_SharedMem[groupThreadID.x + 2 * g_BlurRadius] = textures[readIndex][int2(x, dispatchThreadID.y)];
 	}
 	/* -------------------- Clamp out of bound samples -------------------- */
 
 	// Fill the middle parts of the sharedMemory
-	g_SharedMem[groupThreadID.x + g_BlurRadius] = textures[readIndex][min(dispatchThreadID.xy, textures[readIndex].Length.xy - 1)];
+	g_SharedMem[groupThreadID.x + g_BlurRadius] = textures[readIndex][min(dispatchThreadID.xy, float2(width, height) - 1)];
 
 	// Wait for shared memory to be populated before reading from it
 	GroupMemoryBarrierWithGroupSync();

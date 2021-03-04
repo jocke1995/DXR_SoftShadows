@@ -220,7 +220,6 @@ private:
 
 	// Blur task
 	BlurComputeTask* m_BlurComputeTask = nullptr;
-	Bloom* m_pBloomResources = nullptr;
 	void createBlurTask();
 
 
