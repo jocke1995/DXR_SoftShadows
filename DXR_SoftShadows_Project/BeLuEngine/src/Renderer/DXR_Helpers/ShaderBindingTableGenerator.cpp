@@ -242,8 +242,8 @@ uint32_t ShaderBindingTableGenerator::GetEntrySize(const std::vector<SBTEntry>& 
   // parameters can either be 8-bytes pointers, or 4-bytes constants
   uint32_t entrySize = m_progIdSize + 8 * static_cast<uint32_t>(maxArgs);
 
-  // The entries of the shader binding table must be 16-bytes-aligned
-  entrySize = ROUND_UP(entrySize, D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT); // FILIP: Ändrat från D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT
+  // The entries of the shader binding table must be 64-bytes-aligned (not 16-bytes-aligned anymore? Some recent update?)
+  entrySize = ROUND_UP(entrySize, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT); // FILIP: Ändrat från D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT
 
   return entrySize;
 }

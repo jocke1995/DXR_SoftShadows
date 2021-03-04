@@ -1169,7 +1169,7 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 			instances[i].first,
 			instances[i].second, 
 			static_cast<unsigned int>(i),
-			static_cast<unsigned int>(2* i));	// One hitgroup for each instance
+			static_cast<unsigned int>(0));	// One hitgroup for each instance
 	}
 
 	// As for the bottom-level AS, the building the AS requires some scratch space
@@ -1298,8 +1298,8 @@ void Renderer::CreateRaytracingPipeline()
 	// by semantic (ray generation, hit, miss) for clarity. Any code layout can be
 	// used.
 	m_pRayGenShader = new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/RayGen.hlsl",		SHADER_TYPE::DXR);
-	m_pHitShader	= new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Hit.hlsl",		SHADER_TYPE::DXR);
-	m_pMissShader	= new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Miss.hlsl",		SHADER_TYPE::DXR);
+	//m_pHitShader	= new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Hit.hlsl",		SHADER_TYPE::DXR);
+	//m_pMissShader	= new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Miss.hlsl",		SHADER_TYPE::DXR);
 	m_pShadowShader = new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/ShadowRay.hlsl",  SHADER_TYPE::DXR);
 
 	  // In a way similar to DLLs, each library is associated with a number of
@@ -1308,15 +1308,15 @@ void Renderer::CreateRaytracingPipeline()
 	  // can contain an arbitrary number of symbols, whose semantic is given in HLSL
 	  // using the [shader("xxx")] syntax
 	pipeline.AddLibrary(m_pRayGenShader->GetBlob(), { L"RayGen" });
-	pipeline.AddLibrary(m_pHitShader->GetBlob(),	{ L"ClosestHit" });
-	pipeline.AddLibrary(m_pMissShader->GetBlob(),	{ L"Miss" });
+	//pipeline.AddLibrary(m_pHitShader->GetBlob(),	{ L"ClosestHit" });
+	//pipeline.AddLibrary(m_pMissShader->GetBlob(),	{ L"Miss" });
 	pipeline.AddLibrary(m_pShadowShader->GetBlob(), { L"ShadowClosestHit", L"ShadowMiss" });
 
 	// To be used, each DX12 shader needs a root signature defining which
 	// parameters and buffers will be accessed.
 	m_pRayGenSignature = CreateRayGenSignature();
-	m_pHitSignature = CreateHitSignature();
-	m_pMissSignature = CreateMissSignature();
+	//m_pHitSignature = CreateHitSignature();
+	//m_pMissSignature = CreateMissSignature();
 	m_pShadowSignature = CreateMissSignature();
 
 	// 3 different shaders can be invoked to obtain an intersection: an
@@ -1336,7 +1336,7 @@ void Renderer::CreateRaytracingPipeline()
 
 	// Hit group for the triangles, with a shader simply interpolating vertex
 	// colors
-	pipeline.AddHitGroup(L"HitGroup", L"ClosestHit");
+	//pipeline.AddHitGroup(L"HitGroup", L"ClosestHit");
 	pipeline.AddHitGroup(L"ShadowHitGroup", L"ShadowClosestHit");
 
 	// The following section associates the root signature to each shader.Note
@@ -1345,15 +1345,15 @@ void Renderer::CreateRaytracingPipeline()
 	// to as hit groups, meaning that the underlying intersection, any-hit and
 	// closest-hit shaders share the same root signature.
 	pipeline.AddRootSignatureAssociation(m_pRayGenSignature, { L"RayGen" });
-	pipeline.AddRootSignatureAssociation(m_pHitSignature, { L"HitGroup" });
+	//pipeline.AddRootSignatureAssociation(m_pHitSignature, { L"HitGroup" });
 	pipeline.AddRootSignatureAssociation(m_pHitSignature, { L"ShadowHitGroup" });
-	pipeline.AddRootSignatureAssociation(m_pMissSignature, { L"Miss", L"ShadowMiss" });
+	pipeline.AddRootSignatureAssociation(m_pMissSignature, { L"ShadowMiss" });
 	// The payload size defines the maximum size of the data carried by the rays,
 	// ie. the the data
 	// exchanged between shaders, such as the HitInfo structure in the HLSL code.
 	// It is important to keep this value as low as possible as a too high value
 	// would result in unnecessary memory consumption and cache trashing.
-	pipeline.SetMaxPayloadSize(4 * sizeof(float)); // RGB + distance
+	pipeline.SetMaxPayloadSize(1 * sizeof(float)); // boolShadowIsHit
 
 	// Upon hitting a surface, DXR can provide several attributes to the hit. In
 	// our sample we just use the barycentric coordinates defined by the weights
@@ -1366,7 +1366,7 @@ void Renderer::CreateRaytracingPipeline()
 	// then requires a trace depth of 1. Note that this recursion depth should be
 	// kept to a minimum for best performance. Path tracing algorithms can be
 	// easily flattened into a simple loop in the ray generation.
-	pipeline.SetMaxRecursionDepth(2);
+	pipeline.SetMaxRecursionDepth(1);
 
 	// Compile the pipeline for execution on the GPU
 	m_pRTStateObject = pipeline.Generate(m_pRootSignature->GetRootSig());
@@ -1454,20 +1454,20 @@ void Renderer::CreateShaderBindingTable()
 
 	// The miss and hit shaders do not access any external resources: instead they
 	// communicate their results through the ray payload
-	m_SbtHelper.AddMissProgram(L"Miss", {});
+	//m_SbtHelper.AddMissProgram(L"Miss", {});
 	m_SbtHelper.AddMissProgram(L"ShadowMiss", {});
 
 	// Adding the triangle hit shader
-	for (RenderComponent* rc : m_RenderComponents)
-	{
-		m_SbtHelper.AddHitGroup(L"HitGroup", 
-			{
-				(void*)rc->tc->GetMatrixUploadResource()->GetGPUVirtualAdress(), // Unique per instance
-				(void*)rc->mc->GetModel()->GetByteAdressInfoDXR()->GetDefaultResource()->GetGPUVirtualAdress()	// Unique per model
-			});	
+	//for (RenderComponent* rc : m_RenderComponents)
+	//{
+		//m_SbtHelper.AddHitGroup(L"HitGroup", 
+		//	{
+		//		(void*)rc->tc->GetMatrixUploadResource()->GetGPUVirtualAdress(), // Unique per instance
+		//		(void*)rc->mc->GetModel()->GetByteAdressInfoDXR()->GetDefaultResource()->GetGPUVirtualAdress()	// Unique per model
+		//	});	
 
 		m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
-	}
+	//}
 
 
 	// Compute the size of the SBT given the number of shaders and their
