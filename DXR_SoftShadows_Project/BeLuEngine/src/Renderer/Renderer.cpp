@@ -158,7 +158,7 @@ void Renderer::deleteRenderer()
 	SAFE_RELEASE(&m_pRTStateObject);
 	SAFE_RELEASE(&m_pRTStateObjectProps);
 	
-	SAFE_RELEASE(&m_pOutputResource);
+	delete m_pOutputResource;
 	SAFE_RELEASE(&m_pSbtStorage);
 
 	SAFE_RELEASE(&m_pDevice5);
@@ -277,10 +277,9 @@ void Renderer::createBlurTask()
 	csNamePSOName.push_back(std::make_pair(L"ComputeBlurVertical.hlsl", L"blurVerticalPSO"));
 	ComputeTask* blurComputeTask = new BlurComputeTask(
 		m_pDevice5, m_pRootSignature,
+		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV],
 		csNamePSOName,
 		COMMAND_INTERFACE_TYPE::DIRECT_TYPE,
-		m_pBloomResources->GetPingPongResource(0),
-		m_pBloomResources->GetPingPongResource(1),
 		resolutionWidth, resolutionHeight,
 		FLAG_THREAD::RENDER);
 
@@ -529,7 +528,7 @@ void Renderer::ExecuteDXR()
 	// copy its contents into the render target. Now we need to transition it to
 	// a UAV so that the shaders can write in it.
 	CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_pOutputResource, 
+		m_pOutputResource->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
 	cl->ResourceBarrier(1, &transition);
@@ -591,7 +590,7 @@ void Renderer::ExecuteDXR()
 	// We can then do the actual copy, before transitioning the render target
 	// buffer into a render target, that will be then used to display the image
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_pOutputResource,
+		m_pOutputResource->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // StateBefore
 		D3D12_RESOURCE_STATE_COPY_SOURCE);	   // StateAfter
 	cl->ResourceBarrier(1, &transition);
@@ -632,7 +631,7 @@ void Renderer::ExecuteDXR()
 	
 	cl->CopyResource(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
-		m_pOutputResource);											// Source
+		m_pOutputResource->GetID3D12Resource1());											// Source
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
@@ -1442,10 +1441,9 @@ void Renderer::CreateRaytracingOutputBuffer()
 	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	resDesc.MipLevels = 1;
 	resDesc.SampleDesc.Count = 1;
-	ThrowIfFailed(m_pDevice5->CreateCommittedResource(
-		&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
-		D3D12_RESOURCE_STATE_COPY_SOURCE, nullptr,
-		IID_PPV_ARGS(&m_pOutputResource)));
+
+	m_pOutputResource = new Resource(m_pDevice5, &resDesc, nullptr,
+		L"scratchBottomLevel", D3D12_RESOURCE_STATE_COPY_SOURCE);
 }
 
 void Renderer::CreateShaderResourceHeap()
@@ -1465,7 +1463,7 @@ void Renderer::CreateShaderResourceHeap()
 	// srvHandle
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
 	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-	m_pDevice5->CreateUnorderedAccessView(m_pOutputResource, nullptr, &uavDesc, srvHandle);
+	m_pDevice5->CreateUnorderedAccessView(m_pOutputResource->GetID3D12Resource1(), nullptr, &uavDesc, srvHandle);
 
 	// Add the Top Level AS SRV right after the raytracing output buffer
 	unsigned int nextDhIndex = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetNextDescriptorHeapIndex(1);

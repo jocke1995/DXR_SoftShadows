@@ -249,7 +249,7 @@ private:
 	// #DXR Resources
 	void CreateRaytracingOutputBuffer();
 	void CreateShaderResourceHeap();
-	ID3D12Resource* m_pOutputResource = nullptr;
+	Resource* m_pOutputResource = nullptr;
 
 	// DescriptorHeapIndexStart for the AS and outputBuffer
 	unsigned int m_DhIndexASOB = 0;
