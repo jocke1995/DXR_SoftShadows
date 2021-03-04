@@ -15,9 +15,8 @@ ByteAddressBuffer rawBufferLights : register(t0, space3);
 // Calculate world pos from DepthBuffer
 float3 WorldPosFromDepth(float depth, float2 TexCoord)
 {
-	float z = depth * 2.0 - 1.0;
-
-	float4 clipSpacePosition = float4(TexCoord * 2.0 - 1.0, z, 1.0);
+    TexCoord.y = 1.0 - TexCoord.y;
+	float4 clipSpacePosition = float4(TexCoord * 2.0 - 1.0, depth, 1.0);
 	float4 viewSpacePosition = mul(cbCameraMatrices.projectionI, clipSpacePosition);
 
 	// Perspective division
@@ -37,7 +36,7 @@ void RayGen() {
 	float2 dims = float2(DispatchRaysDimensions().xy);
 
     // UV:s (0->1)
-	float2 uv = ((launchIndex.xy + 0.5f) / dims.xy);
+	float2 uv = launchIndex.xy / dims.xy;
 
 	float depth = textures[2].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).r;
 
@@ -62,20 +61,20 @@ void RayGen() {
         RayDesc ray;
         ray.Origin = float4(worldPos.xyz, 1.0f);
         ray.Direction = lightDir;
-        ray.TMin = 0.00001;
+        ray.TMin = 1.0;
         ray.TMax = distance(lightPos, worldPos);
 
         // Initialize the ray payload
         ShadowHitInfo shadowPayload;
-        shadowPayload.isHit = false;
+        shadowPayload.isHit = true;
 
         // Trace the ray
         TraceRay(
             // Acceleration structure
             SceneBVH,
             // Flags can be used to specify the behavior upon hitting a surface
-            //RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
-            RAY_FLAG_NONE,
+            RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
+            //RAY_FLAG_NONE,
             // Instance inclusion mask, which can be used to mask out some geometry to
             // this ray by and-ing the mask with a geometry mask. The 0xFF flag then
             // indicates no geometry will be masked

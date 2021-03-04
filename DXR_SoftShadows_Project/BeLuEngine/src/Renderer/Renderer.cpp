@@ -1310,7 +1310,7 @@ void Renderer::CreateRaytracingPipeline()
 	pipeline.AddLibrary(m_pRayGenShader->GetBlob(), { L"RayGen" });
 	//pipeline.AddLibrary(m_pHitShader->GetBlob(),	{ L"ClosestHit" });
 	//pipeline.AddLibrary(m_pMissShader->GetBlob(),	{ L"Miss" });
-	pipeline.AddLibrary(m_pShadowShader->GetBlob(), { L"ShadowClosestHit", L"ShadowMiss" });
+	pipeline.AddLibrary(m_pShadowShader->GetBlob(), {  L"ShadowMiss" });
 
 	// To be used, each DX12 shader needs a root signature defining which
 	// parameters and buffers will be accessed.
@@ -1337,7 +1337,7 @@ void Renderer::CreateRaytracingPipeline()
 	// Hit group for the triangles, with a shader simply interpolating vertex
 	// colors
 	//pipeline.AddHitGroup(L"HitGroup", L"ClosestHit");
-	pipeline.AddHitGroup(L"ShadowHitGroup", L"ShadowClosestHit");
+	//pipeline.AddHitGroup(L"ShadowHitGroup", L"ShadowClosestHit");
 
 	// The following section associates the root signature to each shader.Note
 	// that we can explicitly show that some shaders share the same root signature
@@ -1346,14 +1346,14 @@ void Renderer::CreateRaytracingPipeline()
 	// closest-hit shaders share the same root signature.
 	pipeline.AddRootSignatureAssociation(m_pRayGenSignature, { L"RayGen" });
 	//pipeline.AddRootSignatureAssociation(m_pHitSignature, { L"HitGroup" });
-	pipeline.AddRootSignatureAssociation(m_pHitSignature, { L"ShadowHitGroup" });
+	//pipeline.AddRootSignatureAssociation(m_pHitSignature, { L"ShadowHitGroup" });
 	pipeline.AddRootSignatureAssociation(m_pMissSignature, { L"ShadowMiss" });
 	// The payload size defines the maximum size of the data carried by the rays,
 	// ie. the the data
 	// exchanged between shaders, such as the HitInfo structure in the HLSL code.
 	// It is important to keep this value as low as possible as a too high value
 	// would result in unnecessary memory consumption and cache trashing.
-	pipeline.SetMaxPayloadSize(1 * sizeof(float)); // boolShadowIsHit
+	pipeline.SetMaxPayloadSize(1 * sizeof(float)); // bool ShadowIsHit
 
 	// Upon hitting a surface, DXR can provide several attributes to the hit. In
 	// our sample we just use the barycentric coordinates defined by the weights
@@ -1466,7 +1466,7 @@ void Renderer::CreateShaderBindingTable()
 		//		(void*)rc->mc->GetModel()->GetByteAdressInfoDXR()->GetDefaultResource()->GetGPUVirtualAdress()	// Unique per model
 		//	});	
 
-		m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
+		//m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
 	//}
 
 
@@ -1683,7 +1683,7 @@ void Renderer::createSwapChain()
 void Renderer::createMainDSV()
 {
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
-	dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
 	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
 
@@ -1706,7 +1706,7 @@ void Renderer::createMainDSV()
 	// SRV, to read from depth. (Used mainly to start the rays from the worldposition instead of the camera)
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+	srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Texture2D.MipLevels = 1;
 	srvDesc.Texture2D.MostDetailedMip = 0;

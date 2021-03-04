@@ -207,15 +207,15 @@ Scene* TestScene(SceneManager* sm)
     /* ---------------------- PointLight1 ---------------------- */
     entity = scene->AddEntity("pointLight1");
     plc = entity->AddComponent<component::PointLightComponent>();
-    plc->SetColor({ 0.7f, 0.3f, 0.7f });
+    plc->SetColor({ 0.3f, 0.0f, 0.3f });
     plc->SetPosition({ -26.42f, 63.0776f, 14.19f });
     /* ---------------------- PointLight1 ---------------------- */
     
     /* ---------------------- PointLight2 ---------------------- */
-    //entity = scene->AddEntity("pointLight2");
-    //plc = entity->AddComponent<component::PointLightComponent>();
-    //plc->SetColor({ 0.3f, 0.3f, 1.0f });
-    //plc->SetPosition({ -10.895118f, 56.448929f, 150.611298f });
+    entity = scene->AddEntity("pointLight2");
+    plc = entity->AddComponent<component::PointLightComponent>();
+    plc->SetColor({ 0.0f, 0.3f, 0.0f });
+    plc->SetPosition({ -10.895118f, 56.448929f, 150.611298f });
     /* ---------------------- PointLight2 ---------------------- */
 
 
