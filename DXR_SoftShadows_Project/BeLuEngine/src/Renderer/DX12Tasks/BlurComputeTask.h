@@ -23,8 +23,12 @@ public:
 
 	void SetBlurPingPongResource(PingPongResource* target);
 
+	// Examesarbete temp:
+	void SetCommandInterface(CommandInterface* inter);
+
 	void Execute();
 private:
+	CommandInterface* m_pCommandInterfaceTemp = nullptr;
 
 	void createTempResource(ID3D12Device5* device, unsigned int width, unsigned int height, DXGI_FORMAT format);
 	void createTempPingPongResource(ID3D12Device5* device, DescriptorHeap* dHeap, DXGI_FORMAT format);

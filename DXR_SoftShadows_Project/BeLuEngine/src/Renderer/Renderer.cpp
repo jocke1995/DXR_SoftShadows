@@ -614,15 +614,11 @@ void Renderer::ExecuteDXR()
 
 	auto pingPongR = new PingPongResource(m_pOutputResource, m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], &srvDesc, &uavDesc);
 
-	m_BlurComputeTask->SetBackBufferIndex(backBufferIndex);
-	m_BlurComputeTask->SetCommandInterfaceIndex(commandInterfaceIndex);
+	m_BlurComputeTask->SetCommandInterface(m_pTempCommandInterface);
+	m_BlurComputeTask->SetBackBufferIndex(0);
+	m_BlurComputeTask->SetCommandInterfaceIndex(0);
 	m_BlurComputeTask->SetBlurPingPongResource(pingPongR);
 	m_BlurComputeTask->Execute();
-	ID3D12CommandList* blurCL = m_BlurComputeTask->GetCommandInterface()->GetCommandList(commandInterfaceIndex);
-
-	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
-		1,
-		&blurCL);
 	
 	cl->CopyResource(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest

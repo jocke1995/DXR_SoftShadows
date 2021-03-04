@@ -43,13 +43,18 @@ void BlurComputeTask::SetBlurPingPongResource(PingPongResource* target)
 	m_pTargetPingPongResource = target;
 }
 
+void BlurComputeTask::SetCommandInterface(CommandInterface* inter)
+{
+	m_pCommandInterfaceTemp = inter;
+}
+
 void BlurComputeTask::Execute()
 {
-	ID3D12CommandAllocator* commandAllocator = m_pCommandInterface->GetCommandAllocator(m_CommandInterfaceIndex);
-	ID3D12GraphicsCommandList5* commandList = m_pCommandInterface->GetCommandList(m_CommandInterfaceIndex);
+	ID3D12CommandAllocator* commandAllocator = m_pCommandInterfaceTemp->GetCommandAllocator(m_CommandInterfaceIndex);
+	ID3D12GraphicsCommandList5* commandList = m_pCommandInterfaceTemp->GetCommandList(m_CommandInterfaceIndex);
 
-	commandAllocator->Reset();
-	commandList->Reset(commandAllocator, NULL);
+	//commandAllocator->Reset();
+	//commandList->Reset(commandAllocator, NULL);
 
 	commandList->SetComputeRootSignature(m_pRootSig);
 
@@ -110,7 +115,7 @@ void BlurComputeTask::Execute()
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 		D3D12_RESOURCE_STATE_COPY_SOURCE);
 
-	commandList->Close();
+	//commandList->Close();
 }
 
 void BlurComputeTask::createTempResource(ID3D12Device5* device, unsigned int width, unsigned int height, DXGI_FORMAT format)
