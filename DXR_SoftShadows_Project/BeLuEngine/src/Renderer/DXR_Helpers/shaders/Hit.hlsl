@@ -112,7 +112,8 @@ void ClosestHit(inout HitInfo payload, in BuiltInTriangleIntersectionAttributes 
                 // Acceleration structure
                 SceneBVH,
                 // Flags can be used to specify the behavior upon hitting a surface
-                RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
+                //RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
+                RAY_FLAG_NONE,
                 // Instance inclusion mask, which can be used to mask out some geometry to
                 // this ray by and-ing the mask with a geometry mask. The 0xFF flag then
                 // indicates no geometry will be masked
@@ -124,7 +125,7 @@ void ClosestHit(inout HitInfo payload, in BuiltInTriangleIntersectionAttributes 
                 // indicates which offset (on 4 bits) to apply to the hit groups for this
                 // ray. In this sample we only have one hit group per object, hence an
                 // offset of 0.
-                0,
+                1,
                 // The offsets in the SBT can be computed from the object ID, its instance
                 // ID, but also simply by the order the objects have been pushed in the
                 // acceleration structure. This allows the application to group shaders in
