@@ -38,7 +38,8 @@ void RayGen() {
     // UV:s (0->1)
 	float2 uv = launchIndex.xy / dims.xy;
 
-	float depth = textures[2].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).r;
+    // TODO: Pass dh-index to shader
+	float depth = textures[3].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).r;
 
 	float3 worldPos = WorldPosFromDepth(depth, uv);
 

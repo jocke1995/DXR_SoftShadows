@@ -106,7 +106,9 @@ void Renderer::deleteRenderer()
 	delete m_pDepthBufferSRV;
 
 	// GBuffers
-	delete GBufferNormal;
+	delete GBufferNormal.resource;
+	delete GBufferNormal.srv;
+	delete GBufferNormal.rtv;
 
 	for (auto& pair : m_DescriptorHeaps)
 	{
@@ -1692,7 +1694,42 @@ void Renderer::createGBufferRenderTargets()
 	unsigned int resolutionWidth = m_pWindow->GetScreenWidth();
 	unsigned int resolutionHeight = m_pWindow->GetScreenHeight();
 
-	//GBufferNormalRT = new RenderTarget(m_pDevice5, resolutionWidth, resolutionHeight, L"GBufferNormalRT", m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::RTV]);
+	DXGI_FORMAT textureFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;// TODO: change to more proper format
+
+	D3D12_RESOURCE_DESC rDesc = {};
+	rDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	rDesc.Alignment = 0;
+	rDesc.Width = resolutionWidth;
+	rDesc.Height = resolutionHeight;
+	rDesc.DepthOrArraySize = 1;
+	rDesc.MipLevels = 1;
+	rDesc.Format = textureFormat;	
+	rDesc.SampleDesc.Count = 1;
+	rDesc.SampleDesc.Quality = 0;
+	rDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	rDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+	GBufferNormal.resource = new Resource(m_pDevice5, &rDesc, nullptr, L"GBufferNormalResource", D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET);
+
+	// Create SRV
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = textureFormat;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+	GBufferNormal.srv = new ShaderResourceView(m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], &srvDesc, GBufferNormal.resource);
+
+	// Create RTV
+	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+	rtvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+
+	GBufferNormal.rtv = new RenderTargetView(
+		m_pDevice5,
+		resolutionWidth, resolutionHeight,
+		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::RTV],
+		&rtvDesc,
+		GBufferNormal.resource,
+		true);
 }
 
 void Renderer::createMainDSV()
@@ -1729,6 +1766,9 @@ void Renderer::createMainDSV()
 	srvDesc.Texture2D.PlaneSlice = 0;
 	
 	m_pDepthBufferSRV = new ShaderResourceView(m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], &srvDesc, m_pMainDepthStencil->GetDefaultResource());
+
+	// TODO: This index is currently hardcoded in the rayGen shader, if any descriptor is created before this gets created, rayGen shader needs to be modified
+	//int a = m_pDepthBufferSRV->GetDescriptorHeapIndex();
 }
 
 void Renderer::createRootSignature()
