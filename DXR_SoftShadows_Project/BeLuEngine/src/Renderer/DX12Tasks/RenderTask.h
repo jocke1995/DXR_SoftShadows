@@ -15,6 +15,9 @@ class RenderTargetView;
 class SwapChain;
 class PipelineState;
 
+class RenderTargetView;
+class ShaderResourceView;
+
 namespace component
 {
 	class ModelComponent;
@@ -26,6 +29,13 @@ struct RenderComponent
 	component::ModelComponent* mc = nullptr;
 	component::TransformComponent* tc = nullptr;
 	std::vector<Resource*> CB_PER_OBJECT_UPLOAD_RESOURCES;
+};
+
+struct RTV_SRV_RESOURCE
+{
+	RenderTargetView* rtv = nullptr;
+	ShaderResourceView* srv = nullptr;
+	Resource* resource = nullptr;
 };
 
 // Components

@@ -41,6 +41,7 @@
 #include "DX12Tasks/RenderTask.h"
 #include "DX12Tasks/DepthRenderTask.h"
 #include "DX12Tasks/ForwardRenderTask.h"
+#include "DX12Tasks/GBufferRenderTask.h"
 
 // Copy 
 #include "DX12Tasks/CopyPerFrameTask.h"
@@ -103,6 +104,9 @@ void Renderer::deleteRenderer()
 	delete m_pSwapChain;
 	delete m_pMainDepthStencil;
 	delete m_pDepthBufferSRV;
+
+	// GBuffers
+	delete GBufferNormal;
 
 	for (auto& pair : m_DescriptorHeaps)
 	{
@@ -199,6 +203,9 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 
 	// Rendertargets
 	createSwapChain();
+
+	// GBuffer
+	createGBufferRenderTargets();
 
 	// Create Main DepthBuffer
 	createMainDSV();
@@ -1680,6 +1687,14 @@ void Renderer::createSwapChain()
 		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]);
 }
 
+void Renderer::createGBufferRenderTargets()
+{
+	unsigned int resolutionWidth = m_pWindow->GetScreenWidth();
+	unsigned int resolutionHeight = m_pWindow->GetScreenHeight();
+
+	//GBufferNormalRT = new RenderTarget(m_pDevice5, resolutionWidth, resolutionHeight, L"GBufferNormalRT", m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::RTV]);
+}
+
 void Renderer::createMainDSV()
 {
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
@@ -1815,6 +1830,60 @@ void Renderer::initRenderTasks()
 
 #pragma endregion DepthPrePass
 
+#pragma region GBufferPass
+	/* Forward rendering without stencil testing */
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsdGBufferRender = {};
+	gpsdGBufferRender.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+
+	// RenderTarget (Currently only normals)
+	gpsdGBufferRender.NumRenderTargets = 1;
+	gpsdGBufferRender.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	// Depthstencil usage
+	gpsdGBufferRender.SampleDesc.Count = 1;
+	gpsdGBufferRender.SampleMask = UINT_MAX;
+	// Rasterizer behaviour
+	gpsdGBufferRender.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	gpsdGBufferRender.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+	gpsdGBufferRender.RasterizerState.FrontCounterClockwise = false;
+
+	// Specify Blend descriptions
+	D3D12_RENDER_TARGET_BLEND_DESC defaultRTdesc = {
+		false, false,
+		D3D12_BLEND_ZERO, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
+		D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
+		D3D12_LOGIC_OP_NOOP, D3D12_COLOR_WRITE_ENABLE_ALL };
+	for (unsigned int i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
+		gpsdGBufferRender.BlendState.RenderTarget[i] = defaultRTdesc;
+
+	// Depth descriptor
+	D3D12_DEPTH_STENCIL_DESC dsd = {};
+	dsd.DepthEnable = true;
+	dsd.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+	dsd.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+
+	// DepthStencil
+	dsd.StencilEnable = false;
+	gpsdGBufferRender.DepthStencilState = dsd;
+	gpsdGBufferRender.DSVFormat = m_pMainDepthStencil->GetDSV()->GetDXGIFormat();
+
+	// All settings are done, now give it to the renderTask
+	std::vector<D3D12_GRAPHICS_PIPELINE_STATE_DESC*> gpsdGBufferVector;
+	gpsdGBufferVector.push_back(&gpsdGBufferRender);
+
+	RenderTask* gBufferRenderTask = new GBufferRenderTask(
+		m_pDevice5,
+		m_pRootSignature,
+		L"GBufferVertex.hlsl", L"GBufferPixel.hlsl",
+		&gpsdGBufferVector,
+		L"ForwardRenderingPSO");
+
+	//gBufferRenderTask->AddResource("cbPerFrame", m_pCbPerFrame->GetDefaultResource());
+	//gBufferRenderTask->AddResource("cbPerScene", m_pCbPerScene->GetDefaultResource());
+	//gBufferRenderTask->
+	gBufferRenderTask->SetMainDepthStencil(m_pMainDepthStencil);
+	gBufferRenderTask->SetDescriptorHeaps(m_DescriptorHeaps);
+#pragma endregin GBufferPass
+
 #pragma region ForwardRendering
 	/* Forward rendering without stencil testing */
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsdForwardRender = {};
@@ -1833,7 +1902,7 @@ void Renderer::initRenderTasks()
 	gpsdForwardRender.RasterizerState.FrontCounterClockwise = false;
 
 	// Specify Blend descriptions
-	D3D12_RENDER_TARGET_BLEND_DESC defaultRTdesc = {
+	defaultRTdesc = {
 		false, false,
 		D3D12_BLEND_ZERO, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
 		D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
@@ -1842,7 +1911,7 @@ void Renderer::initRenderTasks()
 		gpsdForwardRender.BlendState.RenderTarget[i] = defaultRTdesc;
 
 	// Depth descriptor
-	D3D12_DEPTH_STENCIL_DESC dsd = {};
+	dsd = {};
 	dsd.DepthEnable = true;
 	dsd.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
 	dsd.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
@@ -1892,25 +1961,36 @@ void Renderer::initRenderTasks()
 
 	/* ------------------------- DirectQueue Tasks ---------------------- */
 	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS] = DepthPrePassRenderTask;
+	m_RenderTasks[RENDER_TASK_TYPE::GBUFFER_PASS] = gBufferRenderTask;
 	m_RenderTasks[RENDER_TASK_TYPE::FORWARD_RENDER] = forwardRenderTask;
 
 	// Pushback in the order of execution
+	// Copy on demand (textures, meshes etc..)
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)
 	{
 		m_DirectCommandLists[i].push_back(copyOnDemandTask->GetCommandInterface()->GetCommandList(i));
 		m_DXRCodtCommandLists[i] = copyOnDemandTask->GetCommandInterface()->GetCommandList(i);
 	}
 
+	// Copy per frame
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)
 	{
 		m_DirectCommandLists[i].push_back(copyPerFrameTask->GetCommandInterface()->GetCommandList(i));
 		m_DXRCpftCommandLists[i] = copyPerFrameTask->GetCommandInterface()->GetCommandList(i);
 	}
 
+	// Depth prepass
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)
 	{
 		m_DirectCommandLists[i].push_back(DepthPrePassRenderTask->GetCommandInterface()->GetCommandList(i));
 		m_DepthPrePassCommandLists[i] = DepthPrePassRenderTask->GetCommandInterface()->GetCommandList(i);
+	}
+
+	// GBuffer
+	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)
+	{
+		//m_DirectCommandLists[i].push_back(gBufferRenderTask->GetCommandInterface()->GetCommandList(i));
+		m_GBufferCommandLists[i] = gBufferRenderTask->GetCommandInterface()->GetCommandList(i);
 	}
 
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)

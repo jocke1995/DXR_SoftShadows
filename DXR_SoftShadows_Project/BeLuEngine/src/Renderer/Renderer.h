@@ -8,6 +8,7 @@ class Window;
 #include "DXR_Helpers/DXRHelperrr.h"
 #include "D3D12Timer.h"
 #include "DX12Tasks/CopyTask.h"
+#include "DX12Tasks/RenderTask.h"
 
 // Renderer Engine
 class RootSignature;
@@ -27,6 +28,7 @@ class ConstantBuffer;
 class ShaderResource;
 class UnorderedAccess;
 class DepthStencil;
+class RenderTarget;
 class Resource;
 class ShaderResourceView;
 
@@ -285,6 +287,10 @@ private:
 	ID3D12CommandList* m_DXRCpftCommandLists[NUM_SWAP_BUFFERS];
 	ID3D12CommandList* m_DXRCodtCommandLists[NUM_SWAP_BUFFERS];
 	ID3D12CommandList* m_DepthPrePassCommandLists[NUM_SWAP_BUFFERS];
+	ID3D12CommandList* m_GBufferCommandLists[NUM_SWAP_BUFFERS];
+
+	// G-Buffer renderTargets
+	RTV_SRV_RESOURCE* GBufferNormal = nullptr;
 
 	// DescriptorHeaps
 	std::map<DESCRIPTOR_HEAP_TYPE, DescriptorHeap*> m_DescriptorHeaps = {};
@@ -298,6 +304,7 @@ private:
 	bool createDevice();
 	void createCommandQueues();
 	void createSwapChain();
+	void createGBufferRenderTargets();
 	void createMainDSV();
 	void createRootSignature();
 	void createFullScreenQuad();
