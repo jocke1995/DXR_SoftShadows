@@ -38,11 +38,11 @@ void RayGen() {
     // UV:s (0->1)
 	float2 uv = launchIndex.xy / dims.xy;
 
-    // TODO: Pass dh-index to shader
-	float depth = textures[3].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).r;
+	float depth = textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).r;
 
 	float3 worldPos = WorldPosFromDepth(depth, uv);
 
+    float4 normal = textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0);
 
     float3 materialColor = float3(0.5f, 0.5f, 0.5f);
     float3 finalColor = float3(0.0f, 0.0f, 0.0f);
@@ -110,19 +110,23 @@ void RayGen() {
 
         float factor = shadowPayload.isHit ? 0.0 : 1.0;
 
-        float nDotL = 1.0f;// max(0.0f, dot(normal, lightDir));
+        float nDotL = max(0.0f, dot(normal, lightDir));
 
         finalColor += materialColor * lightColor * factor * nDotL;
     }
 
+    finalColor += materialColor * 0.1f;
     gOutput[launchIndex] = float4(finalColor.rgb, 1.0f); 
 
+    // NORMAL
+    // gOutput[launchIndex] = float4(normal.rgb, 1.0f);
+    
     // DEPTH
-	//gOutput[launchIndex] = float4(depth, 0.0f, 0.0f, 1.0f);
+	// gOutput[launchIndex] = float4(depth, 0.0f, 0.0f, 1.0f);
 
     // UV
-	//gOutput[launchIndex] = float4(uv.xy, 0.0f, 1.0f);
+	// gOutput[launchIndex] = float4(uv.xy, 0.0f, 1.0f);
     
     // FLAT WHITE
-	//gOutput[launchIndex] = float4(1.0f, 1.0f, 1.0f, 1.0f);
+	// gOutput[launchIndex] = float4(1.0f, 1.0f, 1.0f, 1.0f);
 }

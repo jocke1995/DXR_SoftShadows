@@ -290,7 +290,7 @@ private:
 	ID3D12CommandList* m_GBufferCommandLists[NUM_SWAP_BUFFERS];
 
 	// G-Buffer renderTargets
-	RTV_SRV_RESOURCE GBufferNormal = {};
+	RTV_SRV_RESOURCE m_GBufferNormal = {};
 
 	// DescriptorHeaps
 	std::map<DESCRIPTOR_HEAP_TYPE, DescriptorHeap*> m_DescriptorHeaps = {};

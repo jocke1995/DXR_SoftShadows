@@ -106,9 +106,9 @@ void Renderer::deleteRenderer()
 	delete m_pDepthBufferSRV;
 
 	// GBuffers
-	delete GBufferNormal.resource;
-	delete GBufferNormal.srv;
-	delete GBufferNormal.rtv;
+	delete m_GBufferNormal.resource;
+	delete m_GBufferNormal.srv;
+	delete m_GBufferNormal.rtv;
 
 	for (auto& pair : m_DescriptorHeaps)
 	{
@@ -475,16 +475,22 @@ void Renderer::ExecuteDXR()
 
 	// Copy per frame
 	m_CopyTasks[COPY_TASK_TYPE::COPY_PER_FRAME]->Execute();
-
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
 		1,
 		&m_DXRCpftCommandLists[commandInterfaceIndex]);
 
+	// Depth pre-pass
 	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
-
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
 		1,
 		&m_DepthPrePassCommandLists[commandInterfaceIndex]);
+
+	// GBuffer (Normals only atm)
+	m_RenderTasks[RENDER_TASK_TYPE::GBUFFER_PASS]->Execute();
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
+		1,
+		&m_GBufferCommandLists[commandInterfaceIndex]);
+	
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 
 	m_pTempCommandInterface->Reset(0);
@@ -1527,6 +1533,7 @@ void Renderer::createRawBuffersForLights()
 void Renderer::setRenderTasksPrimaryCamera()
 {
 	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->SetCamera(m_pScenePrimaryCamera);
+	m_RenderTasks[RENDER_TASK_TYPE::GBUFFER_PASS  ]->SetCamera(m_pScenePrimaryCamera);
 	m_RenderTasks[RENDER_TASK_TYPE::FORWARD_RENDER]->SetCamera(m_pScenePrimaryCamera);
 }
 
@@ -1708,27 +1715,36 @@ void Renderer::createGBufferRenderTargets()
 	rDesc.SampleDesc.Quality = 0;
 	rDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	rDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-	GBufferNormal.resource = new Resource(m_pDevice5, &rDesc, nullptr, L"GBufferNormalResource", D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET);
 
+	D3D12_CLEAR_VALUE clearValue = {};
+	clearValue.Format = textureFormat;
+	clearValue.Color[0] = 0.0f;
+	clearValue.Color[1] = 0.0f;
+	clearValue.Color[2] = 0.0f;
+	clearValue.Color[3] = 1.0f;
+
+	m_GBufferNormal.resource = new Resource(m_pDevice5, &rDesc, &clearValue, L"GBufferNormalResource", D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+
+	
 	// Create SRV
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc.Format = textureFormat;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Texture2D.MipLevels = 1;
-	GBufferNormal.srv = new ShaderResourceView(m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], &srvDesc, GBufferNormal.resource);
+	m_GBufferNormal.srv = new ShaderResourceView(m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], &srvDesc, m_GBufferNormal.resource);
 
 	// Create RTV
 	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
 	rtvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
 	rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
 
-	GBufferNormal.rtv = new RenderTargetView(
+	m_GBufferNormal.rtv = new RenderTargetView(
 		m_pDevice5,
 		resolutionWidth, resolutionHeight,
 		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::RTV],
 		&rtvDesc,
-		GBufferNormal.resource,
+		m_GBufferNormal.resource,
 		true);
 }
 
@@ -1766,9 +1782,6 @@ void Renderer::createMainDSV()
 	srvDesc.Texture2D.PlaneSlice = 0;
 	
 	m_pDepthBufferSRV = new ShaderResourceView(m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], &srvDesc, m_pMainDepthStencil->GetDefaultResource());
-
-	// TODO: This index is currently hardcoded in the rayGen shader, if any descriptor is created before this gets created, rayGen shader needs to be modified
-	//int a = m_pDepthBufferSRV->GetDescriptorHeapIndex();
 }
 
 void Renderer::createRootSignature()
@@ -1915,14 +1928,14 @@ void Renderer::initRenderTasks()
 		m_pRootSignature,
 		L"GBufferVertex.hlsl", L"GBufferPixel.hlsl",
 		&gpsdGBufferVector,
-		L"ForwardRenderingPSO");
+		L"GBufferPSO");
 
 	//gBufferRenderTask->AddResource("cbPerFrame", m_pCbPerFrame->GetDefaultResource());
 	//gBufferRenderTask->AddResource("cbPerScene", m_pCbPerScene->GetDefaultResource());
-	//gBufferRenderTask->
+	gBufferRenderTask->AddRenderTargetView("NormalRTV", m_GBufferNormal.rtv);
 	gBufferRenderTask->SetMainDepthStencil(m_pMainDepthStencil);
 	gBufferRenderTask->SetDescriptorHeaps(m_DescriptorHeaps);
-#pragma endregin GBufferPass
+#pragma endregion GBufferPass
 
 #pragma region ForwardRendering
 	/* Forward rendering without stencil testing */
@@ -1977,6 +1990,8 @@ void Renderer::initRenderTasks()
 	forwardRenderTask->SetMainDepthStencil(m_pMainDepthStencil);
 	forwardRenderTask->SetSwapChain(m_pSwapChain);
 	forwardRenderTask->SetDescriptorHeaps(m_DescriptorHeaps);
+
+	forwardRenderTask->AddShaderResourceView("GBufferNormal", m_GBufferNormal.srv);
 
 #pragma endregion ForwardRendering
 
@@ -2044,6 +2059,7 @@ void Renderer::initRenderTasks()
 void Renderer::setRenderTasksRenderComponents()
 {
 	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->SetRenderComponents(&m_RenderComponents);
+	m_RenderTasks[RENDER_TASK_TYPE::GBUFFER_PASS  ]->SetRenderComponents(&m_RenderComponents);
 	m_RenderTasks[RENDER_TASK_TYPE::FORWARD_RENDER]->SetRenderComponents(&m_RenderComponents);
 }
 
@@ -2121,6 +2137,9 @@ void Renderer::prepareScene(Scene* activeScene)
 void Renderer::submitUploadPerSceneData()
 {
 	m_pCbPerSceneData->pointLightRawBufferIndex = m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetSRV()->GetDescriptorHeapIndex();
+	m_pCbPerSceneData->depthBufferIndex = m_pDepthBufferSRV->GetDescriptorHeapIndex();
+	m_pCbPerSceneData->gBufferNormalIndex = m_GBufferNormal.srv->GetDescriptorHeapIndex();
+
 
 	// Submit CB_PER_SCENE to be uploaded to VRAM
 	CopyOnDemandTask* codt = static_cast<CopyOnDemandTask*>(m_CopyTasks[COPY_TASK_TYPE::COPY_ON_DEMAND]);

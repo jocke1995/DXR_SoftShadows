@@ -35,8 +35,8 @@ void GBufferRenderTask::Execute()
 {
 	ID3D12CommandAllocator* commandAllocator = m_pCommandInterface->GetCommandAllocator(m_CommandInterfaceIndex);
 	ID3D12GraphicsCommandList5* commandList = m_pCommandInterface->GetCommandList(m_CommandInterfaceIndex);
-	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(m_BackBufferIndex);
-	ID3D12Resource1* swapChainResource = swapChainRenderTarget->GetResource()->GetID3D12Resource1();
+
+	const RenderTargetView* rtv = m_RenderTargetViews["NormalRTV"];
 
 	m_pCommandInterface->Reset(m_CommandInterfaceIndex);
 
@@ -49,19 +49,19 @@ void GBufferRenderTask::Execute()
 	commandList->SetGraphicsRootDescriptorTable(RS::dtCBV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
 	commandList->SetGraphicsRootDescriptorTable(RS::dtSRV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
 
-	// Change state on front/backbuffer
+	// Change state on Resource
 	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		swapChainResource,
-		D3D12_RESOURCE_STATE_PRESENT,
+		rtv->GetResource()->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
 		D3D12_RESOURCE_STATE_RENDER_TARGET));
 
 	DescriptorHeap* renderTargetHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::RTV];
 	DescriptorHeap* depthBufferHeap  = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::DSV];
 
 	// RenderTargets
-	const unsigned int swapChainIndex = swapChainRenderTarget->GetDescriptorHeapIndex();
-	D3D12_CPU_DESCRIPTOR_HANDLE cdhSwapChain = renderTargetHeap->GetCPUHeapAt(swapChainIndex);
-	D3D12_CPU_DESCRIPTOR_HANDLE cdhs[] = { cdhSwapChain };
+	const unsigned int gBufferNormalDHIndex = rtv->GetDescriptorHeapIndex();
+	D3D12_CPU_DESCRIPTOR_HANDLE cdhGBufferNormal = renderTargetHeap->GetCPUHeapAt(gBufferNormalDHIndex);
+	D3D12_CPU_DESCRIPTOR_HANDLE cdhs[] = { cdhGBufferNormal };
 
 	// Depth
 	D3D12_CPU_DESCRIPTOR_HANDLE dsh = depthBufferHeap->GetCPUHeapAt(m_pDepthStencil->GetDSV()->GetDescriptorHeapIndex());
@@ -69,22 +69,17 @@ void GBufferRenderTask::Execute()
 	commandList->OMSetRenderTargets(1, cdhs, false, &dsh);
 
 	float clearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
-	commandList->ClearRenderTargetView(cdhSwapChain, clearColor, 0, nullptr);
+	commandList->ClearRenderTargetView(cdhGBufferNormal, clearColor, 0, nullptr);
 
-	const D3D12_VIEWPORT viewPortSwapChain = *swapChainRenderTarget->GetRenderView()->GetViewPort();
-	const D3D12_VIEWPORT viewPorts[2] = { viewPortSwapChain };
+	const D3D12_VIEWPORT viewPortSwapChain = *rtv->GetRenderView()->GetViewPort();
+	const D3D12_VIEWPORT viewPorts[1] = { viewPortSwapChain };
 
-	const D3D12_RECT rectSwapChain = *swapChainRenderTarget->GetRenderView()->GetScissorRect();
-	const D3D12_RECT rects[2] = { rectSwapChain };
+	const D3D12_RECT rectSwapChain = *rtv->GetRenderView()->GetScissorRect();
+	const D3D12_RECT rects[1] = { rectSwapChain };
 
-	const D3D12_RECT* rect = swapChainRenderTarget->GetRenderView()->GetScissorRect();
-	commandList->RSSetViewports(2, viewPorts);
-	commandList->RSSetScissorRects(2, rects);
+	commandList->RSSetViewports(1, viewPorts);
+	commandList->RSSetScissorRects(1, rects);
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-	// Set cbvs
-	commandList->SetGraphicsRootConstantBufferView(RS::CB_PER_FRAME, m_Resources["cbPerFrame"]->GetGPUVirtualAdress());
-	commandList->SetGraphicsRootConstantBufferView(RS::CB_PER_SCENE, m_Resources["cbPerScene"]->GetGPUVirtualAdress());
 
 	const DirectX::XMMATRIX* viewProjMatTrans = m_pCamera->GetViewProjectionTranposed();
 
@@ -98,11 +93,11 @@ void GBufferRenderTask::Execute()
 		drawRenderComponent(m_RenderComponents->at(i), viewProjMatTrans, commandList);
 	}
 
-	// Change state on front/backbuffer
+	// Change state on Resource
 	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		swapChainResource,
+		rtv->GetResource()->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET,
-		D3D12_RESOURCE_STATE_PRESENT));
+		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
 
 	commandList->Close();
 }

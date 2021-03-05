@@ -20,8 +20,9 @@ ConstantBuffer<CB_PER_FRAME_STRUCT>  cbPerFrame  : register(b4, space3);
 
 PS_OUTPUT PS_main(VS_OUT input)
 {
-	// Sample from texture
+	// Sample from texture (DEBUG ONLY, not to be used when measuring)
 	float4 albedo   = textures[cbPerObject.info.textureAlbedo].Sample(Anisotropic16_Wrap, input.uv);
+	//float4 albedo = float4(0.5f, 0.5f, 0.5f, 1.0f);
 
 	float3 finalColor = float3(0.0f, 0.0f, 0.0f);
 
@@ -34,7 +35,8 @@ PS_OUTPUT PS_main(VS_OUT input)
 		finalColor += CalcPointLight(pl, input.worldPos, albedo, input.norm);
 	}
 
-	finalColor += albedo * float3(0.1f, 0.1f, 0.1f);
+	float4 ambient = albedo * 0.1f;
+	finalColor += ambient.rgb;
 	PS_OUTPUT output;
 	output.sceneColor = float4(finalColor.rgb, 1.0f);
 
