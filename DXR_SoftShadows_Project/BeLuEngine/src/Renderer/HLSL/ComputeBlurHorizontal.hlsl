@@ -1,7 +1,7 @@
 #include "../../Headers/GPU_Structs.h"
 
 Texture2D<float4> textures[]   : register (t0);
-RWTexture2D<float4> textureToBlur[] : register(u0);
+RWTexture2D<float4> textureToBlur[] : register(u0, space1);
 
 ConstantBuffer<DescriptorHeapIndices> dhIndices : register(b9, space3);
 
