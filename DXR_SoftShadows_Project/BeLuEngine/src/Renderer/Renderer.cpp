@@ -617,7 +617,7 @@ void Renderer::ExecuteDXR()
 	cl->ResourceBarrier(1, &transition);
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_tempUAV[0]->GetID3D12Resource1(),
+		m_PingPongR[0]->GetResource()->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,		// StateBefore
 		D3D12_RESOURCE_STATE_COPY_SOURCE);	// StateAfter
 	cl->ResourceBarrier(1, &transition);
@@ -628,9 +628,8 @@ void Renderer::ExecuteDXR()
 		D3D12_RESOURCE_STATE_COPY_DEST); // StateAfter
 	cl->ResourceBarrier(1, &transition);
 
-	
-	
-	cl->SetComputeRootDescriptorTable(RS::dtUAV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
+
+	m_BlurComputeTask->SetCommandInterface(m_pTempCommandInterface);
 	m_BlurComputeTask->SetBackBufferIndex(0);
 	m_BlurComputeTask->SetCommandInterfaceIndex(0);
 	m_BlurComputeTask->SetBlurPingPongResource(m_PingPongR[0]);
@@ -638,7 +637,7 @@ void Renderer::ExecuteDXR()
 	
 	cl->CopyResource(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
-		m_tempUAV[0]->GetID3D12Resource1());											// Source
+		m_PingPongR[0]->GetResource()->GetID3D12Resource1());											// Source
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
@@ -651,7 +650,6 @@ void Renderer::ExecuteDXR()
 	ID3D12CommandList* cLists[] = { cl };
 
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, cLists);
-
 	/*------------------- Post draw stuff -------------------*/
 	waitForGPU();
 

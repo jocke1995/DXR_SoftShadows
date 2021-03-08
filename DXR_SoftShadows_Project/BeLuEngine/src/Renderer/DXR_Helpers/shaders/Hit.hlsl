@@ -153,7 +153,7 @@ void ClosestHit(inout HitInfo payload, in BuiltInTriangleIntersectionAttributes 
         sumFactor /= spp;
         float nDotL = max(0.0f, dot(normal, lightDir));
 
-        light_uav[1][DispatchRaysIndex().xy] = min(sumFactor, 1.0);
+        light_uav[i*2 + 1][DispatchRaysIndex().xy] = min(sumFactor, 1.0);
 
         finalColor += materialColor * lightColor * sumFactor * nDotL;
     }
