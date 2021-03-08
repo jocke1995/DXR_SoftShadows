@@ -111,8 +111,6 @@ void Renderer::deleteRenderer()
 		delete m_PingPongR[i];
 		delete m_tempUAV[i];
 	}
-	delete[] m_PingPongR;
-	delete[] m_tempUAV;
 
 	for (auto& pair : m_DescriptorHeaps)
 	{
