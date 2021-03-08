@@ -626,7 +626,7 @@ void Renderer::ExecuteDXR()
 		D3D12_RESOURCE_STATE_COPY_DEST); // StateAfter
 	cl->ResourceBarrier(1, &transition);
 
-
+	// temp blur the first light output
 	m_BlurComputeTask->SetCommandInterface(m_pTempCommandInterface);
 	m_BlurComputeTask->SetBackBufferIndex(0);
 	m_BlurComputeTask->SetCommandInterfaceIndex(0);
