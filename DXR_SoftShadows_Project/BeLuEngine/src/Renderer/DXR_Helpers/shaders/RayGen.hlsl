@@ -1,4 +1,5 @@
 #include "Common.hlsl"
+#include "hlslhelpers.hlsl"
 
 // Raytracing output texture, accessed as a UAV
 RWTexture2D< float4 > gOutput : register(u0);
@@ -28,7 +29,8 @@ float3 WorldPosFromDepth(float depth, float2 TexCoord)
 }
 
 [shader("raygeneration")] 
-void RayGen() {
+void RayGen()
+{
 	// Get the location within the dispatched 2D grid of work items
 	// (often maps to pixels, so this could represent a pixel coordinate).
 	uint2 launchIndex = DispatchRaysIndex();
@@ -54,65 +56,66 @@ void RayGen() {
         PointLight pl = rawBufferLights.Load<PointLight>(sizeof(LightHeader) + i * sizeof(PointLight));
         float3 lightPos = pl.position.xyz;
         float3 lightColor = pl.baseLight.color;
+
         // Find the world - space hit position
         float3 lightDir = normalize(lightPos - worldPos);
 
-        // Fire a shadow ray. The direction is hard-coded here, but can be fetched
-        // from a constant-buffer
-        RayDesc ray;
-        ray.Origin = float4(worldPos.xyz, 1.0f);
-        ray.Direction = lightDir;
-        ray.TMin = 1.0;
-        ray.TMax = distance(lightPos, worldPos);
+        // Maybe have this attribute inside pointlight?
+        float lightRadius = 1.0; // To low radius => coneAngle not accurate enough
+    
+        float3 perpL = cross(lightDir, float3(0.f, 1.0f, 0.f));
+        // Handle case where L = up -> perpL should then be (1,0,0)
+        if (all(perpL == 0.0f))
+        {
+            perpL.x = 1.0;
+        }
+    
+        // Use perpL to get a vector from worldPosition to the edge of the light sphere
+        float3 toLightEdge = normalize((lightPos + perpL * lightRadius) - worldPos);
+    
+        // Angle between L and toLightEdge. Used as the cone angle when sampling shadow rays
+        float coneAngle = acos(dot(lightDir, toLightEdge)) * 2;
+    
+        // Init random floats
+        uint frameSeed = cbPerFrame.frameCounter + 200000;
+        uint seed = initRand(frameSeed * uv.x, frameSeed * uv.y);   // TODO: vad händer?
+    
+        float sumFactor = 0;
+        int spp = 1;
+    
+        for (int j = 0; j < spp; j++)
+        {
+            float factor = 0;
+            float3 randDir = getConeSample(seed, lightDir, coneAngle);
 
-        // Initialize the ray payload
-        ShadowHitInfo shadowPayload;
-        shadowPayload.isHit = true;
+            RayDesc ray;
+            ray.Origin = float4(worldPos.xyz, 1.0f);
+            ray.Direction = randDir;
+            ray.TMin = 1.0;
+            ray.TMax = distance(lightPos, worldPos);
 
-        // Trace the ray
-        TraceRay(
-            // Acceleration structure
-            SceneBVH,
-            // Flags can be used to specify the behavior upon hitting a surface
-            RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
-            //RAY_FLAG_NONE,
-            // Instance inclusion mask, which can be used to mask out some geometry to
-            // this ray by and-ing the mask with a geometry mask. The 0xFF flag then
-            // indicates no geometry will be masked
-            0xFF,
-            // Depending on the type of ray, a given object can have several hit
-            // groups attached (ie. what to do when hitting to compute regular
-            // shading, and what to do when hitting to compute shadows). Those hit
-            // groups are specified sequentially in the SBT, so the value below
-            // indicates which offset (on 4 bits) to apply to the hit groups for this
-            // ray. In this sample we only have one hit group per object, hence an
-            // offset of 0.
-            0,
-            // The offsets in the SBT can be computed from the object ID, its instance
-            // ID, but also simply by the order the objects have been pushed in the
-            // acceleration structure. This allows the application to group shaders in
-            // the SBT in the same order as they are added in the AS, in which case
-            // the value below represents the stride (4 bits representing the number
-            // of hit groups) between two consecutive objects.
-            0,
-            // Index of the miss shader to use in case several consecutive miss
-            // shaders are present in the SBT. This allows to change the behavior of
-            // the program when no geometry have been hit, for example one to return a
-            // sky color for regular rendering, and another returning a full
-            // visibility value for shadow rays. This sample has only one miss shader,
-            // hence an index 0
-            0,
-            // Ray information to trace
-            ray,
-            // Payload associated to the ray, which will be used to communicate
-            // between the hit/miss shaders and the raygen
-            shadowPayload);
+            // Initialize the ray payload
+            ShadowHitInfo shadowPayload;
+            shadowPayload.isHit = true;
 
-        float factor = shadowPayload.isHit ? 0.0 : 1.0;
+            // Trace the ray
+            TraceRay(
+                SceneBVH,
+                RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
+                0xFF,
+                0,  // Hit group index
+                0,
+                0,  // Miss Shader index
+                ray,
+                shadowPayload);
 
+            factor = shadowPayload.isHit ? 0.0 : 1.0;
+            sumFactor += factor;
+        }
+
+        sumFactor /= spp;
         float nDotL = max(0.0f, dot(normal, lightDir));
-
-        finalColor += materialColor * lightColor * factor * nDotL;
+        finalColor += materialColor * lightColor * sumFactor * nDotL;
     }
 
     finalColor += materialColor * 0.1f;
