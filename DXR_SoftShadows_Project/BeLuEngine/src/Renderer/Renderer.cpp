@@ -492,7 +492,7 @@ void Renderer::Execute()
 #endif
 }
 
-#define DX12TEST(fnc) m_DXTimer.Start(cl, 0);fnc;m_DXTimer.Stop(cl, 0);m_DXTimer.ResolveQueryToCPU(cl, 0);
+#define DX12TEST(fnc, x) m_DXTimer.Start(cl, x);fnc;m_DXTimer.Stop(cl, x);m_DXTimer.ResolveQueryToCPU(cl, x);
 
 void Renderer::ExecuteDXR()
 {
@@ -603,7 +603,7 @@ void Renderer::ExecuteDXR()
 
 
 
-	DX12TEST(cl->DispatchRays(&desc));
+	DX12TEST(cl->DispatchRays(&desc), 0);
 
 	// The raytracing output needs to be copied to the actual render target used
 	// for display. For this, we need to transition the raytracing output from a
