@@ -106,6 +106,14 @@ void Renderer::deleteRenderer()
 	delete m_pSwapChain;
 	delete m_pMainDepthStencil;
 
+	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
+	{
+		delete m_PingPongR[i];
+		delete m_tempUAV[i];
+	}
+	delete[] m_PingPongR;
+	delete[] m_tempUAV;
+
 	for (auto& pair : m_DescriptorHeaps)
 	{
 		delete pair.second;
@@ -160,6 +168,7 @@ void Renderer::deleteRenderer()
 	
 	delete m_pOutputResource;
 	delete m_BlurComputeTask;
+
 	SAFE_RELEASE(&m_pSbtStorage);
 
 	SAFE_RELEASE(&m_pDevice5);
@@ -279,6 +288,7 @@ void Renderer::createBlurTask()
 		FLAG_THREAD::RENDER);
 
 	m_BlurComputeTask->SetDescriptorHeaps(m_DescriptorHeaps);
+	m_BlurComputeTask->SetCommandInterface(m_pTempCommandInterface);
 }
 
 void Renderer::InitDXR()
@@ -301,6 +311,8 @@ void Renderer::InitDXR()
 	CreateShaderBindingTable();
 	m_DXTimer.Init(m_pDevice5, 1);
 	m_DXTimer.InitGPUFrequency(m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]);
+
+	CreateSoftShadowLightResources();
 }
 
 void Renderer::UpdateSceneToGPU()
@@ -513,6 +525,7 @@ void Renderer::ExecuteDXR()
 
 	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
 	cl->SetComputeRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
+	cl->SetComputeRootDescriptorTable(RS::dtUAV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexSoftShadowsUAV));
 
 	cl->SetComputeRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
 	cl->SetComputeRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
@@ -528,6 +541,11 @@ void Renderer::ExecuteDXR()
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
 	cl->ResourceBarrier(1, &transition);
 
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_tempUAV[0]->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
+	cl->ResourceBarrier(1, &transition);
 
 	// Setup the raytracing task
 	D3D12_DISPATCH_RAYS_DESC desc = {};
@@ -577,6 +595,14 @@ void Renderer::ExecuteDXR()
 	cl->SetPipelineState1(m_pRTStateObject);
 	// Dispatch the rays and write to the raytracing output
 
+
+
+	
+
+
+
+
+
 	DX12TEST(cl->DispatchRays(&desc));
 
 	// The raytracing output needs to be copied to the actual render target used
@@ -591,38 +617,28 @@ void Renderer::ExecuteDXR()
 	cl->ResourceBarrier(1, &transition);
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_tempUAV[0]->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,		// StateBefore
+		D3D12_RESOURCE_STATE_COPY_SOURCE);	// StateAfter
+	cl->ResourceBarrier(1, &transition);
+
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_PRESENT,	 // StateBefore
 		D3D12_RESOURCE_STATE_COPY_DEST); // StateAfter
 	cl->ResourceBarrier(1, &transition);
 
-
-	// Filip test, blurra swapchain
 	
-	// Create SRV
-	auto format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MipLevels = 1;
-
-	// Create UAV
-	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-	uavDesc.Format = format;
-	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-
-	auto pingPongR = new PingPongResource(m_pOutputResource, m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], &srvDesc, &uavDesc);
-
-	m_BlurComputeTask->SetCommandInterface(m_pTempCommandInterface);
+	
+	cl->SetComputeRootDescriptorTable(RS::dtUAV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
 	m_BlurComputeTask->SetBackBufferIndex(0);
 	m_BlurComputeTask->SetCommandInterfaceIndex(0);
-	m_BlurComputeTask->SetBlurPingPongResource(pingPongR);
+	m_BlurComputeTask->SetBlurPingPongResource(m_PingPongR[0]);
 	m_BlurComputeTask->Execute();
 	
 	cl->CopyResource(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
-		m_pOutputResource->GetID3D12Resource1());											// Source
+		m_tempUAV[0]->GetID3D12Resource1());											// Source
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
@@ -638,8 +654,6 @@ void Renderer::ExecuteDXR()
 
 	/*------------------- Post draw stuff -------------------*/
 	waitForGPU();
-
-	delete pingPongR;
 
 #pragma region TimeMeasurment
 	auto timestamps = m_DXTimer.GetTimestampPair(0);
@@ -1530,6 +1544,50 @@ void Renderer::CreateShaderBindingTable()
 	// Compile the SBT from the shader and parameters info
 	m_SbtHelper.Generate(m_pSbtStorage, m_pRTStateObjectProps);
 
+}
+
+void Renderer::CreateSoftShadowLightResources()
+{
+	auto format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+
+	m_DhIndexSoftShadowsUAV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetNextDescriptorHeapIndex(0);
+
+	// Create UAV resources for each light
+	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
+	{
+		D3D12_RESOURCE_DESC resDesc = {};
+		resDesc.DepthOrArraySize = 1;
+		resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+		// The backbuffer is actually DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, but sRGB
+		// formats cannot be used with UAVs. For accuracy we should convert to sRGB
+		// ourselves in the shader
+		resDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+
+		resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+		resDesc.Width = m_pWindow->GetScreenWidth();
+		resDesc.Height = m_pWindow->GetScreenHeight();
+		resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+		resDesc.MipLevels = 1;
+		resDesc.SampleDesc.Count = 1;
+
+		m_tempUAV[i] = new Resource(m_pDevice5, &resDesc, nullptr,
+			L"test_resource", D3D12_RESOURCE_STATE_COPY_SOURCE);
+
+		// Create SRV
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = format;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MipLevels = 1;
+
+		// Create UAV
+		D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+		uavDesc.Format = format;
+		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+
+		m_PingPongR[i] = new PingPongResource(m_tempUAV[i], m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], &srvDesc, &uavDesc);
+	}
+	
 }
 
 void Renderer::createRawBuffersForLights()

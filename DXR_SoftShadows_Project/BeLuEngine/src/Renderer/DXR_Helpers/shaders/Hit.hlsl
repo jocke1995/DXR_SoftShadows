@@ -7,6 +7,7 @@
 StructuredBuffer<vertex> meshes[] : register(t0, space0);
 StructuredBuffer<unsigned int> indices[] : register(t0, space1);
 Texture2D textures[]   : register (t0, space2);
+RWTexture2D<float4> light_uav[] : register(u0, space1);
 
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0, space4);
@@ -93,7 +94,6 @@ void ClosestHit(inout HitInfo payload, in BuiltInTriangleIntersectionAttributes 
 
         for (int j = 0; j < spp; j++)
         {
-            sumFactor = 0;
             float3 randDir = getConeSample(seed, lightDir, coneAngle);
 
             // Fire a shadow ray. The direction is hard-coded here, but can be fetched
@@ -153,10 +153,11 @@ void ClosestHit(inout HitInfo payload, in BuiltInTriangleIntersectionAttributes 
         sumFactor /= spp;
         float nDotL = max(0.0f, dot(normal, lightDir));
 
+        light_uav[1][DispatchRaysIndex().xy] = min(sumFactor, 1.0);
+
         finalColor += materialColor * lightColor * sumFactor * nDotL;
     }
     
-  
     float3 ambient = materialColor * float3(0.1f, 0.1f, 0.1f);
     payload.colorAndDistance = float4(finalColor + ambient, RayTCurrent());
 }

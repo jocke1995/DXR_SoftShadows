@@ -29,6 +29,7 @@ class UnorderedAccess;
 class DepthStencil;
 class Resource;
 class Bloom;
+class PingPongResource;
 
 // Enums
 enum COMMAND_INTERFACE_TYPE;
@@ -197,7 +198,7 @@ private:
 	std::wstring m_OutputName = L"Results.csv";
 	D3D12::D3D12Timer m_DXTimer;
 
-	
+
 
 	CommandInterface* m_pTempCommandInterface = nullptr;
 
@@ -215,7 +216,7 @@ private:
 	std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>> m_instances;
 
 	void CreateBottomLevelAS(BLModel** blModel);
-	void CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>> &instances);
+	void CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>>& instances);
 	void CreateAccelerationStructures();
 
 	// Blur task
@@ -252,8 +253,11 @@ private:
 
 	// DescriptorHeapIndexStart for the AS and outputBuffer
 	unsigned int m_DhIndexASOB = 0;
+	unsigned int m_DhIndexSoftShadowsUAV = 0;
 
 	void CreateShaderBindingTable();
+	void CreateSoftShadowLightResources();
+
 	nv_helpers_dx12::ShaderBindingTableGenerator m_SbtHelper;
 	ID3D12Resource* m_pSbtStorage;
 
@@ -261,7 +265,8 @@ private:
 	DXR_CAMERA* m_pCbCameraData = nullptr;
 	ConstantBuffer* m_pCbCamera = nullptr;
 	// ------------------- DXR temp ----------------
-
+	PingPongResource* m_PingPongR[MAX_POINT_LIGHTS];
+	Resource* m_tempUAV[MAX_POINT_LIGHTS];
 
 
 	// Group of components that's needed for rendering:
