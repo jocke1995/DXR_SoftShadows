@@ -220,8 +220,8 @@ private:
 	void CreateAccelerationStructures();
 
 	// Blur task
-	BlurComputeTask* m_BlurComputeTask = nullptr;
-	void createBlurTask();
+	BlurComputeTask* m_BlurComputeTasks[MAX_POINT_LIGHTS];
+	void createBlurTasks();
 
 
 	ID3D12RootSignature* CreateRayGenSignature();

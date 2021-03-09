@@ -165,7 +165,10 @@ void Renderer::deleteRenderer()
 	SAFE_RELEASE(&m_pRTStateObjectProps);
 	
 	delete m_pOutputResource;
-	delete m_BlurComputeTask;
+	for (int i = 0; i < MAX_POINT_LIGHTS; i++)
+	{
+		delete m_BlurComputeTasks[i];
+	}
 
 	SAFE_RELEASE(&m_pSbtStorage);
 
@@ -254,7 +257,7 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	m_pTempCommandInterface->Reset(0);
 
 
-	createBlurTask();
+	createBlurTasks();
 
 	initRenderTasks();
 
@@ -267,7 +270,7 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	m_pCbCameraData = new DXR_CAMERA();
 }
 
-void Renderer::createBlurTask()
+void Renderer::createBlurTasks()
 {
 	UINT resolutionWidth = 0;
 	UINT resolutionHeight = 0;
@@ -277,16 +280,21 @@ void Renderer::createBlurTask()
 	std::vector<std::pair<std::wstring, std::wstring>> csNamePSOName;
 	csNamePSOName.push_back(std::make_pair(L"ComputeBlurHorizontal.hlsl", L"blurHorizontalPSO"));
 	csNamePSOName.push_back(std::make_pair(L"ComputeBlurVertical.hlsl", L"blurVerticalPSO"));
-	m_BlurComputeTask = new BlurComputeTask(
-		m_pDevice5, m_pRootSignature,
-		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV],
-		csNamePSOName,
-		COMMAND_INTERFACE_TYPE::DIRECT_TYPE,
-		resolutionWidth, resolutionHeight,
-		FLAG_THREAD::RENDER);
 
-	m_BlurComputeTask->SetDescriptorHeaps(m_DescriptorHeaps);
-	m_BlurComputeTask->SetCommandInterface(m_pTempCommandInterface);
+	for (int i = 0; i < MAX_POINT_LIGHTS; i++)
+	{
+		m_BlurComputeTasks[i] = new BlurComputeTask(
+			m_pDevice5, m_pRootSignature,
+			m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV],
+			csNamePSOName,
+			COMMAND_INTERFACE_TYPE::DIRECT_TYPE,
+			resolutionWidth, resolutionHeight,
+			FLAG_THREAD::RENDER);
+
+		m_BlurComputeTasks[i]->SetDescriptorHeaps(m_DescriptorHeaps);
+		m_BlurComputeTasks[i]->SetCommandInterface(m_pTempCommandInterface);
+	}
+	
 }
 
 void Renderer::InitDXR()
@@ -626,12 +634,15 @@ void Renderer::ExecuteDXR()
 		D3D12_RESOURCE_STATE_COPY_DEST); // StateAfter
 	cl->ResourceBarrier(1, &transition);
 
-	// temp blur the first light output
-	m_BlurComputeTask->SetCommandInterface(m_pTempCommandInterface);
-	m_BlurComputeTask->SetBackBufferIndex(0);
-	m_BlurComputeTask->SetCommandInterfaceIndex(0);
-	m_BlurComputeTask->SetBlurPingPongResource(m_PingPongR[0]);
-	m_BlurComputeTask->Execute();
+	// Blur all light output
+	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
+	{
+		m_BlurComputeTasks[i]->SetCommandInterface(m_pTempCommandInterface);
+		m_BlurComputeTasks[i]->SetBackBufferIndex(0);
+		m_BlurComputeTasks[i]->SetCommandInterfaceIndex(0);
+		m_BlurComputeTasks[i]->SetBlurPingPongResource(m_PingPongR[i]);
+		m_BlurComputeTasks[i]->Execute();
+	}
 	
 	cl->CopyResource(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
