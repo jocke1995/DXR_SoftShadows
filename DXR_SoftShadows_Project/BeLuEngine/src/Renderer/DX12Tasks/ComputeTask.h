@@ -16,6 +16,7 @@ public:
 		COMMAND_INTERFACE_TYPE interfaceType = COMMAND_INTERFACE_TYPE::COMPUTE_TYPE);
 	virtual ~ComputeTask();
 
+	const PipelineState* GetPipelineState(unsigned int index) const;
 protected:
 	ID3D12RootSignature* m_pRootSig = nullptr;
 

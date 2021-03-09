@@ -860,64 +860,64 @@ void Renderer::ExecuteInlineCompute()
 	ID3D12GraphicsCommandList5* cl = m_pTempCommandInterface->GetCommandList(0);
 
 	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
-	ID3D12Resource1* swapChainResource = swapChainRenderTarget->GetResource()->GetID3D12Resource1();
-	const unsigned int swapChainIndex = swapChainRenderTarget->GetDescriptorHeapIndex();
 
-	cl->SetGraphicsRootSignature(m_pRootSignature->GetRootSig());
+	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
 
 	DescriptorHeap* descriptorHeap_CBV_UAV_SRV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV];
 	ID3D12DescriptorHeap* d3d12DescriptorHeap = descriptorHeap_CBV_UAV_SRV->GetID3D12DescriptorHeap();
 	cl->SetDescriptorHeaps(1, &d3d12DescriptorHeap);
 
-	cl->SetGraphicsRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
-	cl->SetGraphicsRootDescriptorTable(RS::dtCBV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
-	cl->SetGraphicsRootDescriptorTable(RS::dtSRV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
-	cl->SetGraphicsRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
+	cl->SetComputeRootDescriptorTable(RS::dtCBV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
+	cl->SetComputeRootDescriptorTable(RS::dtSRV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
+	cl->SetComputeRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
+
 	// Set cbvs
-	cl->SetGraphicsRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
-	cl->SetGraphicsRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
 
-	// Change state on front/backbuffer
-	cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		swapChainResource,
-		D3D12_RESOURCE_STATE_PRESENT,
-		D3D12_RESOURCE_STATE_RENDER_TARGET));
+	// On the last frame, the raytracing output was used as a copy source, to
+	// copy its contents into the render target. Now we need to transition it to
+	// a UAV so that the shaders can write in it.
+	CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pOutputResource,
+		D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
+	cl->ResourceBarrier(1, &transition);
 
-	DescriptorHeap* renderTargetHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::RTV];
-	DescriptorHeap* depthBufferHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::DSV];
-
-	// RenderTargets
-	D3D12_CPU_DESCRIPTOR_HANDLE cdhSwapChain = renderTargetHeap->GetCPUHeapAt(swapChainIndex);
-	D3D12_CPU_DESCRIPTOR_HANDLE cdhs[] = { cdhSwapChain };
-
-	// Depth
-	D3D12_CPU_DESCRIPTOR_HANDLE dsh = depthBufferHeap->GetCPUHeapAt(m_pMainDepthStencil->GetDSV()->GetDescriptorHeapIndex());
-
-	cl->OMSetRenderTargets(1, cdhs, true, &dsh);
-
-	float clearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
-	cl->ClearRenderTargetView(cdhSwapChain, clearColor, 0, nullptr);
-
-	const D3D12_VIEWPORT viewPortSwapChain = *swapChainRenderTarget->GetRenderView()->GetViewPort();
-	const D3D12_RECT rectSwapChain = *swapChainRenderTarget->GetRenderView()->GetScissorRect();
-
-	const D3D12_RECT* rect = swapChainRenderTarget->GetRenderView()->GetScissorRect();
-	cl->RSSetViewports(1, &viewPortSwapChain);
-	cl->RSSetScissorRects(1, &rectSwapChain);
-	cl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-	const DirectX::XMMATRIX* viewProjMatTrans = m_pScenePrimaryCamera->GetViewProjectionTranposed();
 
 	// Draw for every Rendercomponent with stencil testing disabled
-	ID3D12PipelineState* pipelineState = m_RenderTasks[RENDER_TASK_TYPE::FORWARD_RENDER]->GetPipelineState(0)->GetPSO();
+	ID3D12PipelineState* pipelineState = m_ComputeTasks[COMPUTE_TASK_TYPE::INLINE_RT]->GetPipelineState(0)->GetPSO();
 	cl->SetPipelineState(pipelineState);
 
+	cl->Dispatch(m_IRTNumThreadGroupsX, m_IRTNumThreadGroupsY, 1);
 
-	// Change state on front/backbuffer
-	cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		swapChainResource,
-		D3D12_RESOURCE_STATE_RENDER_TARGET,
-		D3D12_RESOURCE_STATE_PRESENT));
+	// The raytracing output needs to be copied to the actual render target used
+	// for display. For this, we need to transition the raytracing output from a
+	// UAV to a copy source, and the render target buffer to a copy destination.
+	// We can then do the actual copy, before transitioning the render target
+	// buffer into a render target, that will be then used to display the image
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pOutputResource,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // StateBefore
+		D3D12_RESOURCE_STATE_COPY_SOURCE);	   // StateAfter
+	cl->ResourceBarrier(1, &transition);
+
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_PRESENT,	 // StateBefore
+		D3D12_RESOURCE_STATE_COPY_DEST); // StateAfter
+	cl->ResourceBarrier(1, &transition);
+
+	cl->CopyResource(
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
+		m_pOutputResource);											// Source
+
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_COPY_DEST, // StateBefore
+		D3D12_RESOURCE_STATE_PRESENT);	// StateAfter
+	cl->ResourceBarrier(1, &transition);
 
 	cl->Close();
 

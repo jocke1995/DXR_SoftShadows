@@ -28,3 +28,8 @@ ComputeTask::~ComputeTask()
 	}
 	
 }
+
+const PipelineState* ComputeTask::GetPipelineState(unsigned int index) const
+{
+	return m_PipelineStates[index];
+}
