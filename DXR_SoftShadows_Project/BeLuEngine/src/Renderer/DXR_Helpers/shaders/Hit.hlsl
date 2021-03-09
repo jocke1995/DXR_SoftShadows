@@ -66,6 +66,10 @@ void ClosestHit(inout HitInfo payload, in BuiltInTriangleIntersectionAttributes 
     LightHeader lHeader = rawBufferLights.Load<LightHeader>(0);
     for (int i = 0; i < lHeader.numLights; i++)
     {
+        // Clear the light's texture
+        
+        
+
         PointLight pl = rawBufferLights.Load<PointLight>(sizeof(LightHeader) + i * sizeof(PointLight));
         float3 lightPos = pl.position.xyz;
         float3 lightColor = pl.baseLight.color;
@@ -153,6 +157,7 @@ void ClosestHit(inout HitInfo payload, in BuiltInTriangleIntersectionAttributes 
         sumFactor /= spp;
         float nDotL = max(0.0f, dot(normal, lightDir));
 
+        // i * 2 + 1 - PingPongResource has (0)SRV (1)UAV.
         light_uav[i*2 + 1][DispatchRaysIndex().xy] = min(sumFactor, 1.0);
 
         finalColor += materialColor * lightColor * sumFactor * nDotL;

@@ -607,8 +607,6 @@ void Renderer::ExecuteDXR()
 
 
 
-
-
 	DX12TEST(cl->DispatchRays(&desc), 0);
 
 	// The raytracing output needs to be copied to the actual render target used
