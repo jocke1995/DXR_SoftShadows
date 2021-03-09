@@ -16,7 +16,6 @@ struct PS_OUTPUT
 ByteAddressBuffer rawBufferLights: register(t0, space3);
 
 ConstantBuffer<CB_PER_OBJECT_STRUCT> cbPerObject : register(b1, space3);
-ConstantBuffer<CB_PER_FRAME_STRUCT>  cbPerFrame  : register(b4, space3);
 
 PS_OUTPUT PS_main(VS_OUT input)
 {
@@ -26,13 +25,20 @@ PS_OUTPUT PS_main(VS_OUT input)
 
 	float3 finalColor = float3(0.0f, 0.0f, 0.0f);
 
+	// Init random floats
+	uint frameSeed = cbPerFrame.frameCounter + 200000;
+
+	float invUV = 1 - input.uv.y;
+	uint seed = initRand(frameSeed * input.uv.x, frameSeed * invUV);
+	//uint seed = initRand(frameSeed * input.uv.x, frameSeed * input.uv.y);
+
 	// PointLight Test
 	LightHeader lHeader = rawBufferLights.Load<LightHeader>(0);
 	for (int i = 0; i < lHeader.numLights; i++)
 	{
 		PointLight pl = rawBufferLights.Load<PointLight>(sizeof(LightHeader) + i * sizeof(PointLight));
 
-		finalColor += CalcPointLight(pl, input.worldPos, albedo, input.norm);
+		finalColor += CalcPointLight(pl, input.worldPos, albedo, input.norm, input.uv, seed);
 	}
 
 	float4 ambient = albedo * 0.1f;

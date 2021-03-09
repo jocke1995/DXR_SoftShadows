@@ -49,6 +49,10 @@ void RayGen()
     float3 materialColor = float3(0.5f, 0.5f, 0.5f);
     float3 finalColor = float3(0.0f, 0.0f, 0.0f);
 
+    // Init random floats
+    uint frameSeed = cbPerFrame.frameCounter + 200000;
+    uint seed = initRand(frameSeed * uv.x, frameSeed * uv.y);
+
     // PointLight Test
     LightHeader lHeader = rawBufferLights.Load<LightHeader>(0);
     for (int i = 0; i < lHeader.numLights; i++)
@@ -63,7 +67,7 @@ void RayGen()
         // Maybe have this attribute inside pointlight?
         float lightRadius = 1.0; // To low radius => coneAngle not accurate enough
     
-        float3 perpL = cross(lightDir, float3(0.f, 1.0f, 0.f));
+        float3 perpL = normalize(cross(lightDir, float3(0.f, 1.0f, 0.f)));
         // Handle case where L = up -> perpL should then be (1,0,0)
         if (all(perpL == 0.0f))
         {
@@ -76,21 +80,18 @@ void RayGen()
         // Angle between L and toLightEdge. Used as the cone angle when sampling shadow rays
         float coneAngle = acos(dot(lightDir, toLightEdge)) * 2;
     
-        // Init random floats
-        uint frameSeed = cbPerFrame.frameCounter + 200000;
-        uint seed = initRand(frameSeed * uv.x, frameSeed * uv.y);   // TODO: vad händer?
+        
     
         float sumFactor = 0;
-        int spp = 1;
-    
-        for (int j = 0; j < spp; j++)
+ 
+        for (int j = 0; j < cbPerScene.spp; j++)
         {
             float factor = 0;
             float3 randDir = getConeSample(seed, lightDir, coneAngle);
 
             RayDesc ray;
             ray.Origin = float4(worldPos.xyz, 1.0f);
-            ray.Direction = randDir;
+            ray.Direction = normalize(randDir);
             ray.TMin = 1.0;
             ray.TMax = distance(lightPos, worldPos);
 
@@ -113,7 +114,7 @@ void RayGen()
             sumFactor += factor;
         }
 
-        sumFactor /= spp;
+        sumFactor /= cbPerScene.spp;
         float nDotL = max(0.0f, dot(normal, lightDir));
         finalColor += materialColor * lightColor * sumFactor * nDotL;
     }

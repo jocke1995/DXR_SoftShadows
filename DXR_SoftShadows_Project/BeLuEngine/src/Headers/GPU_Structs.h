@@ -74,7 +74,7 @@ struct CB_PER_SCENE_STRUCT
 	unsigned int pointLightRawBufferIndex;
 	unsigned int depthBufferIndex;
 	unsigned int gBufferNormalIndex;
-	unsigned int pad[1];
+	unsigned int spp;
 };
 
 struct LightHeader
