@@ -96,4 +96,7 @@ float3 CalcPointLight(
 	float NdotL = max(dot(normal, lightDir), 0.0f);
 
 	return albedo * pointLight.baseLight.color * NdotL * RT_ShadowFactorSoft(worldPos.xyz, pointLight.position, uv, lightDir, seed);
+	//return albedo * pointLight.baseLight.color * NdotL * RT_ShadowFactor(worldPos.xyz, 1.0f, distance(pointLight.position, worldPos.xyz), lightDir);
+	//return albedo * pointLight.baseLight.color;
+	//return albedo * NdotL;
 }

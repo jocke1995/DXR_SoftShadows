@@ -10,7 +10,10 @@ RaytracingAccelerationStructure SceneBVH : register(t0, space4);
 Texture2D textures[]   : register (t0, space2);
 SamplerState MIN_MAG_MIP_LINEAR__WRAP : register(s5);
 
+ConstantBuffer<CB_PER_OBJECT_STRUCT> cbPerObject	  : register(b1, space3);
+ConstantBuffer<CB_PER_FRAME_STRUCT>  cbPerFrame		  : register(b4, space3);
 ConstantBuffer<CB_PER_SCENE_STRUCT> cbPerScene : register(b5, space3);
+ConstantBuffer<DXR_CAMERA>			 cbCameraMatrices : register(b6, space3);
 ByteAddressBuffer rawBufferLights : register(t0, space3);
 
 // Calculate world pos from DepthBuffer

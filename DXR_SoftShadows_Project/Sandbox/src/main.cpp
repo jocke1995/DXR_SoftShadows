@@ -82,7 +82,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
        if (isF3)
        {
            mode = 2;
-           Log::Print("Mode: inline RT (Compute shader)\n");
+           Log::Print("Mode: Inline RT (Compute shader)\n");
        }
 
        if (window->WasSpacePressed())
@@ -211,12 +211,26 @@ Scene* TestScene(SceneManager* sm)
     /* ---------------------- PointLight1 ---------------------- */
     
     /* ---------------------- PointLight2 ---------------------- */
-    entity = scene->AddEntity("pointLight2");
-    plc = entity->AddComponent<component::PointLightComponent>();
-    plc->SetColor({ 0.3f, 0.3f, 0.3f });
-    plc->SetPosition({ -10.895118f, 56.448929f, 150.611298f });
+    //entity = scene->AddEntity("pointLight2");
+    //plc = entity->AddComponent<component::PointLightComponent>();
+    //plc->SetColor({ 0.3f, 0.3f, 0.3f });
+    //plc->SetPosition({ -10.895118f, 56.448929f, 150.611298f });
+    ///* ---------------------- PointLight2 ---------------------- */
+    //
+    ///* ---------------------- PointLight2 ---------------------- */
+    //entity = scene->AddEntity("pointLight3");
+    //plc = entity->AddComponent<component::PointLightComponent>();
+    //plc->SetColor({ 0.3f, 0.3f, 0.3f });
+    //plc->SetPosition({ -150.895118f, 56.448929f, 150.611298f });
+    ///* ---------------------- PointLight2 ---------------------- */
+    //
+    //
+    ///* ---------------------- PointLight2 ---------------------- */
+    //entity = scene->AddEntity("pointLight4");
+    //plc = entity->AddComponent<component::PointLightComponent>();
+    //plc->SetColor({ 0.3f, 0.3f, 0.3f });
+    //plc->SetPosition({ 150.895118f, 56.448929f, 150.611298f });
     /* ---------------------- PointLight2 ---------------------- */
-
 
     // Todo: Gives wierd round circles below light?? changes when modifying the lightRadius (cone width)
     /* ---------------------- PointLight3 ---------------------- */
