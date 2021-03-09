@@ -118,7 +118,8 @@ public:
 	void SortObjects();
 	void Execute();
 	void ExecuteDXR();
-	void ExecuteDXRi();
+	void ExecuteInlinePixel();
+	void ExecuteInlineCompute();
 
 	// Render inits, these functions are called by respective components through SetScene to prepare for drawing
 	void InitModelComponent(component::ModelComponent* component);
@@ -288,9 +289,15 @@ private:
 	ID3D12CommandList* m_DXRCodtCommandLists[NUM_SWAP_BUFFERS];
 	ID3D12CommandList* m_DepthPrePassCommandLists[NUM_SWAP_BUFFERS];
 	ID3D12CommandList* m_GBufferCommandLists[NUM_SWAP_BUFFERS];
+	ID3D12CommandList* m_ComputeIRTCommandLists[NUM_SWAP_BUFFERS];
 
 	// G-Buffer renderTargets
 	RTV_SRV_RESOURCE m_GBufferNormal = {};
+
+	/* INLINE RT COMPUTETASK data */
+	unsigned int m_IRTNumThreadGroupsX = 0;
+	unsigned int m_IRTNumThreadGroupsY = 0;
+	const unsigned int m_ThreadsPerGroup = 256;
 
 	// DescriptorHeaps
 	std::map<DESCRIPTOR_HEAP_TYPE, DescriptorHeap*> m_DescriptorHeaps = {};

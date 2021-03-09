@@ -13,7 +13,6 @@ public:
 	ComputeTask(ID3D12Device5* device,
 		RootSignature* rootSignature,
 		std::vector<std::pair< std::wstring, std::wstring>> csNamePSOName,
-		unsigned int FLAG_THREAD,
 		COMMAND_INTERFACE_TYPE interfaceType = COMMAND_INTERFACE_TYPE::COMPUTE_TYPE);
 	virtual ~ComputeTask();
 

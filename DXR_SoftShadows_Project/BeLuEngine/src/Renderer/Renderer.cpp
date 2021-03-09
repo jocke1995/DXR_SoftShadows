@@ -48,7 +48,7 @@
 #include "DX12Tasks/CopyOnDemandTask.h"
 
 // Compute
-#include "DX12Tasks/ComputeTask.h"
+#include "DX12Tasks/InlineRTComputeTask.h"
 
 // Event
 #include "../Events/EventBus.h"
@@ -479,18 +479,18 @@ void Renderer::ExecuteDXR()
 		1,
 		&m_DXRCpftCommandLists[commandInterfaceIndex]);
 
+	
 	// Depth pre-pass
 	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
 		1,
 		&m_DepthPrePassCommandLists[commandInterfaceIndex]);
-
+	
 	// GBuffer (Normals only atm)
 	m_RenderTasks[RENDER_TASK_TYPE::GBUFFER_PASS]->Execute();
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
 		1,
 		&m_GBufferCommandLists[commandInterfaceIndex]);
-	
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 
 	m_pTempCommandInterface->Reset(0);
@@ -664,7 +664,7 @@ void Renderer::ExecuteDXR()
 #endif
 }
 
-void Renderer::ExecuteDXRi()
+void Renderer::ExecuteInlinePixel()
 {
 	IDXGISwapChain4* dx12SwapChain = m_pSwapChain->GetDX12SwapChain();
 	unsigned int backBufferIndex = dx12SwapChain->GetCurrentBackBufferIndex();
@@ -820,6 +820,113 @@ void Renderer::ExecuteDXRi()
 	}
 	nrOfFrames++;
 #pragma endregion TimeMeasurment
+
+	/*------------------- Present -------------------*/
+	HRESULT hr = dx12SwapChain->Present(0, 0);
+
+#ifdef DEBUG
+	if (FAILED(hr))
+	{
+		BL_LOG_CRITICAL("Swapchain Failed to present\n");
+	}
+#endif
+}
+
+void Renderer::ExecuteInlineCompute()
+{
+	IDXGISwapChain4* dx12SwapChain = m_pSwapChain->GetDX12SwapChain();
+	unsigned int backBufferIndex = dx12SwapChain->GetCurrentBackBufferIndex();
+	unsigned int commandInterfaceIndex = m_FrameCounter++ % NUM_SWAP_BUFFERS;
+
+	/* ------------------------------------- COPY DATA ------------------------------------- */
+	DX12Task::SetCommandInterfaceIndex(commandInterfaceIndex);
+
+	// Copy per frame
+	m_CopyTasks[COPY_TASK_TYPE::COPY_PER_FRAME]->Execute();
+
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
+		1,
+		&m_DXRCpftCommandLists[commandInterfaceIndex]);
+
+	// Matrices are uploaded here temporarily
+	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
+
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
+		1,
+		&m_DepthPrePassCommandLists[commandInterfaceIndex]);
+	/* ------------------------------------- COPY DATA ------------------------------------- */
+
+	m_pTempCommandInterface->Reset(0);
+	ID3D12GraphicsCommandList5* cl = m_pTempCommandInterface->GetCommandList(0);
+
+	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
+	ID3D12Resource1* swapChainResource = swapChainRenderTarget->GetResource()->GetID3D12Resource1();
+	const unsigned int swapChainIndex = swapChainRenderTarget->GetDescriptorHeapIndex();
+
+	cl->SetGraphicsRootSignature(m_pRootSignature->GetRootSig());
+
+	DescriptorHeap* descriptorHeap_CBV_UAV_SRV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV];
+	ID3D12DescriptorHeap* d3d12DescriptorHeap = descriptorHeap_CBV_UAV_SRV->GetID3D12DescriptorHeap();
+	cl->SetDescriptorHeaps(1, &d3d12DescriptorHeap);
+
+	cl->SetGraphicsRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
+	cl->SetGraphicsRootDescriptorTable(RS::dtCBV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
+	cl->SetGraphicsRootDescriptorTable(RS::dtSRV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
+	cl->SetGraphicsRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
+	// Set cbvs
+	cl->SetGraphicsRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetGraphicsRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
+
+	// Change state on front/backbuffer
+	cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		swapChainResource,
+		D3D12_RESOURCE_STATE_PRESENT,
+		D3D12_RESOURCE_STATE_RENDER_TARGET));
+
+	DescriptorHeap* renderTargetHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::RTV];
+	DescriptorHeap* depthBufferHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::DSV];
+
+	// RenderTargets
+	D3D12_CPU_DESCRIPTOR_HANDLE cdhSwapChain = renderTargetHeap->GetCPUHeapAt(swapChainIndex);
+	D3D12_CPU_DESCRIPTOR_HANDLE cdhs[] = { cdhSwapChain };
+
+	// Depth
+	D3D12_CPU_DESCRIPTOR_HANDLE dsh = depthBufferHeap->GetCPUHeapAt(m_pMainDepthStencil->GetDSV()->GetDescriptorHeapIndex());
+
+	cl->OMSetRenderTargets(1, cdhs, true, &dsh);
+
+	float clearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+	cl->ClearRenderTargetView(cdhSwapChain, clearColor, 0, nullptr);
+
+	const D3D12_VIEWPORT viewPortSwapChain = *swapChainRenderTarget->GetRenderView()->GetViewPort();
+	const D3D12_RECT rectSwapChain = *swapChainRenderTarget->GetRenderView()->GetScissorRect();
+
+	const D3D12_RECT* rect = swapChainRenderTarget->GetRenderView()->GetScissorRect();
+	cl->RSSetViewports(1, &viewPortSwapChain);
+	cl->RSSetScissorRects(1, &rectSwapChain);
+	cl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	const DirectX::XMMATRIX* viewProjMatTrans = m_pScenePrimaryCamera->GetViewProjectionTranposed();
+
+	// Draw for every Rendercomponent with stencil testing disabled
+	ID3D12PipelineState* pipelineState = m_RenderTasks[RENDER_TASK_TYPE::FORWARD_RENDER]->GetPipelineState(0)->GetPSO();
+	cl->SetPipelineState(pipelineState);
+
+
+	// Change state on front/backbuffer
+	cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		swapChainResource,
+		D3D12_RESOURCE_STATE_RENDER_TARGET,
+		D3D12_RESOURCE_STATE_PRESENT));
+
+	cl->Close();
+
+	ID3D12CommandList* cLists[] = { cl };
+
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, cLists);
+
+	/*------------------- Post draw stuff -------------------*/
+	waitForGPU();
 
 	/*------------------- Present -------------------*/
 	HRESULT hr = dx12SwapChain->Present(0, 0);
@@ -1995,6 +2102,19 @@ void Renderer::initRenderTasks()
 #pragma endregion ForwardRendering
 
 #pragma region ComputeAndCopyTasks
+
+	// Compute
+	// ComputeTasks
+	std::vector<std::pair<std::wstring, std::wstring>> csNamePSOName;
+	csNamePSOName.push_back(std::make_pair(L"InlineComputeRT.hlsl", L"InlineComputeRTPSO"));
+
+	ComputeTask* inlineRTComputeTask = new InlineRTComputeTask(
+		m_pDevice5, m_pRootSignature,
+		csNamePSOName,
+		COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
+
+	m_IRTNumThreadGroupsX = static_cast<unsigned int>(ceilf(static_cast<float>(m_pWindow->GetScreenWidth()) / m_ThreadsPerGroup));;
+	m_IRTNumThreadGroupsY = m_pWindow->GetScreenHeight();
 	// CopyTasks
 	CopyTask* copyPerFrameTask = new CopyPerFrameTask(m_pDevice5, COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
 	CopyTask* copyOnDemandTask = new CopyOnDemandTask(m_pDevice5, COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
@@ -2011,7 +2131,7 @@ void Renderer::initRenderTasks()
 
 	/* ------------------------- ComputeQueue Tasks ------------------------ */
 	
-	// Nothing in this project
+	m_ComputeTasks[COMPUTE_TASK_TYPE::INLINE_RT] = inlineRTComputeTask;
 
 	/* ------------------------- DirectQueue Tasks ---------------------- */
 	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS] = DepthPrePassRenderTask;
@@ -2051,8 +2171,6 @@ void Renderer::initRenderTasks()
 	{
 		m_DirectCommandLists[i].push_back(forwardRenderTask->GetCommandInterface()->GetCommandList(i));
 	}
-
-
 }
 
 void Renderer::setRenderTasksRenderComponents()

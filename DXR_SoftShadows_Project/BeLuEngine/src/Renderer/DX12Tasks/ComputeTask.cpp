@@ -9,7 +9,6 @@ ComputeTask::ComputeTask(
 	ID3D12Device5* device,
 	RootSignature* rootSignature,
 	std::vector<std::pair<std::wstring, std::wstring>> csNamePSOName,
-	unsigned int FLAG_THREAD,
 	COMMAND_INTERFACE_TYPE interfaceType)
 	:DX12Task(device, interfaceType)
 {

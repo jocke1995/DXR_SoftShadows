@@ -108,11 +108,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
            renderer->ExecuteDXR();
            break;
        case 1:
-           renderer->ExecuteDXRi();
+           renderer->ExecuteInlinePixel();
            break;
        case 2:
-           //renderer->ExecuteDXRi();
-           Log::Print("Inline RT not yet implemented with compute shader!\n");
+           renderer->ExecuteInlineCompute();
            break;
        default:
            Log::Print("Unknown rendering mode!!!!!!!!!!!!!!!!!!!!!!\n");
