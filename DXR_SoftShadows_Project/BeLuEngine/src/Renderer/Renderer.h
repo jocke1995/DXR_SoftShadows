@@ -9,6 +9,8 @@ class Window;
 #include "D3D12Timer.h"
 #include "DX12Tasks/CopyTask.h"
 
+#define NUM_TEMPORAL_BUFFERS 4
+
 // Renderer Engine
 class RootSignature;
 class SwapChain;
@@ -265,8 +267,8 @@ private:
 	DXR_CAMERA* m_pCbCameraData = nullptr;
 	ConstantBuffer* m_pCbCamera = nullptr;
 	// ------------------- DXR temp ----------------
-	PingPongResource* m_PingPongR[MAX_POINT_LIGHTS];
-	Resource* m_tempUAV[MAX_POINT_LIGHTS];
+	PingPongResource* m_PingPongR[MAX_POINT_LIGHTS][NUM_TEMPORAL_BUFFERS + 1]; // 1 PingPongResource per light, NUM_BUFFERS PingPongResources for temporal accumilation
+	Resource* m_tempUAV[MAX_POINT_LIGHTS][NUM_TEMPORAL_BUFFERS + 1];
 
 
 	// Group of components that's needed for rendering:

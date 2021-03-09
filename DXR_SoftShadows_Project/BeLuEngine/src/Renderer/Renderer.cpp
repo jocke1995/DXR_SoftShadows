@@ -106,10 +106,13 @@ void Renderer::deleteRenderer()
 	delete m_pSwapChain;
 	delete m_pMainDepthStencil;
 
-	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
+	for (int z = 0; z < NUM_TEMPORAL_BUFFERS + 1; z++)
 	{
-		delete m_PingPongR[i];
-		delete m_tempUAV[i];
+		for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
+		{
+			delete m_PingPongR[i][z];
+			delete m_tempUAV[i][z];
+		}
 	}
 
 	for (auto& pair : m_DescriptorHeaps)
@@ -165,6 +168,7 @@ void Renderer::deleteRenderer()
 	SAFE_RELEASE(&m_pRTStateObjectProps);
 	
 	delete m_pOutputResource;
+	
 	for (int i = 0; i < MAX_POINT_LIGHTS; i++)
 	{
 		delete m_BlurComputeTasks[i];
@@ -502,9 +506,14 @@ void Renderer::Execute()
 
 void Renderer::ExecuteDXR()
 {
+	m_FrameCounter = m_FrameCounter + 1;
+
 	IDXGISwapChain4* dx12SwapChain = m_pSwapChain->GetDX12SwapChain();
 	unsigned int backBufferIndex = dx12SwapChain->GetCurrentBackBufferIndex();
-	unsigned int commandInterfaceIndex = m_FrameCounter++ % NUM_SWAP_BUFFERS;
+	
+
+	unsigned int commandInterfaceIndex = m_FrameCounter % NUM_SWAP_BUFFERS;
+	unsigned int currentLightTemporalBuffer = m_FrameCounter % (NUM_TEMPORAL_BUFFERS + 1);
 
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 	DX12Task::SetCommandInterfaceIndex(commandInterfaceIndex);
@@ -531,7 +540,8 @@ void Renderer::ExecuteDXR()
 
 	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
 	cl->SetComputeRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
-	cl->SetComputeRootDescriptorTable(RS::dtUAV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexSoftShadowsUAV));
+	unsigned int softShadowHeapOffset = m_DhIndexSoftShadowsUAV + 2 * MAX_POINT_LIGHTS * currentLightTemporalBuffer;
+	cl->SetComputeRootDescriptorTable(RS::dtUAV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(softShadowHeapOffset));
 
 	cl->SetComputeRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
 	cl->SetComputeRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
@@ -548,7 +558,7 @@ void Renderer::ExecuteDXR()
 	cl->ResourceBarrier(1, &transition);
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_tempUAV[0]->GetID3D12Resource1(),
+		m_PingPongR[0][currentLightTemporalBuffer]->GetResource()->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
 	cl->ResourceBarrier(1, &transition);
@@ -603,8 +613,6 @@ void Renderer::ExecuteDXR()
 
 
 
-	
-
 
 
 	DX12TEST(cl->DispatchRays(&desc), 0);
@@ -621,7 +629,7 @@ void Renderer::ExecuteDXR()
 	cl->ResourceBarrier(1, &transition);
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_PingPongR[0]->GetResource()->GetID3D12Resource1(),
+		m_PingPongR[0][currentLightTemporalBuffer]->GetResource()->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,		// StateBefore
 		D3D12_RESOURCE_STATE_COPY_SOURCE);	// StateAfter
 	cl->ResourceBarrier(1, &transition);
@@ -638,13 +646,13 @@ void Renderer::ExecuteDXR()
 		m_BlurComputeTasks[i]->SetCommandInterface(m_pTempCommandInterface);
 		m_BlurComputeTasks[i]->SetBackBufferIndex(0);
 		m_BlurComputeTasks[i]->SetCommandInterfaceIndex(0);
-		m_BlurComputeTasks[i]->SetBlurPingPongResource(m_PingPongR[i]);
+		m_BlurComputeTasks[i]->SetBlurPingPongResource(m_PingPongR[i][currentLightTemporalBuffer]);
 		m_BlurComputeTasks[i]->Execute();
 	}
 	
 	cl->CopyResource(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
-		m_PingPongR[0]->GetResource()->GetID3D12Resource1());											// Source
+		m_PingPongR[0][currentLightTemporalBuffer]->GetResource()->GetID3D12Resource1());											// Source
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
@@ -1557,40 +1565,44 @@ void Renderer::CreateSoftShadowLightResources()
 
 	m_DhIndexSoftShadowsUAV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetNextDescriptorHeapIndex(0);
 
-	// Create UAV resources for each light
-	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
+	// Create UAV resources for each temporal buffer
+	for (unsigned int z = 0; z < NUM_TEMPORAL_BUFFERS + 1; z++)
 	{
-		D3D12_RESOURCE_DESC resDesc = {};
-		resDesc.DepthOrArraySize = 1;
-		resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-		// The backbuffer is actually DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, but sRGB
-		// formats cannot be used with UAVs. For accuracy we should convert to sRGB
-		// ourselves in the shader
-		resDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+		// Create UAV resources for each light
+		for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
+		{
+			D3D12_RESOURCE_DESC resDesc = {};
+			resDesc.DepthOrArraySize = 1;
+			resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+			// The backbuffer is actually DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, but sRGB
+			// formats cannot be used with UAVs. For accuracy we should convert to sRGB
+			// ourselves in the shader
+			resDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
 
-		resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-		resDesc.Width = m_pWindow->GetScreenWidth();
-		resDesc.Height = m_pWindow->GetScreenHeight();
-		resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-		resDesc.MipLevels = 1;
-		resDesc.SampleDesc.Count = 1;
+			resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+			resDesc.Width = m_pWindow->GetScreenWidth();
+			resDesc.Height = m_pWindow->GetScreenHeight();
+			resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+			resDesc.MipLevels = 1;
+			resDesc.SampleDesc.Count = 1;
 
-		m_tempUAV[i] = new Resource(m_pDevice5, &resDesc, nullptr,
-			L"test_resource", D3D12_RESOURCE_STATE_COPY_SOURCE);
+			m_tempUAV[i][z] = new Resource(m_pDevice5, &resDesc, nullptr,
+				L"test_resource", D3D12_RESOURCE_STATE_COPY_SOURCE);
 
-		// Create SRV
-		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srvDesc.Format = format;
-		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-		srvDesc.Texture2D.MipLevels = 1;
+			// Create SRV
+			D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+			srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			srvDesc.Format = format;
+			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+			srvDesc.Texture2D.MipLevels = 1;
 
-		// Create UAV
-		D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-		uavDesc.Format = format;
-		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+			// Create UAV
+			D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+			uavDesc.Format = format;
+			uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
 
-		m_PingPongR[i] = new PingPongResource(m_tempUAV[i], m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], &srvDesc, &uavDesc);
+			m_PingPongR[i][z] = new PingPongResource(m_tempUAV[i][z], m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], &srvDesc, &uavDesc);
+		}
 	}
 	
 }
