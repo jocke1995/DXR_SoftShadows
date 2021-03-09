@@ -267,6 +267,8 @@ private:
 	DXR_CAMERA* m_pCbCameraData = nullptr;
 	ConstantBuffer* m_pCbCamera = nullptr;
 	// ------------------- DXR temp ----------------
+	PingPongResource* m_pShadowBufferPingPong[MAX_POINT_LIGHTS];
+	Resource* m_pShadowBufferResource[MAX_POINT_LIGHTS];
 	PingPongResource* m_PingPongR[MAX_POINT_LIGHTS][NUM_TEMPORAL_BUFFERS + 1]; // 1 PingPongResource per light, NUM_BUFFERS PingPongResources for temporal accumilation
 	Resource* m_tempUAV[MAX_POINT_LIGHTS][NUM_TEMPORAL_BUFFERS + 1];
 

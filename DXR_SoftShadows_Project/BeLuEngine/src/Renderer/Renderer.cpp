@@ -42,6 +42,7 @@
 // Graphics
 #include "DX12Tasks/RenderTask.h"
 #include "DX12Tasks/DepthRenderTask.h"
+#include "DX12Tasks/ShadowBufferRenderTask.h"
 #include "DX12Tasks/ForwardRenderTask.h"
 
 // Copy 
@@ -105,6 +106,12 @@ void Renderer::deleteRenderer()
 	delete m_pFullScreenQuad;
 	delete m_pSwapChain;
 	delete m_pMainDepthStencil;
+
+	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
+	{
+		delete m_pShadowBufferPingPong[i];
+		delete m_pShadowBufferResource[i];
+	}
 
 	for (int z = 0; z < NUM_TEMPORAL_BUFFERS + 1; z++)
 	{
@@ -511,7 +518,6 @@ void Renderer::ExecuteDXR()
 	IDXGISwapChain4* dx12SwapChain = m_pSwapChain->GetDX12SwapChain();
 	unsigned int backBufferIndex = dx12SwapChain->GetCurrentBackBufferIndex();
 	
-
 	unsigned int commandInterfaceIndex = m_FrameCounter % NUM_SWAP_BUFFERS;
 	unsigned int currentLightTemporalBuffer = m_FrameCounter % (NUM_TEMPORAL_BUFFERS + 1);
 
@@ -617,6 +623,16 @@ void Renderer::ExecuteDXR()
 
 	DX12TEST(cl->DispatchRays(&desc), 0);
 
+
+
+	// Write to shadowBuffer (average the light visibility from last 4 frames)
+	m_RenderTasks[RENDER_TASK_TYPE::SHADOW_BUFFER_PASS]->SetBackBufferIndex(0);
+	m_RenderTasks[RENDER_TASK_TYPE::SHADOW_BUFFER_PASS]->SetCommandInterfaceIndex(0);
+	//m_RenderTasks[RENDER_TASK_TYPE::SHADOW_BUFFER_PASS]->Execute();
+
+
+
+
 	// The raytracing output needs to be copied to the actual render target used
 	// for display. For this, we need to transition the raytracing output from a
 	// UAV to a copy source, and the render target buffer to a copy destination.
@@ -643,7 +659,6 @@ void Renderer::ExecuteDXR()
 	// Blur all light output
 	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
 	{
-		m_BlurComputeTasks[i]->SetCommandInterface(m_pTempCommandInterface);
 		m_BlurComputeTasks[i]->SetBackBufferIndex(0);
 		m_BlurComputeTasks[i]->SetCommandInterfaceIndex(0);
 		m_BlurComputeTasks[i]->SetBlurPingPongResource(m_PingPongR[i][currentLightTemporalBuffer]);
@@ -1563,6 +1578,48 @@ void Renderer::CreateSoftShadowLightResources()
 {
 	auto format = DXGI_FORMAT_R16G16B16A16_FLOAT;
 
+	// Shadow Buffer
+	D3D12_RESOURCE_DESC resDesc = {};
+	resDesc.DepthOrArraySize = 1;
+	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	// The backbuffer is actually DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, but sRGB
+	// formats cannot be used with UAVs. For accuracy we should convert to sRGB
+	// ourselves in the shader
+	resDesc.Format = format;
+
+	resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+	resDesc.Width = m_pWindow->GetScreenWidth();
+	resDesc.Height = m_pWindow->GetScreenHeight();
+	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	resDesc.MipLevels = 1;
+	resDesc.SampleDesc.Count = 1;
+
+	
+
+	// Create SRV
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+
+	// Create UAV
+	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+	uavDesc.Format = format;
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+
+
+	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
+	{
+		m_pShadowBufferResource[i] = new Resource(m_pDevice5, &resDesc, nullptr,
+			L"test_resource", D3D12_RESOURCE_STATE_COPY_SOURCE);
+
+		m_pShadowBufferPingPong[i] = new PingPongResource(m_pShadowBufferResource[i], m_pDevice5,
+			m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV],
+			&srvDesc, &uavDesc);
+	}
+
+	// save index in heap
 	m_DhIndexSoftShadowsUAV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetNextDescriptorHeapIndex(0);
 
 	// Create UAV resources for each temporal buffer
@@ -1571,35 +1628,8 @@ void Renderer::CreateSoftShadowLightResources()
 		// Create UAV resources for each light
 		for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
 		{
-			D3D12_RESOURCE_DESC resDesc = {};
-			resDesc.DepthOrArraySize = 1;
-			resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-			// The backbuffer is actually DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, but sRGB
-			// formats cannot be used with UAVs. For accuracy we should convert to sRGB
-			// ourselves in the shader
-			resDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-
-			resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-			resDesc.Width = m_pWindow->GetScreenWidth();
-			resDesc.Height = m_pWindow->GetScreenHeight();
-			resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-			resDesc.MipLevels = 1;
-			resDesc.SampleDesc.Count = 1;
-
 			m_tempUAV[i][z] = new Resource(m_pDevice5, &resDesc, nullptr,
 				L"test_resource", D3D12_RESOURCE_STATE_COPY_SOURCE);
-
-			// Create SRV
-			D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-			srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-			srvDesc.Format = format;
-			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-			srvDesc.Texture2D.MipLevels = 1;
-
-			// Create UAV
-			D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-			uavDesc.Format = format;
-			uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
 
 			m_PingPongR[i][z] = new PingPongResource(m_tempUAV[i][z], m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], &srvDesc, &uavDesc);
 		}
@@ -1919,6 +1949,64 @@ void Renderer::initRenderTasks()
 
 #pragma endregion DepthPrePass
 
+
+#pragma region ShadowBufferPass
+
+	/* Depth Pre-Pass rendering without stencil testing */
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsdShadowBufferPass = {};
+	gpsdShadowBufferPass.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	// RenderTarget
+	gpsdShadowBufferPass.NumRenderTargets = 0;
+	gpsdShadowBufferPass.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
+	// Depthstencil usage
+	gpsdShadowBufferPass.SampleDesc.Count = 1;
+	gpsdShadowBufferPass.SampleMask = UINT_MAX;
+	// Rasterizer behaviour
+	gpsdShadowBufferPass.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	gpsdShadowBufferPass.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+	gpsdShadowBufferPass.RasterizerState.DepthBias = 0;
+	gpsdShadowBufferPass.RasterizerState.DepthBiasClamp = 0.0f;
+	gpsdShadowBufferPass.RasterizerState.SlopeScaledDepthBias = 0.0f;
+	gpsdShadowBufferPass.RasterizerState.FrontCounterClockwise = false;
+
+	// Specify Blend descriptions
+	// copy of defaultRTdesc
+	D3D12_RENDER_TARGET_BLEND_DESC shadowBufferPassRTdesc = {
+		false, false,
+		D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
+		D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
+		D3D12_LOGIC_OP_NOOP, D3D12_COLOR_WRITE_ENABLE_ALL };
+	for (unsigned int i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
+		gpsdShadowBufferPass.BlendState.RenderTarget[i] = shadowBufferPassRTdesc;
+
+	// Depth descriptor
+	D3D12_DEPTH_STENCIL_DESC shadowBufferPassDsd = {};
+	shadowBufferPassDsd.DepthEnable = false;
+	shadowBufferPassDsd.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	shadowBufferPassDsd.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+
+	// DepthStencil
+	shadowBufferPassDsd.StencilEnable = false;
+	gpsdShadowBufferPass.DepthStencilState = shadowBufferPassDsd;
+	gpsdShadowBufferPass.DSVFormat = m_pMainDepthStencil->GetDSV()->GetDXGIFormat();
+
+	std::vector<D3D12_GRAPHICS_PIPELINE_STATE_DESC*> gpsdShadowBufferPassVector;
+	gpsdShadowBufferPassVector.push_back(&gpsdShadowBufferPass);
+
+	RenderTask* ShadowBufferPassRenderTask = new ShadowBufferRenderTask(
+		m_pDevice5,
+		m_pRootSignature,
+		L"DepthVertex.hlsl", L"DepthPixel.hlsl",
+		&gpsdShadowBufferPassVector,
+		L"DepthPrePassPSO");
+
+	ShadowBufferPassRenderTask->SetMainDepthStencil(m_pMainDepthStencil);
+	ShadowBufferPassRenderTask->SetSwapChain(m_pSwapChain);
+	ShadowBufferPassRenderTask->SetDescriptorHeaps(m_DescriptorHeaps);
+	((ShadowBufferRenderTask*)ShadowBufferPassRenderTask)->SetCommandInterface(m_pTempCommandInterface);
+
+#pragma endregion ShadowBufferPass
+
 #pragma region ForwardRendering
 	/* Forward rendering without stencil testing */
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsdForwardRender = {};
@@ -1996,6 +2084,7 @@ void Renderer::initRenderTasks()
 
 	/* ------------------------- DirectQueue Tasks ---------------------- */
 	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS] = DepthPrePassRenderTask;
+	m_RenderTasks[RENDER_TASK_TYPE::SHADOW_BUFFER_PASS] = ShadowBufferPassRenderTask;
 	m_RenderTasks[RENDER_TASK_TYPE::FORWARD_RENDER] = forwardRenderTask;
 
 	// Pushback in the order of execution
