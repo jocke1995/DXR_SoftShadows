@@ -44,6 +44,7 @@
 #include "DX12Tasks/DepthRenderTask.h"
 #include "DX12Tasks/ShadowBufferRenderTask.h"
 #include "DX12Tasks/ForwardRenderTask.h"
+#include "DX12Tasks/MergeLightningRenderTask.h"
 
 // Copy 
 #include "DX12Tasks/CopyPerFrameTask.h"
@@ -273,6 +274,7 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 
 	createBlurTasks();
 	createShadowBufferRenderTasks();
+	createMergeLightningRenderTasks();
 
 	initRenderTasks();
 
@@ -370,6 +372,67 @@ void Renderer::createShadowBufferRenderTasks()
 		m_ShadowBufferRenderTasks[i]->SetDescriptorHeaps(m_DescriptorHeaps);
 		m_ShadowBufferRenderTasks[i]->SetCommandInterface(m_pTempCommandInterface);
 		m_ShadowBufferRenderTasks[i]->CreateSlotInfo();
+	}
+}
+
+void Renderer::createMergeLightningRenderTasks()
+{
+	UINT resolutionWidth = 0;
+	UINT resolutionHeight = 0;
+	m_pSwapChain->GetDX12SwapChain()->GetSourceSize(&resolutionWidth, &resolutionHeight);
+
+	/* Depth Pre-Pass rendering without stencil testing */
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsd = {};
+	gpsd.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	// RenderTarget
+	gpsd.NumRenderTargets = 0;
+	gpsd.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
+	// Depthstencil usage
+	gpsd.SampleDesc.Count = 1;
+	gpsd.SampleMask = UINT_MAX;
+	// Rasterizer behaviour
+	gpsd.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	gpsd.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+	gpsd.RasterizerState.DepthBias = 0;
+	gpsd.RasterizerState.DepthBiasClamp = 0.0f;
+	gpsd.RasterizerState.SlopeScaledDepthBias = 0.0f;
+	gpsd.RasterizerState.FrontCounterClockwise = false;
+	gpsd.RasterizerState.ForcedSampleCount = 1;
+
+	// Specify Blend descriptions
+	// copy of defaultRTdesc
+	D3D12_RENDER_TARGET_BLEND_DESC RTBlenddesc = {
+		false, false,
+		D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
+		D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
+		D3D12_LOGIC_OP_NOOP, D3D12_COLOR_WRITE_ENABLE_ALL };
+	for (unsigned int i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
+		gpsd.BlendState.RenderTarget[i] = RTBlenddesc;
+
+	// Depth descriptor
+
+	// DepthStencil
+	gpsd.DepthStencilState = {};
+	gpsd.DepthStencilState.DepthEnable = false;
+
+	std::vector<D3D12_GRAPHICS_PIPELINE_STATE_DESC*> gpsdVector;
+	gpsdVector.push_back(&gpsd);
+
+	for (int i = 0; i < MAX_POINT_LIGHTS; i++)
+	{
+		m_MergeLightningRenderTasks[i] = new MergeLightningRenderTask(
+			m_pDevice5,
+			m_pRootSignature,
+			L"MergeLightningVertex.hlsl", L"MergeLightningPixel.hlsl",
+			&gpsdVector,
+			L"ShadowBufferPassPSO");
+
+		m_MergeLightningRenderTasks[i]->SetMainDepthStencil(m_pMainDepthStencil);
+		m_MergeLightningRenderTasks[i]->SetSwapChain(m_pSwapChain);
+		m_MergeLightningRenderTasks[i]->SetFullScreenQuadMesh(m_pFullScreenQuad);
+		m_MergeLightningRenderTasks[i]->SetDescriptorHeaps(m_DescriptorHeaps);
+		m_MergeLightningRenderTasks[i]->SetCommandInterface(m_pTempCommandInterface);
+		m_MergeLightningRenderTasks[i]->CreateSlotInfo();
 	}
 
 }
@@ -732,9 +795,7 @@ void Renderer::ExecuteDXR()
 			m_pShadowBufferPingPong[i]->GetResource()->GetID3D12Resource1(),
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,		// StateBefore
 			D3D12_RESOURCE_STATE_COPY_SOURCE);	// StateAfter
-
 	}
-
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),

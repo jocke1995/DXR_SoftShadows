@@ -49,6 +49,7 @@ struct RenderComponent;
 struct ID3D12Resource1;
 class Shader;
 class ShadowBufferRenderTask;
+class MergeLightningRenderTask;
 
 // Copy
 class CopyTask;
@@ -225,6 +226,8 @@ private:
 	void createBlurTasks();
 	ShadowBufferRenderTask* m_ShadowBufferRenderTasks[MAX_POINT_LIGHTS];
 	void createShadowBufferRenderTasks();
+	MergeLightningRenderTask* m_MergeLightningRenderTasks[MAX_POINT_LIGHTS];
+	void createMergeLightningRenderTasks();
 
 	ID3D12RootSignature* CreateRayGenSignature();
 	ID3D12RootSignature* CreateHitSignature();
