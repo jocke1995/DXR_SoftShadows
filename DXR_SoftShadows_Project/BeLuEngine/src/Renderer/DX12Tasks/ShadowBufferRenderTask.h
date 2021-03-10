@@ -14,11 +14,26 @@ public:
 	~ShadowBufferRenderTask();
 
 	void SetCommandInterface(CommandInterface* inter);
+	void SetFullScreenQuadMesh(Mesh* fsq);
+
+	void CreateSlotInfo();
 
 	void Execute() override final;
 
+	void SetHeapOffsets(unsigned int pingPongOffset, unsigned int shadowBufferOffset);
+
 private:
 	CommandInterface* m_pCommandInterfaceTemp = nullptr;
+	Mesh* m_pFullScreenQuadMesh = nullptr;
+
+	// CB_PER_OBJECT
+	Resource* m_CbPerObjectUploadResource = nullptr;
+	size_t m_NumIndices;
+	SlotInfo m_SlotInfo;
+
+	// heap offsets
+	unsigned int m_SoftShadowHeapOffset = 0;
+	unsigned int m_SoftShadowBufferOffset = 0;
 };
 
 #endif

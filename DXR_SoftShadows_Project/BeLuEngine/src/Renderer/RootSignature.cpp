@@ -82,7 +82,7 @@ void RootSignature::createRootSignatureStructure()
 	dtSRV.NumDescriptorRanges = ARRAYSIZE(dtRangesSRV);
 	dtSRV.pDescriptorRanges = dtRangesSRV;
 
-	// DescriptorTable for SRV's (bindless)
+	// DescriptorTable for UAV's (bindless)
 	D3D12_DESCRIPTOR_RANGE dtRangesUAV[2]{};
 	//dtRangesUAV[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
 	//dtRangesUAV[0].NumDescriptors = -1;		// Bindless
@@ -115,6 +115,18 @@ void RootSignature::createRootSignatureStructure()
 	rayTracingRange[1].BaseShaderRegister = 0;	// t0
 	rayTracingRange[1].RegisterSpace = 4;		// space4
 	rayTracingRange[1].OffsetInDescriptorsFromTableStart = 1;	// The uav is on 0
+
+
+	// DescriptorTable for SRV's (bindless)
+	D3D12_DESCRIPTOR_RANGE dtRangesSRV2[1]{};
+	dtRangesSRV2[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	dtRangesSRV2[0].NumDescriptors = -1;		// Bindless
+	dtRangesSRV2[0].BaseShaderRegister = 0;	// t0
+	dtRangesSRV2[0].RegisterSpace = 10;
+
+	D3D12_ROOT_DESCRIPTOR_TABLE dtSRV2 = {};
+	dtSRV2.NumDescriptorRanges = ARRAYSIZE(dtRangesSRV2);
+	dtSRV2.pDescriptorRanges = dtRangesSRV2;
 
 	D3D12_ROOT_PARAMETER rootParam[RS::NUM_PARAMS]{};
 
@@ -159,6 +171,10 @@ void RootSignature::createRootSignatureStructure()
 	rootParam[RS::CB_PER_SCENE].Descriptor.ShaderRegister = 5;	// b5
 	rootParam[RS::CB_PER_SCENE].Descriptor.RegisterSpace = 3;	// space3
 	rootParam[RS::CB_PER_SCENE].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+	rootParam[RS::dtSRV2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[RS::dtSRV2].DescriptorTable = dtSRV2;
+	rootParam[RS::dtSRV2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 	rootParam[RS::CBV0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 	rootParam[RS::CBV0].Descriptor.ShaderRegister = 6;	// b6

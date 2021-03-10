@@ -179,6 +179,7 @@ void Renderer::deleteRenderer()
 	for (int i = 0; i < MAX_POINT_LIGHTS; i++)
 	{
 		delete m_BlurComputeTasks[i];
+		delete m_ShadowBufferRenderTasks[i];
 	}
 
 	SAFE_RELEASE(&m_pSbtStorage);
@@ -267,8 +268,11 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	m_pTempCommandInterface = new CommandInterface(m_pDevice5, COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
 	m_pTempCommandInterface->Reset(0);
 
+	// Resources for softshadows in blurTask/ShadowBufferTask
+	CreateSoftShadowLightResources();
 
 	createBlurTasks();
+	createShadowBufferRenderTasks();
 
 	initRenderTasks();
 
@@ -305,7 +309,69 @@ void Renderer::createBlurTasks()
 		m_BlurComputeTasks[i]->SetDescriptorHeaps(m_DescriptorHeaps);
 		m_BlurComputeTasks[i]->SetCommandInterface(m_pTempCommandInterface);
 	}
-	
+
+}
+
+void Renderer::createShadowBufferRenderTasks()
+{
+	UINT resolutionWidth = 0;
+	UINT resolutionHeight = 0;
+	m_pSwapChain->GetDX12SwapChain()->GetSourceSize(&resolutionWidth, &resolutionHeight);
+
+	/* Depth Pre-Pass rendering without stencil testing */
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsdShadowBufferPass = {};
+	gpsdShadowBufferPass.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	// RenderTarget
+	gpsdShadowBufferPass.NumRenderTargets = 0;
+	gpsdShadowBufferPass.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
+	// Depthstencil usage
+	gpsdShadowBufferPass.SampleDesc.Count = 1;
+	gpsdShadowBufferPass.SampleMask = UINT_MAX;
+	// Rasterizer behaviour
+	gpsdShadowBufferPass.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	gpsdShadowBufferPass.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+	gpsdShadowBufferPass.RasterizerState.DepthBias = 0;
+	gpsdShadowBufferPass.RasterizerState.DepthBiasClamp = 0.0f;
+	gpsdShadowBufferPass.RasterizerState.SlopeScaledDepthBias = 0.0f;
+	gpsdShadowBufferPass.RasterizerState.FrontCounterClockwise = false;
+	gpsdShadowBufferPass.RasterizerState.ForcedSampleCount = 1;
+
+	// Specify Blend descriptions
+	// copy of defaultRTdesc
+	D3D12_RENDER_TARGET_BLEND_DESC shadowBufferPassRTdesc = {
+		false, false,
+		D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
+		D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
+		D3D12_LOGIC_OP_NOOP, D3D12_COLOR_WRITE_ENABLE_ALL };
+	for (unsigned int i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
+		gpsdShadowBufferPass.BlendState.RenderTarget[i] = shadowBufferPassRTdesc;
+
+	// Depth descriptor
+
+	// DepthStencil
+	gpsdShadowBufferPass.DepthStencilState = {};
+	gpsdShadowBufferPass.DepthStencilState.DepthEnable = false;
+
+	std::vector<D3D12_GRAPHICS_PIPELINE_STATE_DESC*> gpsdShadowBufferPassVector;
+	gpsdShadowBufferPassVector.push_back(&gpsdShadowBufferPass);
+
+	for (int i = 0; i < MAX_POINT_LIGHTS; i++)
+	{
+		m_ShadowBufferRenderTasks[i] = new ShadowBufferRenderTask(
+			m_pDevice5,
+			m_pRootSignature,
+			L"ShadowBufferVertex.hlsl", L"ShadowBufferPixel.hlsl",
+			&gpsdShadowBufferPassVector,
+			L"ShadowBufferPassPSO");
+
+		m_ShadowBufferRenderTasks[i]->SetMainDepthStencil(m_pMainDepthStencil);
+		m_ShadowBufferRenderTasks[i]->SetSwapChain(m_pSwapChain);
+		m_ShadowBufferRenderTasks[i]->SetFullScreenQuadMesh(m_pFullScreenQuad);
+		m_ShadowBufferRenderTasks[i]->SetDescriptorHeaps(m_DescriptorHeaps);
+		m_ShadowBufferRenderTasks[i]->SetCommandInterface(m_pTempCommandInterface);
+		m_ShadowBufferRenderTasks[i]->CreateSlotInfo();
+	}
+
 }
 
 void Renderer::InitDXR()
@@ -328,8 +394,6 @@ void Renderer::InitDXR()
 	CreateShaderBindingTable();
 	m_DXTimer.Init(m_pDevice5, 1);
 	m_DXTimer.InitGPUFrequency(m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]);
-
-	CreateSoftShadowLightResources();
 }
 
 void Renderer::UpdateSceneToGPU()
@@ -563,12 +627,6 @@ void Renderer::ExecuteDXR()
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
 	cl->ResourceBarrier(1, &transition);
 
-	transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_PingPongR[0][currentLightTemporalBuffer]->GetResource()->GetID3D12Resource1(),
-		D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
-	cl->ResourceBarrier(1, &transition);
-
 	// Setup the raytracing task
 	D3D12_DISPATCH_RAYS_DESC desc = {};
 	// The layout of the SBT is as follows: ray generation shader, miss
@@ -624,12 +682,25 @@ void Renderer::ExecuteDXR()
 	DX12TEST(cl->DispatchRays(&desc), 0);
 
 
-
+	unsigned int softShadowBufferOffset;
 	// Write to shadowBuffer (average the light visibility from last 4 frames)
-	m_RenderTasks[RENDER_TASK_TYPE::SHADOW_BUFFER_PASS]->SetBackBufferIndex(0);
-	m_RenderTasks[RENDER_TASK_TYPE::SHADOW_BUFFER_PASS]->SetCommandInterfaceIndex(0);
-	//m_RenderTasks[RENDER_TASK_TYPE::SHADOW_BUFFER_PASS]->Execute();
+	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
+	{
+		m_ShadowBufferRenderTasks[i]->SetBackBufferIndex(0);
+		m_ShadowBufferRenderTasks[i]->SetCommandInterfaceIndex(0);
 
+		transition = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_pShadowBufferPingPong[i]->GetResource()->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
+
+		
+		softShadowHeapOffset = m_DhIndexSoftShadowsUAV + i*2;
+		softShadowBufferOffset = m_DhIndexSoftShadowsBuffer + i * 2;
+
+		m_ShadowBufferRenderTasks[i]->SetHeapOffsets(softShadowHeapOffset, softShadowBufferOffset);
+		m_ShadowBufferRenderTasks[i]->Execute();
+	}
 
 
 
@@ -644,11 +715,26 @@ void Renderer::ExecuteDXR()
 		D3D12_RESOURCE_STATE_COPY_SOURCE);	   // StateAfter
 	cl->ResourceBarrier(1, &transition);
 
-	transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_PingPongR[0][currentLightTemporalBuffer]->GetResource()->GetID3D12Resource1(),
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,		// StateBefore
-		D3D12_RESOURCE_STATE_COPY_SOURCE);	// StateAfter
-	cl->ResourceBarrier(1, &transition);
+	
+
+	
+
+	// Blur all light output
+	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
+	{
+		m_BlurComputeTasks[i]->SetBackBufferIndex(0);
+		m_BlurComputeTasks[i]->SetCommandInterfaceIndex(0);
+		m_BlurComputeTasks[i]->SetBlurPingPongResource(m_pShadowBufferPingPong[i]);
+		m_BlurComputeTasks[i]->Execute();
+
+
+		transition = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_pShadowBufferPingPong[i]->GetResource()->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,		// StateBefore
+			D3D12_RESOURCE_STATE_COPY_SOURCE);	// StateAfter
+
+	}
+
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
@@ -656,18 +742,10 @@ void Renderer::ExecuteDXR()
 		D3D12_RESOURCE_STATE_COPY_DEST); // StateAfter
 	cl->ResourceBarrier(1, &transition);
 
-	// Blur all light output
-	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
-	{
-		m_BlurComputeTasks[i]->SetBackBufferIndex(0);
-		m_BlurComputeTasks[i]->SetCommandInterfaceIndex(0);
-		m_BlurComputeTasks[i]->SetBlurPingPongResource(m_PingPongR[i][currentLightTemporalBuffer]);
-		m_BlurComputeTasks[i]->Execute();
-	}
-	
 	cl->CopyResource(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
-		m_PingPongR[0][currentLightTemporalBuffer]->GetResource()->GetID3D12Resource1());											// Source
+		m_pShadowBufferPingPong[0]->GetResource()->GetID3D12Resource1());											// Source
+
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
@@ -1609,6 +1687,9 @@ void Renderer::CreateSoftShadowLightResources()
 	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
 
 
+	// save index in heap
+	m_DhIndexSoftShadowsBuffer = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetNextDescriptorHeapIndex(0);
+
 	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
 	{
 		m_pShadowBufferResource[i] = new Resource(m_pDevice5, &resDesc, nullptr,
@@ -1949,64 +2030,6 @@ void Renderer::initRenderTasks()
 
 #pragma endregion DepthPrePass
 
-
-#pragma region ShadowBufferPass
-
-	/* Depth Pre-Pass rendering without stencil testing */
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsdShadowBufferPass = {};
-	gpsdShadowBufferPass.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	// RenderTarget
-	gpsdShadowBufferPass.NumRenderTargets = 0;
-	gpsdShadowBufferPass.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
-	// Depthstencil usage
-	gpsdShadowBufferPass.SampleDesc.Count = 1;
-	gpsdShadowBufferPass.SampleMask = UINT_MAX;
-	// Rasterizer behaviour
-	gpsdShadowBufferPass.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-	gpsdShadowBufferPass.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
-	gpsdShadowBufferPass.RasterizerState.DepthBias = 0;
-	gpsdShadowBufferPass.RasterizerState.DepthBiasClamp = 0.0f;
-	gpsdShadowBufferPass.RasterizerState.SlopeScaledDepthBias = 0.0f;
-	gpsdShadowBufferPass.RasterizerState.FrontCounterClockwise = false;
-
-	// Specify Blend descriptions
-	// copy of defaultRTdesc
-	D3D12_RENDER_TARGET_BLEND_DESC shadowBufferPassRTdesc = {
-		false, false,
-		D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
-		D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
-		D3D12_LOGIC_OP_NOOP, D3D12_COLOR_WRITE_ENABLE_ALL };
-	for (unsigned int i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
-		gpsdShadowBufferPass.BlendState.RenderTarget[i] = shadowBufferPassRTdesc;
-
-	// Depth descriptor
-	D3D12_DEPTH_STENCIL_DESC shadowBufferPassDsd = {};
-	shadowBufferPassDsd.DepthEnable = false;
-	shadowBufferPassDsd.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-	shadowBufferPassDsd.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
-
-	// DepthStencil
-	shadowBufferPassDsd.StencilEnable = false;
-	gpsdShadowBufferPass.DepthStencilState = shadowBufferPassDsd;
-	gpsdShadowBufferPass.DSVFormat = m_pMainDepthStencil->GetDSV()->GetDXGIFormat();
-
-	std::vector<D3D12_GRAPHICS_PIPELINE_STATE_DESC*> gpsdShadowBufferPassVector;
-	gpsdShadowBufferPassVector.push_back(&gpsdShadowBufferPass);
-
-	RenderTask* ShadowBufferPassRenderTask = new ShadowBufferRenderTask(
-		m_pDevice5,
-		m_pRootSignature,
-		L"DepthVertex.hlsl", L"DepthPixel.hlsl",
-		&gpsdShadowBufferPassVector,
-		L"DepthPrePassPSO");
-
-	ShadowBufferPassRenderTask->SetMainDepthStencil(m_pMainDepthStencil);
-	ShadowBufferPassRenderTask->SetSwapChain(m_pSwapChain);
-	ShadowBufferPassRenderTask->SetDescriptorHeaps(m_DescriptorHeaps);
-	((ShadowBufferRenderTask*)ShadowBufferPassRenderTask)->SetCommandInterface(m_pTempCommandInterface);
-
-#pragma endregion ShadowBufferPass
-
 #pragma region ForwardRendering
 	/* Forward rendering without stencil testing */
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsdForwardRender = {};
@@ -2084,7 +2107,6 @@ void Renderer::initRenderTasks()
 
 	/* ------------------------- DirectQueue Tasks ---------------------- */
 	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS] = DepthPrePassRenderTask;
-	m_RenderTasks[RENDER_TASK_TYPE::SHADOW_BUFFER_PASS] = ShadowBufferPassRenderTask;
 	m_RenderTasks[RENDER_TASK_TYPE::FORWARD_RENDER] = forwardRenderTask;
 
 	// Pushback in the order of execution

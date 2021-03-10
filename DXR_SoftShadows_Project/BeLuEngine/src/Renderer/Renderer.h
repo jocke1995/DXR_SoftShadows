@@ -9,8 +9,6 @@ class Window;
 #include "D3D12Timer.h"
 #include "DX12Tasks/CopyTask.h"
 
-#define NUM_TEMPORAL_BUFFERS 4
-
 // Renderer Engine
 class RootSignature;
 class SwapChain;
@@ -50,6 +48,7 @@ class Material;
 struct RenderComponent;
 struct ID3D12Resource1;
 class Shader;
+class ShadowBufferRenderTask;
 
 // Copy
 class CopyTask;
@@ -224,7 +223,8 @@ private:
 	// Blur task
 	BlurComputeTask* m_BlurComputeTasks[MAX_POINT_LIGHTS];
 	void createBlurTasks();
-
+	ShadowBufferRenderTask* m_ShadowBufferRenderTasks[MAX_POINT_LIGHTS];
+	void createShadowBufferRenderTasks();
 
 	ID3D12RootSignature* CreateRayGenSignature();
 	ID3D12RootSignature* CreateHitSignature();
@@ -256,6 +256,7 @@ private:
 	// DescriptorHeapIndexStart for the AS and outputBuffer
 	unsigned int m_DhIndexASOB = 0;
 	unsigned int m_DhIndexSoftShadowsUAV = 0;
+	unsigned int m_DhIndexSoftShadowsBuffer = 0;
 
 	void CreateShaderBindingTable();
 	void CreateSoftShadowLightResources();

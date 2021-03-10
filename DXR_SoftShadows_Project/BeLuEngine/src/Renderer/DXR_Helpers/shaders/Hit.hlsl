@@ -94,7 +94,7 @@ void ClosestHit(inout HitInfo payload, in BuiltInTriangleIntersectionAttributes 
         uint seed = initRand(frameSeed * d.x, frameSeed * d.y);
 
         float sumFactor = 0;
-        int spp = 1;
+        int spp = 8;
 
         for (int j = 0; j < spp; j++)
         {

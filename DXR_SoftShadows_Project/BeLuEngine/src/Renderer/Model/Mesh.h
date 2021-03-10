@@ -60,6 +60,7 @@ protected:
     friend class SceneManager;
 	friend class Model;
 	friend class CopyOnDemandTask;
+    friend class ShadowBufferRenderTask;
 
     std::vector<Vertex> m_Vertices;
     std::vector<unsigned int> m_Indices;

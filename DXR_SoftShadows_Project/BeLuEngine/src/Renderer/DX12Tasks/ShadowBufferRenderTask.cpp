@@ -18,10 +18,17 @@
 ShadowBufferRenderTask::ShadowBufferRenderTask(ID3D12Device5* device, RootSignature* rootSignature, const std::wstring& VSName, const std::wstring& PSName, std::vector<D3D12_GRAPHICS_PIPELINE_STATE_DESC*>* gpsds, const std::wstring& psoName)
 	: RenderTask(device, rootSignature, VSName, PSName, gpsds, psoName)
 {
+	m_CbPerObjectUploadResource = new Resource(
+		device,
+		sizeof(CB_PER_OBJECT_STRUCT),
+		RESOURCE_TYPE::UPLOAD,
+		L"CB_PER_OBJECT_UPLOAD_RESOURCE_ShadowBufferTask");
+	m_SlotInfo = {};
 }
 
 ShadowBufferRenderTask::~ShadowBufferRenderTask()
 {
+	delete m_CbPerObjectUploadResource;
 }
 
 void ShadowBufferRenderTask::SetCommandInterface(CommandInterface* inter)
@@ -29,41 +36,68 @@ void ShadowBufferRenderTask::SetCommandInterface(CommandInterface* inter)
 	m_pCommandInterfaceTemp = inter;
 }
 
+void ShadowBufferRenderTask::SetFullScreenQuadMesh(Mesh* fsq)
+{
+	m_pFullScreenQuadMesh = fsq;
+}
+
+void ShadowBufferRenderTask::CreateSlotInfo()
+{
+	// Mesh
+	m_NumIndices = m_pFullScreenQuadMesh->GetNumIndices();
+	m_SlotInfo.vertexDataIndex = m_pFullScreenQuadMesh->m_pVertexBufferSRV->GetDescriptorHeapIndex();
+
+	// Textures
+	// This is copy pasta from MergeRenderTask:
+	// The descriptorHeapIndices for the SRVs are currently put inside the textureSlots inside SlotInfo
+	//m_SlotInfo.textureAlbedo = m_SRVIndices[0];	// Blurred srv
+}
+
 void ShadowBufferRenderTask::Execute()
 {
 	ID3D12CommandAllocator* commandAllocator = m_pCommandInterfaceTemp->GetCommandAllocator(m_CommandInterfaceIndex);
 	ID3D12GraphicsCommandList5* commandList = m_pCommandInterfaceTemp->GetCommandList(m_CommandInterfaceIndex);
-	m_pCommandInterfaceTemp->Reset(m_CommandInterfaceIndex);
 
-	commandList->SetGraphicsRootSignature(m_pRootSig);
+	//m_pCommandInterfaceTemp->Reset(m_CommandInterfaceIndex);
+
+	// Get renderTarget
+	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(m_BackBufferIndex);
 
 	DescriptorHeap* descriptorHeap_CBV_UAV_SRV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV];
 	ID3D12DescriptorHeap* d3d12DescriptorHeap = descriptorHeap_CBV_UAV_SRV->GetID3D12DescriptorHeap();
 	commandList->SetDescriptorHeaps(1, &d3d12DescriptorHeap);
-
-	commandList->SetGraphicsRootDescriptorTable(RS::dtSRV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
-
-	DescriptorHeap* depthBufferHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::DSV];
-
 	commandList->SetPipelineState(m_PipelineStates[0]->GetPSO());
-	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	commandList->SetGraphicsRootSignature(m_pRootSig);
+	commandList->SetGraphicsRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0)); // Read mesh
+	commandList->SetGraphicsRootDescriptorTable(RS::dtSRV2, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_SoftShadowHeapOffset));
+	commandList->SetGraphicsRootDescriptorTable(RS::dtUAV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_SoftShadowBufferOffset));
 
-	// TODO: Get Depth viewport, rightnow use swapchain since the view and rect is the same.
-	const D3D12_VIEWPORT* viewPort = m_pSwapChain->GetRTV(0)->GetRenderView()->GetViewPort();
-	const D3D12_RECT* rect = m_pSwapChain->GetRTV(0)->GetRenderView()->GetScissorRect();
+	commandList->OMSetRenderTargets(0, NULL, false, nullptr);
+
+	const D3D12_VIEWPORT* viewPort = swapChainRenderTarget->GetRenderView()->GetViewPort();
+	const D3D12_RECT* rect = swapChainRenderTarget->GetRenderView()->GetScissorRect();
 	commandList->RSSetViewports(1, viewPort);
 	commandList->RSSetScissorRects(1, rect);
+	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	const DirectX::XMMATRIX* viewProjMatTrans = m_pCamera->GetViewProjectionTranposed();
 
-	unsigned int index = m_pDepthStencil->GetDSV()->GetDescriptorHeapIndex();
+	// Draw a fullscreen quad 
+	DirectX::XMMATRIX identityMatrix = DirectX::XMMatrixIdentity();
 
-	// Clear and set depth + stencil
-	D3D12_CPU_DESCRIPTOR_HANDLE dsh = depthBufferHeap->GetCPUHeapAt(index);
-	commandList->ClearDepthStencilView(dsh, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
-	commandList->OMSetRenderTargets(0, nullptr, false, &dsh);
+	// Create a CB_PER_OBJECT struct
+	CB_PER_OBJECT_STRUCT perObject = { identityMatrix, identityMatrix, m_SlotInfo };
 
-	
+	// Temp, should not SetData here
+	m_CbPerObjectUploadResource->SetData(&perObject);
+	commandList->SetGraphicsRootConstantBufferView(RS::CB_PER_OBJECT_CBV, m_CbPerObjectUploadResource->GetGPUVirtualAdress());
 
-	commandList->Close();
+	commandList->IASetIndexBuffer(m_pFullScreenQuadMesh->GetIndexBufferView());
+
+	commandList->DrawIndexedInstanced(m_NumIndices, 1, 0, 0, 0);
+}
+
+void ShadowBufferRenderTask::SetHeapOffsets(unsigned int pingPongOffset, unsigned int shadowBufferOffset)
+{
+	m_SoftShadowHeapOffset = pingPongOffset;
+	m_SoftShadowBufferOffset = shadowBufferOffset;
 }
