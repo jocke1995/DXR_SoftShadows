@@ -1,12 +1,11 @@
 #include "BeLuEngine.h"
+#include "TestScenes.h"
 
 #include <ios>
 
 Scene* TestScene(SceneManager* sm);
-Scene* SponzaScene(SceneManager* sm);
 
 void TestUpdateScene(SceneManager* sm, double dt);
-void SponzaUpdateScene(SceneManager* sm, double dt);
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 {
@@ -37,13 +36,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     AssetLoader* al = AssetLoader::Get();
 
     Scene* scene;
-    if (params.scene == L"test")
+    if (params.scene == L"teast")
     {
          scene = TestScene(sceneManager);
     }
     else
     {
-        scene = SponzaScene(sceneManager);
+        scene = SponzaScene3(sceneManager);
     }
 
     // Set scene
@@ -128,19 +127,15 @@ Scene* TestScene(SceneManager* sm)
     Scene* scene = sm->CreateScene("TestScene");
 
     component::CameraComponent* cc = nullptr;
+    component::InputComponent* ic = nullptr;
     component::ModelComponent* mc = nullptr;
     component::TransformComponent* tc = nullptr;
-    component::InputComponent* ic = nullptr;
-    component::BoundingBoxComponent* bbc = nullptr;
     component::PointLightComponent* plc = nullptr;
-    component::DirectionalLightComponent* dlc = nullptr;
-    component::SpotLightComponent* slc = nullptr;
 
     AssetLoader* al = AssetLoader::Get();
 
     // Get the models needed
     Model* sponza = al->LoadModel(L"../Vendor/Resources/Scenes/Sponza/textures_pbr/sponza.obj");
-    Model* floorModel = al->LoadModel(L"../Vendor/Resources/Models/FloorPBR/floor.obj");
     Model* sphereModel = al->LoadModel(L"../Vendor/Resources/Models/SpherePBR/ball.obj");
 
     /* ---------------------- Player ---------------------- */
@@ -150,18 +145,6 @@ Scene* TestScene(SceneManager* sm)
     scene->SetPrimaryCamera(cc->GetCamera());
     /* ---------------------- Player ---------------------- */
 
-    /* ---------------------- Floor ---------------------- */
-    entity = scene->AddEntity("floor");
-    mc = entity->AddComponent<component::ModelComponent>();
-    tc = entity->AddComponent<component::TransformComponent>();
-    
-    mc = entity->GetComponent<component::ModelComponent>();
-    mc->SetModel(floorModel);
-    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
-    tc = entity->GetComponent<component::TransformComponent>();
-    tc->GetTransform()->SetScale(150, 1, 150);
-    tc->GetTransform()->SetPosition(0.0f, -10.0f, 0.0f);
-    /* ---------------------- Floor ---------------------- */
 
     entity = scene->AddEntity("sponza");
     mc = entity->AddComponent<component::ModelComponent>();
@@ -172,37 +155,35 @@ Scene* TestScene(SceneManager* sm)
     tc->GetTransform()->SetPosition({ 0.0f, 0.0f, 0.0f });
     tc->GetTransform()->SetScale(0.3f, 0.3f, 0.3f);
 
-    /* ---------------------- Sphere ---------------------- */
+    /* ---------------------- Spheres ---------------------- */
     entity = scene->AddEntity("sphere1");
     mc = entity->AddComponent<component::ModelComponent>();
     tc = entity->AddComponent<component::TransformComponent>();
-    
+
     mc->SetModel(sphereModel);
     mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
     tc->GetTransform()->SetScale(1.0f);
     tc->GetTransform()->SetPosition(5, 15, 5);
-    
+
     entity = scene->AddEntity("sphere2");
     mc = entity->AddComponent<component::ModelComponent>();
     tc = entity->AddComponent<component::TransformComponent>();
-    
+
     mc->SetModel(sphereModel);
     mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
     tc->GetTransform()->SetScale(1.0f);
     tc->GetTransform()->SetPosition(5, 25, 10);
-    
+
     entity = scene->AddEntity("sphere3");
     mc = entity->AddComponent<component::ModelComponent>();
     tc = entity->AddComponent<component::TransformComponent>();
-    
+
     mc->SetModel(sphereModel);
     mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
     tc->GetTransform()->SetScale(1.0f);
     tc->GetTransform()->SetPosition(5, 35, 15);
-    /* ---------------------- Sphere ---------------------- */
+    /* ---------------------- Spheres ---------------------- */
 
-    
-    //
     /* ---------------------- PointLight1 ---------------------- */
     entity = scene->AddEntity("pointLight1");
     plc = entity->AddComponent<component::PointLightComponent>();
@@ -210,167 +191,13 @@ Scene* TestScene(SceneManager* sm)
     plc->SetPosition({ -26.42f, 63.0776f, 14.19f });
     /* ---------------------- PointLight1 ---------------------- */
     
-    /* ---------------------- PointLight2 ---------------------- */
-    //entity = scene->AddEntity("pointLight2");
-    //plc = entity->AddComponent<component::PointLightComponent>();
-    //plc->SetColor({ 0.3f, 0.3f, 0.3f });
-    //plc->SetPosition({ -10.895118f, 56.448929f, 150.611298f });
-    ///* ---------------------- PointLight2 ---------------------- */
-    //
-    ///* ---------------------- PointLight2 ---------------------- */
-    //entity = scene->AddEntity("pointLight3");
-    //plc = entity->AddComponent<component::PointLightComponent>();
-    //plc->SetColor({ 0.3f, 0.3f, 0.3f });
-    //plc->SetPosition({ -150.895118f, 56.448929f, 150.611298f });
-    ///* ---------------------- PointLight2 ---------------------- */
-    //
-    //
-    ///* ---------------------- PointLight2 ---------------------- */
-    //entity = scene->AddEntity("pointLight4");
-    //plc = entity->AddComponent<component::PointLightComponent>();
-    //plc->SetColor({ 0.3f, 0.3f, 0.3f });
-    //plc->SetPosition({ 150.895118f, 56.448929f, 150.611298f });
-    /* ---------------------- PointLight2 ---------------------- */
 
-    // Todo: Gives wierd round circles below light?? changes when modifying the lightRadius (cone width)
-    /* ---------------------- PointLight3 ---------------------- */
-    //entity = scene->AddEntity("pointLight3");
-    //plc = entity->AddComponent<component::PointLightComponent>();
-    //plc->SetColor({ 0.9f, 0.9f, 0.9f });
-    //plc->SetPosition({ 346.4f, 631.f, -106.8f});
-    /* ---------------------- PointLight3 ---------------------- */
     /* ---------------------- Update Function ---------------------- */
     scene->SetUpdateScene(&TestUpdateScene);
     return scene;
 }
 
-Scene* SponzaScene(SceneManager* sm)
-{
-    // Create Scene
-    Scene* scene = sm->CreateScene("SponzaScene");
-
-    component::CameraComponent* cc = nullptr;
-    component::ModelComponent* mc = nullptr;
-    component::TransformComponent* tc = nullptr;
-    component::InputComponent* ic = nullptr;
-    component::BoundingBoxComponent* bbc = nullptr;
-    component::PointLightComponent* plc = nullptr;
-    component::DirectionalLightComponent* dlc = nullptr;
-    component::SpotLightComponent* slc = nullptr;
-
-    AssetLoader* al = AssetLoader::Get();
-
-    // Get the models needed
-    Model* sponza = al->LoadModel(L"../Vendor/Resources/Scenes/Sponza/textures_pbr/sponza.obj");
-    Model* floorModel = al->LoadModel(L"../Vendor/Resources/Models/FloorPBR/floor.obj");
-    Model* sphereModel = al->LoadModel(L"../Vendor/Resources/Models/SpherePBR/ball.obj");
-
-    /* ---------------------- Player ---------------------- */
-    Entity* entity = (scene->AddEntity("player"));
-    cc = entity->AddComponent<component::CameraComponent>(CAMERA_TYPE::PERSPECTIVE, true);
-    ic = entity->AddComponent<component::InputComponent>();
-    scene->SetPrimaryCamera(cc->GetCamera());
-    /* ---------------------- Player ---------------------- */
-
-    /* ---------------------- Sponza ---------------------- */
-    entity = scene->AddEntity("sponza");
-    mc = entity->AddComponent<component::ModelComponent>();
-    tc = entity->AddComponent<component::TransformComponent>();
-    
-    mc->SetModel(sponza);
-    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
-    tc->GetTransform()->SetPosition({ 0.0f, 0.0f, 0.0f });
-    tc->GetTransform()->SetScale(0.3f, 0.3f, 0.3f);
-
-    entity = scene->AddEntity("sponza1");
-    mc = entity->AddComponent<component::ModelComponent>();
-    tc = entity->AddComponent<component::TransformComponent>();
-
-    mc->SetModel(sponza);
-    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
-    tc->GetTransform()->SetPosition({ 0.0f, 0.0f, -1000.0f });
-    tc->GetTransform()->SetScale(0.3f, 0.3f, 0.3f);
-    /* ---------------------- Sponza ---------------------- */
-
-    /* ---------------------- Floor ---------------------- */
-    //entity = scene->AddEntity("floor");
-    //mc = entity->AddComponent<component::ModelComponent>();
-    //tc = entity->AddComponent<component::TransformComponent>();
-    //
-    //mc = entity->GetComponent<component::ModelComponent>();
-    //mc->SetModel(floorModel);
-    //mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
-    //tc = entity->GetComponent<component::TransformComponent>();
-    //tc->GetTransform()->SetScale(1000, 1, 1000);
-    //tc->GetTransform()->SetPosition(0.0f, -30.0f, 0.0f);
-    /* ---------------------- Floor ---------------------- */
-
-
-    /* ---------------------- Braziers ---------------------- */
-    //entity = scene->AddEntity("Brazier0");
-    //mc = entity->AddComponent<component::ModelComponent>();
-    //tc = entity->AddComponent<component::TransformComponent>();
-    //plc = entity->AddComponent<component::PointLightComponent>(FLAG_LIGHT::USE_TRANSFORM_POSITION);
-    //
-    //mc->SetModel(sphereModel);
-    //mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
-    //tc->GetTransform()->SetScale(0.3f);
-    //tc->GetTransform()->SetPosition({  0.0f, 10.0f, 0.0f });
-    //plc->SetColor({ 0.0f, 0.0f, 15.0f });
-
-    //entity = scene->AddEntity("Brazier1");
-    //mc = entity->AddComponent<component::ModelComponent>();
-    //tc = entity->AddComponent<component::TransformComponent>();
-    //plc = entity->AddComponent<component::PointLightComponent>(FLAG_LIGHT::USE_TRANSFORM_POSITION);
-    //
-    //mc->SetModel(sphereModel);
-    //mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
-    //tc->GetTransform()->SetScale(0.3f);
-    //tc->GetTransform()->SetPosition({ -185.0f, 40.0f, -42.6f });
-    //plc->SetColor({ 10.0f, 0.0f, 10.0f });
-    //
-    //entity = scene->AddEntity("Brazier2");
-    //mc = entity->AddComponent<component::ModelComponent>();
-    //tc = entity->AddComponent<component::TransformComponent>();
-    //plc = entity->AddComponent<component::PointLightComponent>(FLAG_LIGHT::USE_TRANSFORM_POSITION);
-    //
-    //mc->SetModel(sphereModel);
-    //mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
-    //tc->GetTransform()->SetScale(0.3f);
-    //tc->GetTransform()->SetPosition({ 146.0f, 40.0f, 66.0f });
-    //plc->SetColor({ 0.0f, 15.0f, 0.0f });
-    //
-    //entity = scene->AddEntity("Brazier3");
-    //mc = entity->AddComponent<component::ModelComponent>();
-    //tc = entity->AddComponent<component::TransformComponent>();
-    //plc = entity->AddComponent<component::PointLightComponent>(FLAG_LIGHT::USE_TRANSFORM_POSITION);
-    //
-    //mc->SetModel(sphereModel);
-    //mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
-    //tc->GetTransform()->SetScale(0.3f);
-    //tc->GetTransform()->SetPosition({ 146.0f, 40.0f, -42.6f });
-    //plc->SetColor({ 15.0f, 0.0f, 0.0f });
-    /* ---------------------- Braziers ---------------------- */
-
-    /* ---------------------- Update Function ---------------------- */
-    scene->SetUpdateScene(&SponzaUpdateScene);
-    return scene;
-}
-
 void TestUpdateScene(SceneManager* sm, double dt)
 {
-    //static float intensity = 0.0f;
-    //component::SpotLightComponent* slc = sm->GetScene("TestScene")->GetEntity("spotLightDynamic")->GetComponent<component::SpotLightComponent>();
-    //float col = abs(sinf(intensity)) * 30;
-    //
-    //slc->SetColor({ col * 0.2f, 0.0f, col });
-    //
-    //intensity += 0.5f * dt;
-}
-
-void SponzaUpdateScene(SceneManager* sm, double dt)
-{
-    //static double a = 0.0f;
-    //a += 0.001f;
-    //sm->GetScene("SponzaScene")->GetEntity("sponza")->GetComponent<component::TransformComponent>()->GetTransform()->SetRotationZ(abs(sinf(a)));
+    
 }
