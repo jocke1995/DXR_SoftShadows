@@ -36,13 +36,29 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     AssetLoader* al = AssetLoader::Get();
 
     Scene* scene;
-    if (params.scene == L"taest")
+    if (params.scene == L"test")
     {
          scene = TestScene(sceneManager);
     }
     else
     {
-        scene = SponzaDragonsScene4(sceneManager);
+        // Sponza test scenes
+        //scene = SponzaScene1(sceneManager);
+        //scene = SponzaScene2(sceneManager);
+        //scene = SponzaScene3(sceneManager);
+        //scene = SponzaScene4(sceneManager);
+        
+        // Dragon test scenes
+        //scene = DragonScene1(sceneManager);
+        //scene = DragonScene2(sceneManager);
+        //scene = DragonScene3(sceneManager);
+        //scene = DragonScene4(sceneManager);
+        
+        // Sponza + dragons test scenes
+        //scene = SponzaDragonsScene1(sceneManager);
+        //scene = SponzaDragonsScene2(sceneManager);
+        //scene = SponzaDragonsScene3(sceneManager);
+        //scene = SponzaDragonsScene4(sceneManager);
     }
 
     // Set scene

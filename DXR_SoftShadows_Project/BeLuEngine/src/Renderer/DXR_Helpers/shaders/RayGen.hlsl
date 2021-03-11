@@ -113,7 +113,7 @@ void RayGen()
                 ray,
                 shadowPayload);
 
-            factor = shadowPayload.isHit ? 0.1 : 1.0;
+            factor = shadowPayload.isHit ? 0.0 : 1.0;
             sumFactor += factor;
         }
 

@@ -39,7 +39,6 @@ Scene* SponzaScene1(SceneManager* sm)
 
     // Get the models needed
     Model* sponza = al->LoadModel(L"../Vendor/Resources/Scenes/Sponza/textures_pbr/sponza.obj");
-    Model* sphereModel = al->LoadModel(L"../Vendor/Resources/Models/SpherePBR/ball.obj");
 
     /* ---------------------- Player ---------------------- */
     Entity* entity = (scene->AddEntity("player"));
@@ -98,7 +97,6 @@ Scene* SponzaScene2(SceneManager* sm)
 
     // Get the models needed
     Model* sponza = al->LoadModel(L"../Vendor/Resources/Scenes/Sponza/textures_pbr/sponza.obj");
-    Model* sphereModel = al->LoadModel(L"../Vendor/Resources/Models/SpherePBR/ball.obj");
 
     /* ---------------------- Player ---------------------- */
     Entity* entity = (scene->AddEntity("player"));
@@ -164,7 +162,6 @@ Scene* SponzaScene3(SceneManager* sm)
 
     // Get the models needed
     Model* sponza = al->LoadModel(L"../Vendor/Resources/Scenes/Sponza/textures_pbr/sponza.obj");
-    Model* sphereModel = al->LoadModel(L"../Vendor/Resources/Models/SpherePBR/ball.obj");
 
     /* ---------------------- Player ---------------------- */
     Entity* entity = (scene->AddEntity("player"));
@@ -244,7 +241,6 @@ Scene* SponzaScene4(SceneManager* sm)
 
     // Get the models needed
     Model* sponza = al->LoadModel(L"../Vendor/Resources/Scenes/Sponza/textures_pbr/sponza.obj");
-    Model* sphereModel = al->LoadModel(L"../Vendor/Resources/Models/SpherePBR/ball.obj");
 
     /* ---------------------- Player ---------------------- */
     Entity* entity = (scene->AddEntity("player"));
@@ -325,6 +321,322 @@ Scene* SponzaScene4(SceneManager* sm)
     return scene;
 }
 
+Scene* DragonScene1(SceneManager* sm)
+{
+    // Create Scene
+    Scene* scene = sm->CreateScene("SponzaScene");
+
+    component::CameraComponent* cc = nullptr;
+    component::InputComponent* ic = nullptr;
+    component::ModelComponent* mc = nullptr;
+    component::TransformComponent* tc = nullptr;
+    component::PointLightComponent* plc = nullptr;
+
+    AssetLoader* al = AssetLoader::Get();
+
+    // Get the models needed
+    Model* dragonModel = al->LoadModel(L"../Vendor/Resources/Models/StanfordDragon/drag.obj");
+    Model* floorModel = al->LoadModel(L"../Vendor/Resources/Models/FloorPBR/floor.obj");
+
+    /* ---------------------- Player ---------------------- */
+    Entity* entity = (scene->AddEntity("player"));
+    cc = entity->AddComponent<component::CameraComponent>(CAMERA_TYPE::PERSPECTIVE, true);
+    ic = entity->AddComponent<component::InputComponent>();
+    scene->SetPrimaryCamera(cc->GetCamera());
+    /* ---------------------- Player ---------------------- */
+
+    /* ---------------------- Floor ---------------------- */
+    entity = scene->AddEntity("floor");
+    mc = entity->AddComponent<component::ModelComponent>();
+    tc = entity->AddComponent<component::TransformComponent>();
+
+    mc->SetModel(floorModel);
+    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
+    tc->GetTransform()->SetPosition({ 0.0f, 0.0f, 0.0f });
+    tc->GetTransform()->SetScale(200.0f, 1.0f, 200.0f);
+    /* ---------------------- Floor ---------------------- */
+
+    /* ---------------------- Stanford Dragon ---------------------- */
+    entity = scene->AddEntity("dragon1");
+    mc = entity->AddComponent<component::ModelComponent>();
+    tc = entity->AddComponent<component::TransformComponent>();
+
+    mc->SetModel(dragonModel);
+    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
+    tc->GetTransform()->SetScale(250.0f);
+    tc->GetTransform()->SetRotationY(PI / 2);
+    tc->GetTransform()->SetRotationX(-PI / 2);
+    tc->GetTransform()->SetPosition(0.0f, 0.0f, 0.0f);
+    /* ---------------------- Stanford Dragon ---------------------- */
+
+    /* ---------------------- PointLight1 ---------------------- */
+    entity = scene->AddEntity("pointLight1");
+    plc = entity->AddComponent<component::PointLightComponent>();
+    plc->SetColor({ 0.3f, 0.3f, 0.3f });
+    plc->SetPosition({ -43.3f, 64.1f, 0.0f});
+    /* ---------------------- PointLight1 ---------------------- */
+
+    /* ---------------------- Update Function ---------------------- */
+    scene->SetUpdateScene(&EmptyUpdateScene);
+    return scene;
+}
+
+Scene* DragonScene2(SceneManager* sm)
+{
+    // Create Scene
+    Scene* scene = sm->CreateScene("SponzaScene");
+
+    component::CameraComponent* cc = nullptr;
+    component::InputComponent* ic = nullptr;
+    component::ModelComponent* mc = nullptr;
+    component::TransformComponent* tc = nullptr;
+    component::PointLightComponent* plc = nullptr;
+
+    AssetLoader* al = AssetLoader::Get();
+
+    // Get the models needed
+    Model* dragonModel = al->LoadModel(L"../Vendor/Resources/Models/StanfordDragon/drag.obj");
+    Model* floorModel = al->LoadModel(L"../Vendor/Resources/Models/FloorPBR/floor.obj");
+
+    /* ---------------------- Player ---------------------- */
+    Entity* entity = (scene->AddEntity("player"));
+    cc = entity->AddComponent<component::CameraComponent>(CAMERA_TYPE::PERSPECTIVE, true);
+    ic = entity->AddComponent<component::InputComponent>();
+    scene->SetPrimaryCamera(cc->GetCamera());
+    /* ---------------------- Player ---------------------- */
+
+    /* ---------------------- Floor ---------------------- */
+    entity = scene->AddEntity("floor");
+    mc = entity->AddComponent<component::ModelComponent>();
+    tc = entity->AddComponent<component::TransformComponent>();
+
+    mc->SetModel(floorModel);
+    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
+    tc->GetTransform()->SetPosition({ 0.0f, 0.0f, 0.0f });
+    tc->GetTransform()->SetScale(200.0f, 1.0f, 200.0f);
+    /* ---------------------- Floor ---------------------- */
+
+    /* ---------------------- Stanford Dragon ---------------------- */
+    entity = scene->AddEntity("dragon1");
+    mc = entity->AddComponent<component::ModelComponent>();
+    tc = entity->AddComponent<component::TransformComponent>();
+
+    mc->SetModel(dragonModel);
+    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
+    tc->GetTransform()->SetScale(250.0f);
+    tc->GetTransform()->SetRotationY(PI / 2);
+    tc->GetTransform()->SetRotationX(-PI / 2);
+    tc->GetTransform()->SetPosition(0.0f, 0.0f, 0.0f);
+    /* ---------------------- Stanford Dragon ---------------------- */
+
+    /* ---------------------- PointLight1 ---------------------- */
+    entity = scene->AddEntity("pointLight1");
+    plc = entity->AddComponent<component::PointLightComponent>();
+    plc->SetColor({ 0.3f, 0.3f, 0.3f });
+    plc->SetPosition({ -43.3f, 64.1f, 0.0f });
+    /* ---------------------- PointLight1 ---------------------- */
+
+    /* ---------------------- PointLight2 ---------------------- */
+    entity = scene->AddEntity("pointLight2");
+    plc = entity->AddComponent<component::PointLightComponent>();
+    plc->SetColor({ 0.3f, 0.3f, 0.3f });
+    plc->SetPosition({ 47.7, 64.1f, 0.0f });
+    /* ---------------------- PointLight2 ---------------------- */
+
+    /* ---------------------- Update Function ---------------------- */
+    scene->SetUpdateScene(&EmptyUpdateScene);
+    return scene;
+}
+
+Scene* DragonScene3(SceneManager* sm)
+{
+    // Create Scene
+    Scene* scene = sm->CreateScene("SponzaScene");
+
+    component::CameraComponent* cc = nullptr;
+    component::InputComponent* ic = nullptr;
+    component::ModelComponent* mc = nullptr;
+    component::TransformComponent* tc = nullptr;
+    component::PointLightComponent* plc = nullptr;
+
+    AssetLoader* al = AssetLoader::Get();
+
+    // Get the models needed
+    Model* dragonModel = al->LoadModel(L"../Vendor/Resources/Models/StanfordDragon/drag.obj");
+    Model* floorModel = al->LoadModel(L"../Vendor/Resources/Models/FloorPBR/floor.obj");
+
+    /* ---------------------- Player ---------------------- */
+    Entity* entity = (scene->AddEntity("player"));
+    cc = entity->AddComponent<component::CameraComponent>(CAMERA_TYPE::PERSPECTIVE, true);
+    ic = entity->AddComponent<component::InputComponent>();
+    scene->SetPrimaryCamera(cc->GetCamera());
+    /* ---------------------- Player ---------------------- */
+
+    /* ---------------------- Floor ---------------------- */
+    entity = scene->AddEntity("floor");
+    mc = entity->AddComponent<component::ModelComponent>();
+    tc = entity->AddComponent<component::TransformComponent>();
+
+    mc->SetModel(floorModel);
+    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
+    tc->GetTransform()->SetPosition({ 0.0f, 0.0f, 0.0f });
+    tc->GetTransform()->SetScale(200.0f, 1.0f, 200.0f);
+    /* ---------------------- Floor ---------------------- */
+
+    /* ---------------------- Stanford Dragon ---------------------- */
+    entity = scene->AddEntity("dragon1");
+    mc = entity->AddComponent<component::ModelComponent>();
+    tc = entity->AddComponent<component::TransformComponent>();
+
+    mc->SetModel(dragonModel);
+    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
+    tc->GetTransform()->SetScale(250.0f);
+    tc->GetTransform()->SetRotationY(PI / 2);
+    tc->GetTransform()->SetRotationX(-PI / 2);
+    tc->GetTransform()->SetPosition(0.0f, 0.0f, 0.0f);
+    /* ---------------------- Stanford Dragon ---------------------- */
+
+    /* ---------------------- PointLight1 ---------------------- */
+    entity = scene->AddEntity("pointLight1");
+    plc = entity->AddComponent<component::PointLightComponent>();
+    plc->SetColor({ 0.3f, 0.3f, 0.3f });
+    plc->SetPosition({ -43.3f, 64.1f, 0.0f });
+    /* ---------------------- PointLight1 ---------------------- */
+
+    /* ---------------------- PointLight2 ---------------------- */
+    entity = scene->AddEntity("pointLight2");
+    plc = entity->AddComponent<component::PointLightComponent>();
+    plc->SetColor({ 0.3f, 0.3f, 0.3f });
+    plc->SetPosition({ 47.7, 64.1f, 0.0f });
+    /* ---------------------- PointLight2 ---------------------- */
+
+    /* ---------------------- PointLight3 ---------------------- */
+    entity = scene->AddEntity("pointLight3");
+    plc = entity->AddComponent<component::PointLightComponent>();
+    plc->SetColor({ 0.3f, 0.3f, 0.3f });
+    plc->SetPosition({ 0.0f, 64.1f, -40.0f });
+    /* ---------------------- PointLight3 ---------------------- */
+
+    /* ---------------------- PointLight4 ---------------------- */
+    entity = scene->AddEntity("pointLight4");
+    plc = entity->AddComponent<component::PointLightComponent>();
+    plc->SetColor({ 0.3f, 0.3f, 0.3f });
+    plc->SetPosition({ 0.0f, 64.1f, 44.6f });
+    /* ---------------------- PointLight4 ---------------------- */
+
+    /* ---------------------- Update Function ---------------------- */
+    scene->SetUpdateScene(&EmptyUpdateScene);
+    return scene;
+}
+
+Scene* DragonScene4(SceneManager* sm)
+{
+    // Create Scene
+    Scene* scene = sm->CreateScene("SponzaScene");
+
+    component::CameraComponent* cc = nullptr;
+    component::InputComponent* ic = nullptr;
+    component::ModelComponent* mc = nullptr;
+    component::TransformComponent* tc = nullptr;
+    component::PointLightComponent* plc = nullptr;
+
+    AssetLoader* al = AssetLoader::Get();
+
+    // Get the models needed
+    Model* dragonModel = al->LoadModel(L"../Vendor/Resources/Models/StanfordDragon/drag.obj");
+    Model* floorModel = al->LoadModel(L"../Vendor/Resources/Models/FloorPBR/floor.obj");
+
+    /* ---------------------- Player ---------------------- */
+    Entity* entity = (scene->AddEntity("player"));
+    cc = entity->AddComponent<component::CameraComponent>(CAMERA_TYPE::PERSPECTIVE, true);
+    ic = entity->AddComponent<component::InputComponent>();
+    scene->SetPrimaryCamera(cc->GetCamera());
+    /* ---------------------- Player ---------------------- */
+
+    /* ---------------------- Floor ---------------------- */
+    entity = scene->AddEntity("floor");
+    mc = entity->AddComponent<component::ModelComponent>();
+    tc = entity->AddComponent<component::TransformComponent>();
+
+    mc->SetModel(floorModel);
+    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
+    tc->GetTransform()->SetPosition({ 0.0f, 0.0f, 0.0f });
+    tc->GetTransform()->SetScale(200.0f, 1.0f, 200.0f);
+    /* ---------------------- Floor ---------------------- */
+
+    /* ---------------------- Stanford Dragon ---------------------- */
+    entity = scene->AddEntity("dragon1");
+    mc = entity->AddComponent<component::ModelComponent>();
+    tc = entity->AddComponent<component::TransformComponent>();
+
+    mc->SetModel(dragonModel);
+    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
+    tc->GetTransform()->SetScale(250.0f);
+    tc->GetTransform()->SetRotationY(PI / 2);
+    tc->GetTransform()->SetRotationX(-PI / 2);
+    tc->GetTransform()->SetPosition(0.0f, 0.0f, 0.0f);
+    /* ---------------------- Stanford Dragon ---------------------- */
+
+    /* ---------------------- PointLight1 ---------------------- */
+    entity = scene->AddEntity("pointLight1");
+    plc = entity->AddComponent<component::PointLightComponent>();
+    plc->SetColor({ 0.3f, 0.3f, 0.3f });
+    plc->SetPosition({ -43.3f, 64.1f, 0.0f });
+    /* ---------------------- PointLight1 ---------------------- */
+
+    /* ---------------------- PointLight2 ---------------------- */
+    entity = scene->AddEntity("pointLight2");
+    plc = entity->AddComponent<component::PointLightComponent>();
+    plc->SetColor({ 0.3f, 0.3f, 0.3f });
+    plc->SetPosition({ 47.7, 64.1f, 0.0f });
+    /* ---------------------- PointLight2 ---------------------- */
+
+    /* ---------------------- PointLight3 ---------------------- */
+    entity = scene->AddEntity("pointLight3");
+    plc = entity->AddComponent<component::PointLightComponent>();
+    plc->SetColor({ 0.3f, 0.3f, 0.3f });
+    plc->SetPosition({ 0.0f, 64.1f, -40.0f });
+    /* ---------------------- PointLight3 ---------------------- */
+
+    /* ---------------------- PointLight4 ---------------------- */
+    entity = scene->AddEntity("pointLight4");
+    plc = entity->AddComponent<component::PointLightComponent>();
+    plc->SetColor({ 0.3f, 0.3f, 0.3f });
+    plc->SetPosition({ 0.0f, 64.1f, 31.5f });
+    /* ---------------------- PointLight4 ---------------------- */
+
+    /* ---------------------- PointLight5 ---------------------- */
+    entity = scene->AddEntity("pointLight5");
+    plc = entity->AddComponent<component::PointLightComponent>();
+    plc->SetColor({ 0.3f, 0.3f, 0.3f });
+    plc->SetPosition({ 47.7, 64.1f, -40.0f });
+    /* ---------------------- PointLight5 ---------------------- */
+
+    /* ---------------------- PointLight6 ---------------------- */
+    entity = scene->AddEntity("pointLight6");
+    plc = entity->AddComponent<component::PointLightComponent>();
+    plc->SetColor({ 0.3f, 0.3f, 0.3f });
+    plc->SetPosition({ -43.3f, 64.1f, -40.0f });
+    /* ---------------------- PointLight6 ---------------------- */
+
+    /* ---------------------- PointLight7 ---------------------- */
+    entity = scene->AddEntity("pointLight7");
+    plc = entity->AddComponent<component::PointLightComponent>();
+    plc->SetColor({ 0.3f, 0.3f, 0.3f });
+    plc->SetPosition({ -43.3f, 64.1f, 31.5f });
+    /* ---------------------- PointLight7 ---------------------- */
+
+    /* ---------------------- PointLight8 ---------------------- */
+    entity = scene->AddEntity("pointLight8");
+    plc = entity->AddComponent<component::PointLightComponent>();
+    plc->SetColor({ 0.3f, 0.3f, 0.3f });
+    plc->SetPosition({ 47.7, 64.1f, 31.5f });
+    /* ---------------------- PointLight8 ---------------------- */
+
+    /* ---------------------- Update Function ---------------------- */
+    scene->SetUpdateScene(&EmptyUpdateScene);
+    return scene;
+}
 
 /*
 1 Light in the middle of the scene
@@ -354,7 +666,6 @@ Scene* SponzaDragonsScene1(SceneManager* sm)
     // Get the models needed
     Model* dragonModel = al->LoadModel(L"../Vendor/Resources/Models/StanfordDragon/drag.obj");
     Model* sponza = al->LoadModel(L"../Vendor/Resources/Scenes/Sponza/textures_pbr/sponza.obj");
-    Model* sphereModel = al->LoadModel(L"../Vendor/Resources/Models/SpherePBR/ball.obj");
 
     /* ---------------------- Player ---------------------- */
     Entity* entity = (scene->AddEntity("player"));
@@ -460,7 +771,6 @@ Scene* SponzaDragonsScene2(SceneManager* sm)
     // Get the models needed
     Model* dragonModel = al->LoadModel(L"../Vendor/Resources/Models/StanfordDragon/drag.obj");
     Model* sponza = al->LoadModel(L"../Vendor/Resources/Scenes/Sponza/textures_pbr/sponza.obj");
-    Model* sphereModel = al->LoadModel(L"../Vendor/Resources/Models/SpherePBR/ball.obj");
 
     /* ---------------------- Player ---------------------- */
     Entity* entity = (scene->AddEntity("player"));
@@ -573,7 +883,6 @@ Scene* SponzaDragonsScene3(SceneManager* sm)
     // Get the models needed
     Model* dragonModel = al->LoadModel(L"../Vendor/Resources/Models/StanfordDragon/drag.obj");
     Model* sponza = al->LoadModel(L"../Vendor/Resources/Scenes/Sponza/textures_pbr/sponza.obj");
-    Model* sphereModel = al->LoadModel(L"../Vendor/Resources/Models/SpherePBR/ball.obj");
 
     /* ---------------------- Player ---------------------- */
     Entity* entity = (scene->AddEntity("player"));
@@ -700,7 +1009,6 @@ Scene* SponzaDragonsScene4(SceneManager* sm)
     // Get the models needed
     Model* dragonModel = al->LoadModel(L"../Vendor/Resources/Models/StanfordDragon/drag.obj");
     Model* sponza = al->LoadModel(L"../Vendor/Resources/Scenes/Sponza/textures_pbr/sponza.obj");
-    Model* sphereModel = al->LoadModel(L"../Vendor/Resources/Models/SpherePBR/ball.obj");
 
     /* ---------------------- Player ---------------------- */
     Entity* entity = (scene->AddEntity("player"));
