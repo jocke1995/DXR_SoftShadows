@@ -671,7 +671,6 @@ void Renderer::ExecuteDXR()
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
 		1,
 		&m_DXRCpftCommandLists[commandInterfaceIndex]);
-
 	
 	// Depth pre-pass
 	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
@@ -688,6 +687,9 @@ void Renderer::ExecuteDXR()
 
 	m_pTempCommandInterface->Reset(0);
 	auto cl = m_pTempCommandInterface->GetCommandList(0);
+
+
+#pragma region RayTrace
 
 	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
 	ID3D12Resource1* swapChainResource = swapChainRenderTarget->GetResource()->GetID3D12Resource1();
@@ -729,8 +731,6 @@ void Renderer::ExecuteDXR()
 	desc.RayGenerationShaderRecord.SizeInBytes = rayGenerationSectionSizeInBytes;
 
 
-
-
 	// The miss shaders are in the second SBT section, right after the ray
 	// generation shader. We have one miss shader for the camera rays and one
 	// for the shadow rays, so this section has a size of 2*m_sbtEntrySize. We
@@ -742,8 +742,6 @@ void Renderer::ExecuteDXR()
 	desc.MissShaderTable.StrideInBytes = m_SbtHelper.GetMissEntrySize();
 
 
-
-
 	// The hit groups section start after the miss shaders.
 	uint32_t hitGroupsSectionSize = m_SbtHelper.GetHitGroupSectionSize();
 	desc.HitGroupTable.StartAddress = m_pSbtStorage->GetGPUVirtualAddress() +
@@ -753,12 +751,10 @@ void Renderer::ExecuteDXR()
 	desc.HitGroupTable.StrideInBytes = m_SbtHelper.GetHitGroupEntrySize();
 
 
-
 	// Dimensions of the image to render, identical to a kernel launch dimension
 	desc.Width = m_pWindow->GetScreenWidth();
 	desc.Height = m_pWindow->GetScreenHeight();
 	desc.Depth = 1;
-
 
 
 	// Bind the raytracing pipeline
@@ -766,26 +762,20 @@ void Renderer::ExecuteDXR()
 	// Dispatch the rays and write to the raytracing output
 
 
-
-
-
 	DX12TEST(cl->DispatchRays(&desc), 0);
-
+#pragma endregion RayTrace
 
 
 	// Execute ShadowBufferTask
-	temporalAccumulation();
+	temporalAccumulation(cl);
 	
 	
 	// Execute BlurTasks
-	spatialAccumulation();
-
+	spatialAccumulation(cl);
 
 
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
-
-
 
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -813,10 +803,9 @@ void Renderer::ExecuteDXR()
 		D3D12_RESOURCE_STATE_PRESENT);	// StateAfter
 	cl->ResourceBarrier(1, &transition);
 
+
 	cl->Close();
-
 	ID3D12CommandList* cLists[] = { cl };
-
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, cLists);
 	/*------------------- Post draw stuff -------------------*/
 	waitForGPU();
@@ -1717,7 +1706,7 @@ void Renderer::CreateRaytracingPipeline()
 	ThrowIfFailed(m_pRTStateObject->QueryInterface(IID_PPV_ARGS(&m_pRTStateObjectProps)));
 }
 
-void Renderer::temporalAccumulation()
+void Renderer::temporalAccumulation(ID3D12GraphicsCommandList5* cl)
 {
 	unsigned int softShadowBufferOffset;
 	unsigned int softShadowHeapOffset;
@@ -1740,7 +1729,7 @@ void Renderer::temporalAccumulation()
 	}
 }
 
-void Renderer::spatialAccumulation()
+void Renderer::spatialAccumulation(ID3D12GraphicsCommandList5* cl)
 {
 	// Blur all light output
 	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)

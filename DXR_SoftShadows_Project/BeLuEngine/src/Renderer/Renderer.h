@@ -233,8 +233,8 @@ private:
 	MergeLightningRenderTask* m_MergeLightningRenderTask;
 	void createMergeLightningRenderTasks();
 	
-	void temporalAccumulation();
-	void spatialAccumulation();
+	void temporalAccumulation(ID3D12GraphicsCommandList5* cl);
+	void spatialAccumulation(ID3D12GraphicsCommandList5* cl);
 	void lightningMergeTask(ID3D12GraphicsCommandList5* cl);
 
 	ID3D12RootSignature* CreateRayGenSignature();
