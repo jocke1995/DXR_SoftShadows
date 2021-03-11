@@ -1,5 +1,6 @@
 #include "../../Headers/GPU_Structs.h"
 #include "PBRMath.hlsl"
+#include "../DXR_Helpers/shaders/hlslhelpers.hlsl"
 
 Texture2D textures[]   : register (t0);
 
@@ -9,139 +10,93 @@ SamplerState Anisotropic8_Wrap	: register (s2);
 SamplerState Anisotropic16_Wrap	: register (s3);
 SamplerState samplerTypeBorder	: register (s4);
 
+ConstantBuffer<CB_PER_FRAME_STRUCT>  cbPerFrame  : register(b4, space3);
 ConstantBuffer<CB_PER_SCENE_STRUCT>  cbPerScene  : register(b5, space3);
 
-float3 CalcDirLight(
-	in DirectionalLight dirLight,
-	in float3 camPos,
-	in float3 viewDir,
-	in float4 fragPos,
-	in float metallic,
-	in float3 albedo,
-	in float roughness,
-	in float3 normal,
-	in float3 baseReflectivity)
+// Raytracing acceleration structure, accessed as a SRV
+RaytracingAccelerationStructure SceneBVH : register(t0, space4);
+
+float RT_ShadowFactor(float3 worldPos, float tMin, float tMax, float3 rayDir)
 {
-	float3 DirLightContribution = float3(0.0f, 0.0f, 0.0f);
+	RayQuery<RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> q;
+	
+	uint rayFlags = 0;
+	uint instanceMask = 0xff;
+	
+	float shadowFactor = 1.0f;
+	
+	RayDesc ray = (RayDesc)0;
+	ray.TMin = tMin;
+	ray.TMax = tMax;
+	
+	ray.Direction = normalize(rayDir);
+	ray.Origin = float4(worldPos.xyz, 1.0f);
 
-	float3 lightDir = normalize(-dirLight.direction.rgb);
-	float3 normalized_bisector = normalize(viewDir + lightDir);
+	q.TraceRayInline(
+		SceneBVH,
+		rayFlags,
+		instanceMask,
+		ray
+	);
 
-	float3 radiance = dirLight.baseLight.color.rgb;
+	q.Proceed();
 
-	// Cook-Torrance BRDF
-	float NdotV = max(dot(normal, viewDir), 0.0000001);
-	float NdotL = max(dot(normal, lightDir), 0.0000001);
-	float HdotV = dot(normalized_bisector, viewDir);
-	float HdotN = dot(normalized_bisector, normal);
+	if (q.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
+	{
+		shadowFactor = 0.0f;
+	}
 
-	float  D = NormalDistributionGGX(HdotN, roughness);
-	float  G = GeometrySmith(NdotV, NdotL, roughness);
-	float3 F = CalculateFresnelEffect(HdotV, baseReflectivity);
+	return shadowFactor;
+}
 
-	float3 specular = D * G * F / (4.0f * NdotV * NdotL);
+float RT_ShadowFactorSoft(float3 worldPos, float3 lightPos, float2 uv, float3 lightDir, inout uint seed)
+{
+	// Maybe have this attribute inside pointlight?
+	float lightRadius = 1.0; // To low radius => coneAngle not accurate enough
 
-	// Energy conservation
-	float3 kD = float3(1.0f, 1.0f, 1.0f) - F;
-	kD *= 1.0f - metallic;
+	float3 perpL = normalize(cross(lightDir, float3(0.0f, 1.0f, 0.0f)));
+	// Handle case where L = up -> perpL should then be (1,0,0)
+	if (all(perpL == 0.0f))
+	{
+		perpL.x = 1.0;
+	}
 
-	DirLightContribution = (kD * albedo / PI + specular) * radiance * NdotL;
-	return DirLightContribution;
+	//// Use perpL to get a vector from worldPosition to the edge of the light sphere
+	float3 toLightEdge = normalize((lightPos + perpL * lightRadius) - worldPos);
+	// Angle between L and toLightEdge. Used as the cone angle when sampling shadow rays
+	float coneAngle = acos(dot(lightDir, toLightEdge)) * 2;
+
+	float sumFactor = 0;
+
+	for (int j = 0; j < cbPerScene.spp; j++)
+	{
+		float factor = 0;
+		float3 randDir = getConeSample(seed, lightDir, coneAngle);
+
+		factor = RT_ShadowFactor(worldPos, 1.0f, distance(lightPos, worldPos), randDir);
+
+		sumFactor += factor;
+	}
+
+	sumFactor /= cbPerScene.spp;
+
+	return sumFactor;
 }
 
 float3 CalcPointLight(
 	in PointLight pointLight,
-	in float3 camPos,
-	in float3 viewDir,
-	in float4 fragPos,
-	in float metallic,
+	in float4 worldPos,
 	in float3 albedo,
-	in float roughness,
 	in float3 normal,
-	in float3 baseReflectivity)
+	in float2 uv,
+	inout uint seed)
 {
-	float3 pointLightContribution = float3(0.0f, 0.0f, 0.0f);
+	// Basic Diffuse lightning
+	float3 lightDir = normalize(pointLight.position - worldPos.xyz);
+	float NdotL = max(dot(normal, lightDir), 0.0f);
 
-	float3 lightDir = normalize(pointLight.position - fragPos.xyz);
-	float3 normalized_bisector = normalize(viewDir + lightDir);
-
-	// Attenuation
-	float constantFactor = pointLight.attenuation.x;
-	float linearFactor = pointLight.attenuation.y;
-	float quadraticFactor = pointLight.attenuation.z;
-	float distancePixelToLight = length(pointLight.position.xyz - fragPos);
-	float attenuation = 1.0f / (constantFactor + (linearFactor * distancePixelToLight) + (quadraticFactor * pow(distancePixelToLight, 2)));
-
-	float3 radiance = pointLight.baseLight.color.rgb * attenuation; 
-
-	// Cook-Torrance BRDF
-	float NdotV = max(dot(normal, viewDir), 0.0000001);
-	float NdotL = max(dot(normal, lightDir), 0.0000001);
-	float HdotV = dot(normalized_bisector, viewDir);
-	float HdotN = dot(normalized_bisector, normal);
-
-	float  D = NormalDistributionGGX(HdotN, roughness);
-	float  G = GeometrySmith(NdotV, NdotL, roughness);
-	float3 F = CalculateFresnelEffect(HdotV, baseReflectivity);
-
-	float3 specular = D * G * F / (4.0f * NdotV * NdotL);
-
-	// Energy conservation
-	float3 kD = float3(1.0f, 1.0f, 1.0f) - F;
-	kD *= 1.0f - metallic;
-
-	pointLightContribution = (kD * albedo / PI + specular) * radiance * NdotL;
-	return pointLightContribution;
-}
-
-float3 CalcSpotLight(
-	in SpotLight spotLight,
-	in float3 camPos,
-	in float3 viewDir,
-	in float4 fragPos,
-	in float metallic,
-	in float3 albedo,
-	in float roughness,
-	in float3 normal,
-	in float3 baseReflectivity)
-{
-	float3 spotLightContribution = float3(0.0f, 0.0f, 0.0f);
-	
-	float3 lightDir = normalize(spotLight.position_cutOff.xyz - fragPos.xyz);
-	float3 normalized_bisector = normalize(viewDir + lightDir);
-	
-	// Calculate the angle between lightdir and the direction of the light
-	float theta = dot(lightDir, normalize(-spotLight.direction_outerCutoff.xyz));
-
-	// To smooth edges
-	float epsilon = (spotLight.position_cutOff.w - spotLight.direction_outerCutoff.w);
-	float edgeIntensity = clamp((theta - spotLight.direction_outerCutoff.w) / epsilon, 0.0f, 1.0f);
-
-	// Attenuation
-	float constantFactor = spotLight.attenuation.x;
-	float linearFactor = spotLight.attenuation.y;
-	float quadraticFactor = spotLight.attenuation.z;
-	float distancePixelToLight = length(spotLight.position_cutOff.xyz - fragPos);
-	float attenuation = 1.0f / (constantFactor + (linearFactor * distancePixelToLight) + (quadraticFactor * pow(distancePixelToLight, 2)));
-
-	float3 radiance = spotLight.baseLight.color.rgb * attenuation;
-
-	// Cook-Torrance BRDF
-	float NdotV = max(dot(normal, viewDir), 0.0000001);
-	float NdotL = max(dot(normal, lightDir), 0.0000001);
-	float HdotV = dot(normalized_bisector, viewDir);
-	float HdotN = dot(normalized_bisector, normal);
-
-	float  D = NormalDistributionGGX(HdotN, roughness);
-	float  G = GeometrySmith(NdotV, NdotL, roughness);
-	float3 F = CalculateFresnelEffect(HdotV, baseReflectivity);
-
-	float3 specular = D * G * F / (4.0f * NdotV * NdotL);
-
-	// Energy conservation
-	float3 kD = float3(1.0f, 1.0f, 1.0f) - F;
-	kD *= 1.0f - metallic;
-
-	spotLightContribution = ((kD * albedo / PI + specular) * radiance * NdotL) * edgeIntensity;
-	return spotLightContribution;
+	return albedo * pointLight.baseLight.color * NdotL * RT_ShadowFactorSoft(worldPos.xyz, pointLight.position, uv, lightDir, seed);
+	//return albedo * pointLight.baseLight.color * NdotL * RT_ShadowFactor(worldPos.xyz, 1.0f, distance(pointLight.position, worldPos.xyz), lightDir);
+	//return albedo * pointLight.baseLight.color;
+	//return albedo * NdotL;
 }

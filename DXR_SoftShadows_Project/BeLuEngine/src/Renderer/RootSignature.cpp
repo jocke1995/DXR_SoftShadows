@@ -82,12 +82,7 @@ void RootSignature::createRootSignatureStructure()
 	dtSRV.NumDescriptorRanges = ARRAYSIZE(dtRangesSRV);
 	dtSRV.pDescriptorRanges = dtRangesSRV;
 
-	// DescriptorTable for UAV's (bindless)
 	D3D12_DESCRIPTOR_RANGE dtRangesUAV[2]{};
-	//dtRangesUAV[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-	//dtRangesUAV[0].NumDescriptors = -1;		// Bindless
-	//dtRangesUAV[0].BaseShaderRegister = 0;	// u0
-	//dtRangesUAV[0].RegisterSpace = 3; // 0 used by rayTracingRange
 
 	dtRangesUAV[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
 	dtRangesUAV[0].NumDescriptors = -1;		// Bindless

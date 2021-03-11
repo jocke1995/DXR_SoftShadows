@@ -15,6 +15,9 @@ class RenderTargetView;
 class SwapChain;
 class PipelineState;
 
+class RenderTargetView;
+class ShaderResourceView;
+
 namespace component
 {
 	class ModelComponent;
@@ -26,6 +29,13 @@ struct RenderComponent
 	component::ModelComponent* mc = nullptr;
 	component::TransformComponent* tc = nullptr;
 	std::vector<Resource*> CB_PER_OBJECT_UPLOAD_RESOURCES;
+};
+
+struct RTV_SRV_RESOURCE
+{
+	RenderTargetView* rtv = nullptr;
+	ShaderResourceView* srv = nullptr;
+	Resource* resource = nullptr;
 };
 
 // Components
@@ -54,6 +64,7 @@ public:
 
 	
 	void AddRenderTargetView(std::string, const RenderTargetView* renderTargetView);
+	void AddShaderResourceView(std::string, const ShaderResourceView* shaderResourceView);
 	
 	void SetRenderComponents(std::vector<RenderComponent*>* renderComponents);
 	void SetMainDepthStencil(DepthStencil* depthStencil);
@@ -63,8 +74,10 @@ public:
 	
 protected:
 	std::vector<RenderComponent*>* m_RenderComponents;
+
 	std::map<std::string, const RenderTargetView*> m_RenderTargetViews;
-	
+	std::map<std::string, const ShaderResourceView*> m_ShaderResourceViews;
+
 	DepthStencil* m_pDepthStencil = nullptr;
 	BaseCamera* m_pCamera = nullptr;
 	SwapChain* m_pSwapChain = nullptr;

@@ -19,7 +19,7 @@ BlurComputeTask::BlurComputeTask(
 	COMMAND_INTERFACE_TYPE interfaceType,
 	unsigned int screenWidth, unsigned int screenHeight,
 	unsigned int FLAG_THREAD)
-	:ComputeTask(device, rootSignature, csNamePSOName, FLAG_THREAD, interfaceType)
+	:ComputeTask(device, rootSignature, csNamePSOName, interfaceType)
 {
 	auto dxgiFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
 	createTempResource(device, screenWidth, screenHeight, dxgiFormat);

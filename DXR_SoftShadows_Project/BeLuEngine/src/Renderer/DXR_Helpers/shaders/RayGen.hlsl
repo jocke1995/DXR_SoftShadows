@@ -1,4 +1,5 @@
 #include "Common.hlsl"
+#include "hlslhelpers.hlsl"
 
 // Raytracing output texture, accessed as a UAV
 RWTexture2D< float4 > gOutput : register(u0);
@@ -6,78 +7,133 @@ RWTexture2D< float4 > gOutput : register(u0);
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0, space4);
 
+Texture2D textures[]   : register (t0, space2);
+SamplerState MIN_MAG_MIP_LINEAR__WRAP : register(s5);
+
+ConstantBuffer<CB_PER_OBJECT_STRUCT> cbPerObject	  : register(b1, space3);
+ConstantBuffer<CB_PER_FRAME_STRUCT>  cbPerFrame		  : register(b4, space3);
+ConstantBuffer<CB_PER_SCENE_STRUCT> cbPerScene : register(b5, space3);
+ConstantBuffer<DXR_CAMERA>			 cbCameraMatrices : register(b6, space3);
+ByteAddressBuffer rawBufferLights : register(t0, space3);
+
+// Calculate world pos from DepthBuffer
+float3 WorldPosFromDepth(float depth, float2 TexCoord)
+{
+    TexCoord.y = 1.0 - TexCoord.y;
+	float4 clipSpacePosition = float4(TexCoord * 2.0 - 1.0, depth, 1.0);
+	float4 viewSpacePosition = mul(cbCameraMatrices.projectionI, clipSpacePosition);
+
+	// Perspective division
+	viewSpacePosition /= viewSpacePosition.w;
+
+	float4 worldSpacePosition = mul(cbCameraMatrices.viewI, viewSpacePosition);
+
+	return worldSpacePosition.xyz;
+}
+
 [shader("raygeneration")] 
-void RayGen() {
-	// Initialize the ray payload
-	HitInfo payload;
-	payload.colorAndDistance = float4(0.9, 0.6, 0.2, 1);
-	
+void RayGen()
+{
 	// Get the location within the dispatched 2D grid of work items
 	// (often maps to pixels, so this could represent a pixel coordinate).
 	uint2 launchIndex = DispatchRaysIndex();
 	
 	float2 dims = float2(DispatchRaysDimensions().xy);
 
-	// From 0 to 1 ----> -1 to 1
-	float2 d = (((launchIndex.xy + 0.5f) / dims.xy) * 2.f - 1.f);
-	
-	// Define a ray, consisting of origin, direction, and the min-max distance values
-	RayDesc ray;
-	// from view -> world
-	ray.Origin	  = mul(cbCameraMatrices.viewI, float4(0, 0, 0, 1));
-	// from ndc -> world
-	float4 target = mul(cbCameraMatrices.projectionI, float4(d.x, -d.y, 1, 1));
-	ray.Direction = mul(cbCameraMatrices.viewI, float4(target.xyz, 0));
-	ray.TMin = 0;
-	ray.TMax = 100000;
+    // UV:s (0->1)
+	float2 uv = launchIndex.xy / dims.xy;
 
-	// Trace the ray
-	TraceRay(
-	// Parameter name: AccelerationStructure
-	// Acceleration structure
-	SceneBVH,
-	
-	// Parameter name: RayFlags
-	// Flags can be used to specify the behavior upon hitting a surface
-	RAY_FLAG_NONE,
-	
-	// Parameter name: InstanceInclusionMask
-	// Instance inclusion mask, which can be used to mask out some geometry to this ray by
-	// and-ing the mask with a geometry mask. The 0xFF flag then indicates no geometry will be
-	// masked
-	0xFF,
-	
-	// Parameter name: RayContributionToHitGroupIndex
-	// Depending on the type of ray, a given object can have several hit groups attached
-	// (ie. what to do when hitting to compute regular shading, and what to do when hitting
-	// to compute shadows). Those hit groups are specified sequentially in the SBT, so the value
-	// below indicates which offset (on 4 bits) to apply to the hit groups for this ray. In this
-	// sample we only have one hit group per object, hence an offset of 0.
-	0,
-	
-	// Parameter name: MultiplierForGeometryContributionToHitGroupIndex
-	// The offsets in the SBT can be computed from the object ID, its instance ID, but also simply
-	// by the order the objects have been pushed in the acceleration structure. This allows the
-	// application to group shaders in the SBT in the same order as they are added in the AS, in
-	// which case the value below represents the stride (4 bits representing the number of hit
-	// groups) between two consecutive objects.
-	0,
-	
-	// Parameter name: MissShaderIndex
-	// Index of the miss shader to use in case several consecutive miss shaders are present in the
-	// SBT. This allows to change the behavior of the program when no geometry have been hit, for
-	// example one to return a sky color for regular rendering, and another returning a full
-	// visibility value for shadow rays. This sample has only one miss shader, hence an index 0
-	0,
-	
-	// Parameter name: Ray
-	// Ray information to trace
-	ray,
-	
-	// Parameter name: Payload
-	// Payload associated to the ray, which will be used to communicate between the hit/miss
-	// shaders and the raygen
-	payload);
+	float depth = textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).r;
 
-	gOutput[launchIndex] = float4(payload.colorAndDistance.rgb, 1.f);
+	float3 worldPos = WorldPosFromDepth(depth, uv);
+
+    float4 normal = textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0);
+
+    float3 materialColor = float3(0.5f, 0.5f, 0.5f);
+    float3 finalColor = float3(0.0f, 0.0f, 0.0f);
+
+    // Init random floats
+    uint frameSeed = cbPerFrame.frameCounter + 200000;
+    uint seed = initRand(frameSeed * uv.x, frameSeed * uv.y);
+
+    // PointLight Test
+    LightHeader lHeader = rawBufferLights.Load<LightHeader>(0);
+    for (int i = 0; i < lHeader.numLights; i++)
+    {
+        PointLight pl = rawBufferLights.Load<PointLight>(sizeof(LightHeader) + i * sizeof(PointLight));
+        float3 lightPos = pl.position.xyz;
+        float3 lightColor = pl.baseLight.color;
+
+        // Find the world - space hit position
+        float3 lightDir = normalize(lightPos - worldPos);
+
+        // Maybe have this attribute inside pointlight?
+        float lightRadius = 1.0; // To low radius => coneAngle not accurate enough
+    
+        float3 perpL = normalize(cross(lightDir, float3(0.f, 1.0f, 0.f)));
+        // Handle case where L = up -> perpL should then be (1,0,0)
+        if (all(perpL == 0.0f))
+        {
+            perpL.x = 1.0;
+        }
+    
+        // Use perpL to get a vector from worldPosition to the edge of the light sphere
+        float3 toLightEdge = normalize((lightPos + perpL * lightRadius) - worldPos);
+    
+        // Angle between L and toLightEdge. Used as the cone angle when sampling shadow rays
+        float coneAngle = acos(dot(lightDir, toLightEdge)) * 2;
+    
+        
+    
+        float sumFactor = 0;
+ 
+        for (int j = 0; j < cbPerScene.spp; j++)
+        {
+            float factor = 0;
+            float3 randDir = getConeSample(seed, lightDir, coneAngle);
+
+            RayDesc ray;
+            ray.Origin = float4(worldPos.xyz, 1.0f);
+            ray.Direction = normalize(randDir);
+            ray.TMin = 1.0;
+            ray.TMax = distance(lightPos, worldPos);
+
+            // Initialize the ray payload
+            ShadowHitInfo shadowPayload;
+            shadowPayload.isHit = true;
+
+            // Trace the ray
+            TraceRay(
+                SceneBVH,
+                RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
+                0xFF,
+                0,  // Hit group index
+                0,
+                0,  // Miss Shader index
+                ray,
+                shadowPayload);
+
+            factor = shadowPayload.isHit ? 0.0 : 1.0;
+            sumFactor += factor;
+        }
+
+        sumFactor /= cbPerScene.spp;
+        float nDotL = max(0.0f, dot(normal, lightDir));
+        finalColor += materialColor * lightColor * sumFactor * nDotL;
+    }
+
+    finalColor += materialColor * 0.1f;
+    gOutput[launchIndex] = float4(finalColor.rgb, 1.0f); 
+
+    // NORMAL
+    // gOutput[launchIndex] = float4(normal.rgb, 1.0f);
+    
+    // DEPTH
+	// gOutput[launchIndex] = float4(depth, 0.0f, 0.0f, 1.0f);
+
+    // UV
+	// gOutput[launchIndex] = float4(uv.xy, 0.0f, 1.0f);
+    
+    // FLAT WHITE
+	// gOutput[launchIndex] = float4(1.0f, 1.0f, 1.0f, 1.0f);
 }

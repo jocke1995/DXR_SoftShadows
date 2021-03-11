@@ -44,6 +44,7 @@
 #include "DX12Tasks/DepthRenderTask.h"
 #include "DX12Tasks/ShadowBufferRenderTask.h"
 #include "DX12Tasks/ForwardRenderTask.h"
+#include "DX12Tasks/GBufferRenderTask.h"
 #include "DX12Tasks/MergeLightningRenderTask.h"
 
 // Copy 
@@ -51,7 +52,7 @@
 #include "DX12Tasks/CopyOnDemandTask.h"
 
 // Compute
-#include "DX12Tasks/ComputeTask.h"
+#include "DX12Tasks/InlineRTComputeTask.h"
 #include "DX12Tasks/BlurComputeTask.h"
 
 // Event
@@ -107,6 +108,12 @@ void Renderer::deleteRenderer()
 	delete m_pFullScreenQuad;
 	delete m_pSwapChain;
 	delete m_pMainDepthStencil;
+	delete m_pDepthBufferSRV;
+
+	// GBuffers
+	delete m_GBufferNormal.resource;
+	delete m_GBufferNormal.srv;
+	delete m_GBufferNormal.rtv;
 
 	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
 	{
@@ -226,6 +233,9 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 
 	// Rendertargets
 	createSwapChain();
+
+	// GBuffer
+	createGBufferRenderTargets();
 
 	// Create Main DepthBuffer
 	createMainDSV();
@@ -658,10 +668,22 @@ void Renderer::ExecuteDXR()
 
 	// Copy per frame
 	m_CopyTasks[COPY_TASK_TYPE::COPY_PER_FRAME]->Execute();
-
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
 		1,
 		&m_DXRCpftCommandLists[commandInterfaceIndex]);
+
+	
+	// Depth pre-pass
+	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
+		1,
+		&m_DepthPrePassCommandLists[commandInterfaceIndex]);
+	
+	// GBuffer (Normals only atm)
+	m_RenderTasks[RENDER_TASK_TYPE::GBUFFER_PASS]->Execute();
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
+		1,
+		&m_GBufferCommandLists[commandInterfaceIndex]);
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 
 	m_pTempCommandInterface->Reset(0);
@@ -854,7 +876,7 @@ void Renderer::ExecuteDXR()
 #endif
 }
 
-void Renderer::ExecuteDXRi()
+void Renderer::ExecuteInlinePixel()
 {
 	IDXGISwapChain4* dx12SwapChain = m_pSwapChain->GetDX12SwapChain();
 	unsigned int backBufferIndex = dx12SwapChain->GetCurrentBackBufferIndex();
@@ -891,8 +913,13 @@ void Renderer::ExecuteDXRi()
 	ID3D12DescriptorHeap* d3d12DescriptorHeap = descriptorHeap_CBV_UAV_SRV->GetID3D12DescriptorHeap();
 	cl->SetDescriptorHeaps(1, &d3d12DescriptorHeap);
 
+	cl->SetGraphicsRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
 	cl->SetGraphicsRootDescriptorTable(RS::dtCBV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
 	cl->SetGraphicsRootDescriptorTable(RS::dtSRV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
+	cl->SetGraphicsRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
+	// Set cbvs
+	cl->SetGraphicsRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetGraphicsRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
 
 	// Change state on front/backbuffer
 	cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
@@ -922,10 +949,6 @@ void Renderer::ExecuteDXRi()
 	cl->RSSetViewports(1, &viewPortSwapChain);
 	cl->RSSetScissorRects(1, &rectSwapChain);
 	cl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-	// Set cbvs
-	cl->SetGraphicsRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
-	cl->SetGraphicsRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
 
 	const DirectX::XMMATRIX* viewProjMatTrans = m_pScenePrimaryCamera->GetViewProjectionTranposed();
 
@@ -1009,6 +1032,121 @@ void Renderer::ExecuteDXRi()
 	}
 	nrOfFrames++;
 #pragma endregion TimeMeasurment
+
+	/*------------------- Present -------------------*/
+	HRESULT hr = dx12SwapChain->Present(0, 0);
+
+#ifdef DEBUG
+	if (FAILED(hr))
+	{
+		BL_LOG_CRITICAL("Swapchain Failed to present\n");
+	}
+#endif
+}
+
+void Renderer::ExecuteInlineCompute()
+{
+	IDXGISwapChain4* dx12SwapChain = m_pSwapChain->GetDX12SwapChain();
+	unsigned int backBufferIndex = dx12SwapChain->GetCurrentBackBufferIndex();
+	unsigned int commandInterfaceIndex = m_FrameCounter++ % NUM_SWAP_BUFFERS;
+
+	/* ------------------------------------- COPY DATA ------------------------------------- */
+	DX12Task::SetCommandInterfaceIndex(commandInterfaceIndex);
+
+	// Copy per frame
+	m_CopyTasks[COPY_TASK_TYPE::COPY_PER_FRAME]->Execute();
+
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
+		1,
+		&m_DXRCpftCommandLists[commandInterfaceIndex]);
+
+	// Matrices are uploaded here temporarily
+	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
+
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
+		1,
+		&m_DepthPrePassCommandLists[commandInterfaceIndex]);
+
+	// GBuffer (Normals only atm)
+	m_RenderTasks[RENDER_TASK_TYPE::GBUFFER_PASS]->Execute();
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
+		1,
+		&m_GBufferCommandLists[commandInterfaceIndex]);
+	/* ------------------------------------- COPY DATA ------------------------------------- */
+
+	m_pTempCommandInterface->Reset(0);
+	ID3D12GraphicsCommandList5* cl = m_pTempCommandInterface->GetCommandList(0);
+
+	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
+
+	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
+
+	DescriptorHeap* descriptorHeap_CBV_UAV_SRV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV];
+	ID3D12DescriptorHeap* d3d12DescriptorHeap = descriptorHeap_CBV_UAV_SRV->GetID3D12DescriptorHeap();
+	cl->SetDescriptorHeaps(1, &d3d12DescriptorHeap);
+
+	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
+	cl->SetComputeRootDescriptorTable(RS::dtCBV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
+	cl->SetComputeRootDescriptorTable(RS::dtSRV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
+	cl->SetComputeRootConstantBufferView(RS::CBV0, m_pCbCamera->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
+
+	// Set cbvs
+	cl->SetComputeRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
+
+
+	// On the last frame, the raytracing output was used as a copy source, to
+	// copy its contents into the render target. Now we need to transition it to
+	// a UAV so that the shaders can write in it.
+	CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pOutputResource->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
+	cl->ResourceBarrier(1, &transition);
+
+
+	// Draw for every Rendercomponent with stencil testing disabled
+	ID3D12PipelineState* pipelineState = m_ComputeTasks[COMPUTE_TASK_TYPE::INLINE_RT]->GetPipelineState(0)->GetPSO();
+	cl->SetPipelineState(pipelineState);
+
+	cl->Dispatch(m_IRTNumThreadGroupsX, m_IRTNumThreadGroupsY, 1);
+
+	// The raytracing output needs to be copied to the actual render target used
+	// for display. For this, we need to transition the raytracing output from a
+	// UAV to a copy source, and the render target buffer to a copy destination.
+	// We can then do the actual copy, before transitioning the render target
+	// buffer into a render target, that will be then used to display the image
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pOutputResource->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // StateBefore
+		D3D12_RESOURCE_STATE_COPY_SOURCE);	   // StateAfter
+	cl->ResourceBarrier(1, &transition);
+
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_PRESENT,	 // StateBefore
+		D3D12_RESOURCE_STATE_COPY_DEST); // StateAfter
+	cl->ResourceBarrier(1, &transition);
+
+	cl->CopyResource(
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
+		m_pOutputResource->GetID3D12Resource1());											// Source
+
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_COPY_DEST, // StateBefore
+		D3D12_RESOURCE_STATE_PRESENT);	// StateAfter
+	cl->ResourceBarrier(1, &transition);
+
+	cl->Close();
+
+	ID3D12CommandList* cLists[] = { cl };
+
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, cLists);
+
+	/*------------------- Post draw stuff -------------------*/
+	waitForGPU();
 
 	/*------------------- Present -------------------*/
 	HRESULT hr = dx12SwapChain->Present(0, 0);
@@ -1372,7 +1510,7 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 			instances[i].first,
 			instances[i].second, 
 			static_cast<unsigned int>(i),
-			static_cast<unsigned int>(i));	// One hitgroup for each instance
+			static_cast<unsigned int>(0));	// One hitgroup for each instance
 	}
 
 	// As for the bottom-level AS, the building the AS requires some scratch space
@@ -1501,8 +1639,8 @@ void Renderer::CreateRaytracingPipeline()
 	// by semantic (ray generation, hit, miss) for clarity. Any code layout can be
 	// used.
 	m_pRayGenShader = new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/RayGen.hlsl",		SHADER_TYPE::DXR);
-	m_pHitShader	= new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Hit.hlsl",		SHADER_TYPE::DXR);
-	m_pMissShader	= new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Miss.hlsl",		SHADER_TYPE::DXR);
+	//m_pHitShader	= new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Hit.hlsl",		SHADER_TYPE::DXR);
+	//m_pMissShader	= new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/Miss.hlsl",		SHADER_TYPE::DXR);
 	m_pShadowShader = new Shader(L"../BeLuEngine/src/Renderer/DXR_Helpers/shaders/ShadowRay.hlsl",  SHADER_TYPE::DXR);
 
 	  // In a way similar to DLLs, each library is associated with a number of
@@ -1511,15 +1649,16 @@ void Renderer::CreateRaytracingPipeline()
 	  // can contain an arbitrary number of symbols, whose semantic is given in HLSL
 	  // using the [shader("xxx")] syntax
 	pipeline.AddLibrary(m_pRayGenShader->GetBlob(), { L"RayGen" });
-	pipeline.AddLibrary(m_pHitShader->GetBlob(),	{ L"ClosestHit" });
-	pipeline.AddLibrary(m_pMissShader->GetBlob(),	{ L"Miss" });
-	pipeline.AddLibrary(m_pShadowShader->GetBlob(), { L"ShadowMiss" });
+	//pipeline.AddLibrary(m_pHitShader->GetBlob(),	{ L"ClosestHit" });
+	//pipeline.AddLibrary(m_pMissShader->GetBlob(),	{ L"Miss" });
+	pipeline.AddLibrary(m_pShadowShader->GetBlob(), {  L"ShadowMiss" });
 
 	// To be used, each DX12 shader needs a root signature defining which
 	// parameters and buffers will be accessed.
 	m_pRayGenSignature = CreateRayGenSignature();
-	m_pHitSignature = CreateHitSignature();
-	m_pMissSignature = CreateMissSignature();
+	//m_pHitSignature = CreateHitSignature();
+	//m_pMissSignature = CreateMissSignature();
+	m_pShadowSignature = CreateMissSignature();
 
 	// 3 different shaders can be invoked to obtain an intersection: an
 	// intersection shader is called
@@ -1538,7 +1677,8 @@ void Renderer::CreateRaytracingPipeline()
 
 	// Hit group for the triangles, with a shader simply interpolating vertex
 	// colors
-	pipeline.AddHitGroup(L"HitGroup", L"ClosestHit");
+	//pipeline.AddHitGroup(L"HitGroup", L"ClosestHit");
+	//pipeline.AddHitGroup(L"ShadowHitGroup", L"ShadowClosestHit");
 
 	// The following section associates the root signature to each shader.Note
 	// that we can explicitly show that some shaders share the same root signature
@@ -1546,14 +1686,15 @@ void Renderer::CreateRaytracingPipeline()
 	// to as hit groups, meaning that the underlying intersection, any-hit and
 	// closest-hit shaders share the same root signature.
 	pipeline.AddRootSignatureAssociation(m_pRayGenSignature, { L"RayGen" });
-	pipeline.AddRootSignatureAssociation(m_pHitSignature, { L"HitGroup" });
-	pipeline.AddRootSignatureAssociation(m_pMissSignature, { L"Miss", L"ShadowMiss" });
+	//pipeline.AddRootSignatureAssociation(m_pHitSignature, { L"HitGroup" });
+	//pipeline.AddRootSignatureAssociation(m_pHitSignature, { L"ShadowHitGroup" });
+	pipeline.AddRootSignatureAssociation(m_pMissSignature, { L"ShadowMiss" });
 	// The payload size defines the maximum size of the data carried by the rays,
 	// ie. the the data
 	// exchanged between shaders, such as the HitInfo structure in the HLSL code.
 	// It is important to keep this value as low as possible as a too high value
 	// would result in unnecessary memory consumption and cache trashing.
-	pipeline.SetMaxPayloadSize(4 * sizeof(float)); // RGB + distance
+	pipeline.SetMaxPayloadSize(1 * sizeof(float)); // bool ShadowIsHit
 
 	// Upon hitting a surface, DXR can provide several attributes to the hit. In
 	// our sample we just use the barycentric coordinates defined by the weights
@@ -1566,7 +1707,7 @@ void Renderer::CreateRaytracingPipeline()
 	// then requires a trace depth of 1. Note that this recursion depth should be
 	// kept to a minimum for best performance. Path tracing algorithms can be
 	// easily flattened into a simple loop in the ray generation.
-	pipeline.SetMaxRecursionDepth(2);
+	pipeline.SetMaxRecursionDepth(1);
 
 	// Compile the pipeline for execution on the GPU
 	m_pRTStateObject = pipeline.Generate(m_pRootSignature->GetRootSig());
@@ -1663,8 +1804,6 @@ void Renderer::CreateShaderResourceHeap()
 	// Create a SRV/UAV/CBV descriptor heap. We need 2 entries - 1 UAV for the
 	// raytracing output and 1 SRV for the TLAS
 
-	//m_pSrvUavHeap = new DescriptorHeap(m_pDevice5, DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV);
-
 	// Get a handle to the heap memory on the CPU side, to be able to write the
 	// descriptors directly
 	m_DhIndexASOB = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetNextDescriptorHeapIndex(1);
@@ -1716,18 +1855,20 @@ void Renderer::CreateShaderBindingTable()
 
 	// The miss and hit shaders do not access any external resources: instead they
 	// communicate their results through the ray payload
-	m_SbtHelper.AddMissProgram(L"Miss", {});
+	//m_SbtHelper.AddMissProgram(L"Miss", {});
 	m_SbtHelper.AddMissProgram(L"ShadowMiss", {});
 
 	// Adding the triangle hit shader
-	for (RenderComponent* rc : m_RenderComponents)
-	{
-		m_SbtHelper.AddHitGroup(L"HitGroup", 
-			{
-				(void*)rc->tc->GetMatrixUploadResource()->GetGPUVirtualAdress(), // Unique per instance
-				(void*)rc->mc->GetModel()->GetByteAdressInfoDXR()->GetDefaultResource()->GetGPUVirtualAdress()	// Unique per model
-			});	
-	}
+	//for (RenderComponent* rc : m_RenderComponents)
+	//{
+		//m_SbtHelper.AddHitGroup(L"HitGroup", 
+		//	{
+		//		(void*)rc->tc->GetMatrixUploadResource()->GetGPUVirtualAdress(), // Unique per instance
+		//		(void*)rc->mc->GetModel()->GetByteAdressInfoDXR()->GetDefaultResource()->GetGPUVirtualAdress()	// Unique per model
+		//	});	
+
+		//m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
+	//}
 
 
 	// Compute the size of the SBT given the number of shaders and their
@@ -1844,6 +1985,7 @@ void Renderer::createRawBuffersForLights()
 void Renderer::setRenderTasksPrimaryCamera()
 {
 	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->SetCamera(m_pScenePrimaryCamera);
+	m_RenderTasks[RENDER_TASK_TYPE::GBUFFER_PASS  ]->SetCamera(m_pScenePrimaryCamera);
 	m_RenderTasks[RENDER_TASK_TYPE::FORWARD_RENDER]->SetCamera(m_pScenePrimaryCamera);
 }
 
@@ -2006,10 +2148,62 @@ void Renderer::createSwapChain()
 		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]);
 }
 
+void Renderer::createGBufferRenderTargets()
+{
+	unsigned int resolutionWidth = m_pWindow->GetScreenWidth();
+	unsigned int resolutionHeight = m_pWindow->GetScreenHeight();
+
+	DXGI_FORMAT textureFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;// TODO: change to more proper format
+
+	D3D12_RESOURCE_DESC rDesc = {};
+	rDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	rDesc.Alignment = 0;
+	rDesc.Width = resolutionWidth;
+	rDesc.Height = resolutionHeight;
+	rDesc.DepthOrArraySize = 1;
+	rDesc.MipLevels = 1;
+	rDesc.Format = textureFormat;	
+	rDesc.SampleDesc.Count = 1;
+	rDesc.SampleDesc.Quality = 0;
+	rDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	rDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+
+	D3D12_CLEAR_VALUE clearValue = {};
+	clearValue.Format = textureFormat;
+	clearValue.Color[0] = 0.0f;
+	clearValue.Color[1] = 0.0f;
+	clearValue.Color[2] = 0.0f;
+	clearValue.Color[3] = 1.0f;
+
+	m_GBufferNormal.resource = new Resource(m_pDevice5, &rDesc, &clearValue, L"GBufferNormalResource", D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+
+	
+	// Create SRV
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = textureFormat;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+	m_GBufferNormal.srv = new ShaderResourceView(m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], &srvDesc, m_GBufferNormal.resource);
+
+	// Create RTV
+	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+	rtvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+
+	m_GBufferNormal.rtv = new RenderTargetView(
+		m_pDevice5,
+		resolutionWidth, resolutionHeight,
+		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::RTV],
+		&rtvDesc,
+		m_GBufferNormal.resource,
+		true);
+}
+
 void Renderer::createMainDSV()
 {
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
-	dsvDesc.Format = DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
+	dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
 	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
 
@@ -2028,6 +2222,18 @@ void Renderer::createMainDSV()
 		L"MainDSV",
 		&dsvDesc,
 		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::DSV]);
+
+	// SRV, to read from depth. (Used mainly to start the rays from the worldposition instead of the camera)
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+	srvDesc.Texture2D.PlaneSlice = 0;
+	
+	m_pDepthBufferSRV = new ShaderResourceView(m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], &srvDesc, m_pMainDepthStencil->GetDefaultResource());
 }
 
 void Renderer::createRootSignature()
@@ -2129,6 +2335,60 @@ void Renderer::initRenderTasks()
 
 #pragma endregion DepthPrePass
 
+#pragma region GBufferPass
+	/* Forward rendering without stencil testing */
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsdGBufferRender = {};
+	gpsdGBufferRender.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+
+	// RenderTarget (Currently only normals)
+	gpsdGBufferRender.NumRenderTargets = 1;
+	gpsdGBufferRender.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	// Depthstencil usage
+	gpsdGBufferRender.SampleDesc.Count = 1;
+	gpsdGBufferRender.SampleMask = UINT_MAX;
+	// Rasterizer behaviour
+	gpsdGBufferRender.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	gpsdGBufferRender.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+	gpsdGBufferRender.RasterizerState.FrontCounterClockwise = false;
+
+	// Specify Blend descriptions
+	D3D12_RENDER_TARGET_BLEND_DESC defaultRTdesc = {
+		false, false,
+		D3D12_BLEND_ZERO, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
+		D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
+		D3D12_LOGIC_OP_NOOP, D3D12_COLOR_WRITE_ENABLE_ALL };
+	for (unsigned int i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
+		gpsdGBufferRender.BlendState.RenderTarget[i] = defaultRTdesc;
+
+	// Depth descriptor
+	D3D12_DEPTH_STENCIL_DESC dsd = {};
+	dsd.DepthEnable = true;
+	dsd.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+	dsd.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+
+	// DepthStencil
+	dsd.StencilEnable = false;
+	gpsdGBufferRender.DepthStencilState = dsd;
+	gpsdGBufferRender.DSVFormat = m_pMainDepthStencil->GetDSV()->GetDXGIFormat();
+
+	// All settings are done, now give it to the renderTask
+	std::vector<D3D12_GRAPHICS_PIPELINE_STATE_DESC*> gpsdGBufferVector;
+	gpsdGBufferVector.push_back(&gpsdGBufferRender);
+
+	RenderTask* gBufferRenderTask = new GBufferRenderTask(
+		m_pDevice5,
+		m_pRootSignature,
+		L"GBufferVertex.hlsl", L"GBufferPixel.hlsl",
+		&gpsdGBufferVector,
+		L"GBufferPSO");
+
+	//gBufferRenderTask->AddResource("cbPerFrame", m_pCbPerFrame->GetDefaultResource());
+	//gBufferRenderTask->AddResource("cbPerScene", m_pCbPerScene->GetDefaultResource());
+	gBufferRenderTask->AddRenderTargetView("NormalRTV", m_GBufferNormal.rtv);
+	gBufferRenderTask->SetMainDepthStencil(m_pMainDepthStencil);
+	gBufferRenderTask->SetDescriptorHeaps(m_DescriptorHeaps);
+#pragma endregion GBufferPass
+
 #pragma region ForwardRendering
 	/* Forward rendering without stencil testing */
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsdForwardRender = {};
@@ -2147,7 +2407,7 @@ void Renderer::initRenderTasks()
 	gpsdForwardRender.RasterizerState.FrontCounterClockwise = false;
 
 	// Specify Blend descriptions
-	D3D12_RENDER_TARGET_BLEND_DESC defaultRTdesc = {
+	defaultRTdesc = {
 		false, false,
 		D3D12_BLEND_ZERO, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
 		D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
@@ -2156,7 +2416,7 @@ void Renderer::initRenderTasks()
 		gpsdForwardRender.BlendState.RenderTarget[i] = defaultRTdesc;
 
 	// Depth descriptor
-	D3D12_DEPTH_STENCIL_DESC dsd = {};
+	dsd = {};
 	dsd.DepthEnable = true;
 	dsd.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
 	dsd.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
@@ -2183,9 +2443,24 @@ void Renderer::initRenderTasks()
 	forwardRenderTask->SetSwapChain(m_pSwapChain);
 	forwardRenderTask->SetDescriptorHeaps(m_DescriptorHeaps);
 
+	forwardRenderTask->AddShaderResourceView("GBufferNormal", m_GBufferNormal.srv);
+
 #pragma endregion ForwardRendering
 
 #pragma region ComputeAndCopyTasks
+
+	// Compute
+	// ComputeTasks
+	std::vector<std::pair<std::wstring, std::wstring>> csNamePSOName;
+	csNamePSOName.push_back(std::make_pair(L"InlineComputeRT.hlsl", L"InlineComputeRTPSO"));
+
+	ComputeTask* inlineRTComputeTask = new InlineRTComputeTask(
+		m_pDevice5, m_pRootSignature,
+		csNamePSOName,
+		COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
+
+	m_IRTNumThreadGroupsX = static_cast<unsigned int>(ceilf(static_cast<float>(m_pWindow->GetScreenWidth()) / m_ThreadsPerGroup));;
+	m_IRTNumThreadGroupsY = m_pWindow->GetScreenHeight();
 	// CopyTasks
 	CopyTask* copyPerFrameTask = new CopyPerFrameTask(m_pDevice5, COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
 	CopyTask* copyOnDemandTask = new CopyOnDemandTask(m_pDevice5, COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
@@ -2202,42 +2477,52 @@ void Renderer::initRenderTasks()
 
 	/* ------------------------- ComputeQueue Tasks ------------------------ */
 	
-	// Nothing in this project
+	m_ComputeTasks[COMPUTE_TASK_TYPE::INLINE_RT] = inlineRTComputeTask;
 
 	/* ------------------------- DirectQueue Tasks ---------------------- */
 	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS] = DepthPrePassRenderTask;
+	m_RenderTasks[RENDER_TASK_TYPE::GBUFFER_PASS] = gBufferRenderTask;
 	m_RenderTasks[RENDER_TASK_TYPE::FORWARD_RENDER] = forwardRenderTask;
 
 	// Pushback in the order of execution
+	// Copy on demand (textures, meshes etc..)
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)
 	{
 		m_DirectCommandLists[i].push_back(copyOnDemandTask->GetCommandInterface()->GetCommandList(i));
 		m_DXRCodtCommandLists[i] = copyOnDemandTask->GetCommandInterface()->GetCommandList(i);
 	}
 
+	// Copy per frame
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)
 	{
 		m_DirectCommandLists[i].push_back(copyPerFrameTask->GetCommandInterface()->GetCommandList(i));
 		m_DXRCpftCommandLists[i] = copyPerFrameTask->GetCommandInterface()->GetCommandList(i);
 	}
 
+	// Depth prepass
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)
 	{
 		m_DirectCommandLists[i].push_back(DepthPrePassRenderTask->GetCommandInterface()->GetCommandList(i));
 		m_DepthPrePassCommandLists[i] = DepthPrePassRenderTask->GetCommandInterface()->GetCommandList(i);
 	}
 
+	// GBuffer
+	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)
+	{
+		//m_DirectCommandLists[i].push_back(gBufferRenderTask->GetCommandInterface()->GetCommandList(i));
+		m_GBufferCommandLists[i] = gBufferRenderTask->GetCommandInterface()->GetCommandList(i);
+	}
+
 	for (int i = 0; i < NUM_SWAP_BUFFERS; i++)
 	{
 		m_DirectCommandLists[i].push_back(forwardRenderTask->GetCommandInterface()->GetCommandList(i));
 	}
-
-
 }
 
 void Renderer::setRenderTasksRenderComponents()
 {
 	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->SetRenderComponents(&m_RenderComponents);
+	m_RenderTasks[RENDER_TASK_TYPE::GBUFFER_PASS  ]->SetRenderComponents(&m_RenderComponents);
 	m_RenderTasks[RENDER_TASK_TYPE::FORWARD_RENDER]->SetRenderComponents(&m_RenderComponents);
 }
 
@@ -2315,6 +2600,10 @@ void Renderer::prepareScene(Scene* activeScene)
 void Renderer::submitUploadPerSceneData()
 {
 	m_pCbPerSceneData->pointLightRawBufferIndex = m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetSRV()->GetDescriptorHeapIndex();
+	m_pCbPerSceneData->depthBufferIndex = m_pDepthBufferSRV->GetDescriptorHeapIndex();
+	m_pCbPerSceneData->gBufferNormalIndex = m_GBufferNormal.srv->GetDescriptorHeapIndex();
+	m_pCbPerSceneData->spp = 1;
+
 
 	// Submit CB_PER_SCENE to be uploaded to VRAM
 	CopyOnDemandTask* codt = static_cast<CopyOnDemandTask*>(m_CopyTasks[COPY_TASK_TYPE::COPY_ON_DEMAND]);

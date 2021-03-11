@@ -36,12 +36,12 @@ DepthStencil::~DepthStencil()
     delete m_pDSV;
 }
 
-const Resource* const DepthStencil::GetDefaultResource() const
+Resource* const DepthStencil::GetDefaultResource() const
 {
     return m_pDefaultResource;
 }
 
-const DepthStencilView* const DepthStencil::GetDSV() const
+DepthStencilView* const DepthStencil::GetDSV() const
 {
     return m_pDSV;
 }

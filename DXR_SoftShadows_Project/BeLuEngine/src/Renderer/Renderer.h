@@ -8,6 +8,7 @@ class Window;
 #include "DXR_Helpers/DXRHelperrr.h"
 #include "D3D12Timer.h"
 #include "DX12Tasks/CopyTask.h"
+#include "DX12Tasks/RenderTask.h"
 
 // Renderer Engine
 class RootSignature;
@@ -27,8 +28,9 @@ class ConstantBuffer;
 class ShaderResource;
 class UnorderedAccess;
 class DepthStencil;
+class RenderTarget;
 class Resource;
-class Bloom;
+class ShaderResourceView;
 class PingPongResource;
 
 // Enums
@@ -120,7 +122,8 @@ public:
 	void SortObjects();
 	void Execute();
 	void ExecuteDXR();
-	void ExecuteDXRi();
+	void ExecuteInlinePixel();
+	void ExecuteInlineCompute();
 
 	// Render inits, these functions are called by respective components through SetScene to prepare for drawing
 	void InitModelComponent(component::ModelComponent* component);
@@ -180,6 +183,7 @@ private:
 
 	// Depthbuffer
 	DepthStencil* m_pMainDepthStencil = nullptr;
+	ShaderResourceView* m_pDepthBufferSRV = nullptr;
 
 	// Rootsignature
 	RootSignature* m_pRootSignature = nullptr;
@@ -308,6 +312,16 @@ private:
 	ID3D12CommandList* m_DXRCpftCommandLists[NUM_SWAP_BUFFERS];
 	ID3D12CommandList* m_DXRCodtCommandLists[NUM_SWAP_BUFFERS];
 	ID3D12CommandList* m_DepthPrePassCommandLists[NUM_SWAP_BUFFERS];
+	ID3D12CommandList* m_GBufferCommandLists[NUM_SWAP_BUFFERS];
+	ID3D12CommandList* m_ComputeIRTCommandLists[NUM_SWAP_BUFFERS];
+
+	// G-Buffer renderTargets
+	RTV_SRV_RESOURCE m_GBufferNormal = {};
+
+	/* INLINE RT COMPUTETASK data */
+	unsigned int m_IRTNumThreadGroupsX = 0;
+	unsigned int m_IRTNumThreadGroupsY = 0;
+	const unsigned int m_ThreadsPerGroup = 256;
 
 	// DescriptorHeaps
 	std::map<DESCRIPTOR_HEAP_TYPE, DescriptorHeap*> m_DescriptorHeaps = {};
@@ -321,6 +335,7 @@ private:
 	bool createDevice();
 	void createCommandQueues();
 	void createSwapChain();
+	void createGBufferRenderTargets();
 	void createMainDSV();
 	void createRootSignature();
 	void createFullScreenQuad();
