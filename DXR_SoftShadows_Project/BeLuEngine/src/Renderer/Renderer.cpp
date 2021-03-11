@@ -779,6 +779,7 @@ void Renderer::ExecuteDXR()
 		D3D12_RESOURCE_STATE_COPY_DEST); // StateAfter
 	cl->ResourceBarrier(1, &transition);
 
+
 	cl->CopyResource(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
 		m_pOutputResource->GetID3D12Resource1());											// Source
@@ -1577,7 +1578,6 @@ void Renderer::CreateRaytracingPipeline()
 
 void Renderer::temporalAccumulation()
 {
-
 	unsigned int softShadowBufferOffset;
 	unsigned int softShadowHeapOffset;
 	// Write to shadowBuffer (average the light visibility from last 4 frames)
