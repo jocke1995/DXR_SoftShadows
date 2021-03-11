@@ -36,13 +36,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     AssetLoader* al = AssetLoader::Get();
 
     Scene* scene;
-    if (params.scene == L"test")
+    if (params.scene == L"taest")
     {
          scene = TestScene(sceneManager);
     }
     else
     {
-        scene = SponzaScene3(sceneManager);
+        scene = SponzaDragonsScene4(sceneManager);
     }
 
     // Set scene
@@ -136,7 +136,6 @@ Scene* TestScene(SceneManager* sm)
 
     // Get the models needed
     Model* dragonModel = al->LoadModel(L"../Vendor/Resources/Models/StanfordDragon/drag.obj");
-
     Model* sponza = al->LoadModel(L"../Vendor/Resources/Scenes/Sponza/textures_pbr/sponza.obj");
     Model* sphereModel = al->LoadModel(L"../Vendor/Resources/Models/SpherePBR/ball.obj");
 
@@ -186,6 +185,7 @@ Scene* TestScene(SceneManager* sm)
     tc->GetTransform()->SetPosition(5, 35, 15);
     /* ---------------------- Spheres ---------------------- */
 
+    /* ---------------------- Stanford Dragon ---------------------- */
     entity = scene->AddEntity("dragon");
     mc = entity->AddComponent<component::ModelComponent>();
     tc = entity->AddComponent<component::TransformComponent>();
@@ -196,6 +196,7 @@ Scene* TestScene(SceneManager* sm)
     tc->GetTransform()->SetRotationY(PI / 2);
     tc->GetTransform()->SetRotationX(-PI / 2);
     tc->GetTransform()->SetPosition(100.0f, 10.0f, 0.0f);
+    /* ---------------------- Stanford Dragon ---------------------- */
 
     /* ---------------------- PointLight1 ---------------------- */
     entity = scene->AddEntity("pointLight1");
