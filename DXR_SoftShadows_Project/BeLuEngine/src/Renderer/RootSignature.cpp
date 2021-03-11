@@ -177,7 +177,7 @@ void RootSignature::createRootSignatureStructure()
 	rootParam[RS::CBV0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 	rootParam[RS::RC_4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-	rootParam[RS::RC_4].Constants.ShaderRegister = 9;	// b6
+	rootParam[RS::RC_4].Constants.ShaderRegister = 9;	// b9
 	rootParam[RS::RC_4].Constants.RegisterSpace = 3;	// space3
 	rootParam[RS::RC_4].Constants.Num32BitValues = 4;
 	rootParam[RS::RC_4].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;

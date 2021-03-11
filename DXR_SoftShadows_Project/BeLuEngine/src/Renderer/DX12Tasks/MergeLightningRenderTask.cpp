@@ -68,10 +68,8 @@ void MergeLightningRenderTask::Execute()
 	commandList->SetDescriptorHeaps(1, &d3d12DescriptorHeap);
 	commandList->SetPipelineState(m_PipelineStates[0]->GetPSO());
 	commandList->SetGraphicsRootSignature(m_pRootSig);
-	commandList->SetGraphicsRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0)); // Read mesh
-	commandList->SetGraphicsRootDescriptorTable(RS::dtSRV2, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_SoftShadowBufferOffset));
 
-	commandList->OMSetRenderTargets(0, NULL, false, nullptr);
+	commandList->OMSetRenderTargets(0, nullptr, false, nullptr);
 
 	// use viewport from 0 -> 1
 	const D3D12_VIEWPORT* viewPort = swapChainRenderTarget->GetRenderView()->GetViewPort();

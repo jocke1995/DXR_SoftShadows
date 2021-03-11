@@ -419,16 +419,6 @@ void Renderer::createMergeLightningRenderTasks()
 		gpsd.BlendState.RenderTarget[i] = RTBlenddesc;
 
 	// Depth descriptor
-	// Depth descriptor
-	D3D12_DEPTH_STENCIL_DESC dsd = {};
-	dsd.DepthEnable = true;
-	dsd.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-	dsd.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
-
-	// DepthStencil
-	dsd.StencilEnable = false;
-	gpsd.DepthStencilState = dsd;
-	gpsd.DSVFormat = m_pMainDepthStencil->GetDSV()->GetDXGIFormat();
 
 	// DepthStencil
 	gpsd.DepthStencilState = {};
@@ -1756,12 +1746,18 @@ void Renderer::lightningMergeTask(ID3D12GraphicsCommandList5* cl)
 	m_MergeLightningRenderTask->SetBackBufferIndex(0);
 	m_MergeLightningRenderTask->SetCommandInterfaceIndex(0);
 
-	cl->SetGraphicsRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
-	cl->SetGraphicsRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
-	cl->SetGraphicsRootConstantBufferView(RS::CBV0, m_pCbCamera->GetDefaultResource()->GetGPUVirtualAdress());
-
 	unsigned int softShadowBufferOffset = m_DhIndexSoftShadowsBuffer;
 	m_MergeLightningRenderTask->SetHeapOffsets(softShadowBufferOffset);
+
+	cl->SetGraphicsRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
+	cl->SetGraphicsRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0)); // Read mesh
+	cl->SetGraphicsRootDescriptorTable(RS::dtSRV2, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(softShadowBufferOffset));
+	cl->SetGraphicsRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
+	cl->SetGraphicsRootConstantBufferView(RS::CBV0, m_pCbCamera->GetDefaultResource()->GetGPUVirtualAdress());
+	//unsigned int data = m_pMainDepthStencil->GetDSV()->GetDescriptorHeapIndex();
+	unsigned int data = m_pMainDepthStencil->GetSRV()->GetDescriptorHeapIndex();
+	cl->SetGraphicsRoot32BitConstant(RS::RC_4, data, 0);
+	
 	m_MergeLightningRenderTask->Execute();
 }
 
@@ -2210,7 +2206,8 @@ void Renderer::createMainDSV()
 		resolutionWidth, resolutionHeight,
 		L"MainDSV",
 		&dsvDesc,
-		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::DSV]);
+		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::DSV],
+		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]);
 
 	// SRV, to read from depth. (Used mainly to start the rays from the worldposition instead of the camera)
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
