@@ -60,9 +60,9 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 		finalColor += CalcPointLight(pl, float4(worldPos.xyz, 1.0f), materialColor.rgb, normal.xyz, uv, seed);
 	}
 
-	float4 ambient = float4(materialColor.rgb, 1.0f) * 0.1f;
-	finalColor += ambient.rgb;
-
+	// TEMP just to see difference:
+	// Adding a bit of normal color
+	finalColor += normal.rgb * 0.1f;
 	gOutput[dispatchThreadID.xy] = float4(finalColor.rgb, 1.0f);
 
 	// WORLD POSITION

@@ -43,7 +43,7 @@ float RT_ShadowFactor(float3 worldPos, float tMin, float tMax, float3 rayDir)
 
 	if (q.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
 	{
-		shadowFactor = 0.0f;
+		shadowFactor = 0.1f;
 	}
 
 	return shadowFactor;

@@ -134,7 +134,7 @@ Model* AssetLoader::LoadModel(const std::wstring& path)
 	const std::string filePath(path.begin(), path.end());
 
 	Assimp::Importer importer;
-	importer.SetPropertyBool(AI_CONFIG_IMPORT_FBX_PRESERVE_PIVOTS, true);
+	//importer.SetPropertyBool(AI_CONFIG_IMPORT_FBX_PRESERVE_PIVOTS, true);
 	const aiScene* assimpScene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_GenUVCoords | aiProcess_CalcTangentSpace | aiProcess_ConvertToLeftHanded | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_OptimizeGraph);
 
 	if (assimpScene == nullptr)
@@ -274,7 +274,7 @@ void AssetLoader::processMeshData(const aiScene* assimpScene, const aiMesh* assi
 		}
 		else
 		{
-			BL_LOG_CRITICAL("Mesh has no tangents\n");
+			//BL_LOG_CRITICAL("Mesh has no tangents\n");
 		}
 
 		// Get texture coordinates if there are any
@@ -285,7 +285,7 @@ void AssetLoader::processMeshData(const aiScene* assimpScene, const aiMesh* assi
 		}
 		else
 		{
-			BL_LOG_CRITICAL("Mesh has no textureCoords\n");
+			//BL_LOG_CRITICAL("Mesh has no textureCoords\n");
 		}
 
 		vertices->push_back(vTemp);

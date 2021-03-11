@@ -113,7 +113,7 @@ void RayGen()
                 ray,
                 shadowPayload);
 
-            factor = shadowPayload.isHit ? 0.0 : 1.0;
+            factor = shadowPayload.isHit ? 0.1 : 1.0;
             sumFactor += factor;
         }
 
@@ -122,7 +122,6 @@ void RayGen()
         finalColor += materialColor * lightColor * sumFactor * nDotL;
     }
 
-    finalColor += materialColor * 0.1f;
     gOutput[launchIndex] = float4(finalColor.rgb, 1.0f); 
 
     // NORMAL
