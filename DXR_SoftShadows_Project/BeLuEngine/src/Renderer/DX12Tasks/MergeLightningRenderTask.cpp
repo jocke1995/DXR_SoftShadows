@@ -69,11 +69,11 @@ void MergeLightningRenderTask::Execute()
 	commandList->SetPipelineState(m_PipelineStates[0]->GetPSO());
 	commandList->SetGraphicsRootSignature(m_pRootSig);
 	commandList->SetGraphicsRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0)); // Read mesh
-	commandList->SetGraphicsRootDescriptorTable(RS::dtSRV2, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
-	commandList->SetGraphicsRootDescriptorTable(RS::dtUAV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_SoftShadowBufferOffset));
+	commandList->SetGraphicsRootDescriptorTable(RS::dtSRV2, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_SoftShadowBufferOffset));
 
 	commandList->OMSetRenderTargets(0, NULL, false, nullptr);
 
+	// use viewport from 0 -> 1
 	const D3D12_VIEWPORT* viewPort = swapChainRenderTarget->GetRenderView()->GetViewPort();
 	const D3D12_RECT* rect = swapChainRenderTarget->GetRenderView()->GetScissorRect();
 	commandList->RSSetViewports(1, viewPort);

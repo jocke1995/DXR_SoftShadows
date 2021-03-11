@@ -226,8 +226,12 @@ private:
 	void createBlurTasks();
 	ShadowBufferRenderTask* m_ShadowBufferRenderTasks[MAX_POINT_LIGHTS];
 	void createShadowBufferRenderTasks();
-	MergeLightningRenderTask* m_MergeLightningRenderTasks[MAX_POINT_LIGHTS];
+	MergeLightningRenderTask* m_MergeLightningRenderTask;
 	void createMergeLightningRenderTasks();
+	
+	void temporalAccumulation();
+	void spatialAccumulation();
+	void lightningMergeTask(ID3D12GraphicsCommandList5* cl);
 
 	ID3D12RootSignature* CreateRayGenSignature();
 	ID3D12RootSignature* CreateHitSignature();

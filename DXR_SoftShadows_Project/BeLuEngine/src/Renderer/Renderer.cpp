@@ -182,6 +182,7 @@ void Renderer::deleteRenderer()
 		delete m_BlurComputeTasks[i];
 		delete m_ShadowBufferRenderTasks[i];
 	}
+	delete m_MergeLightningRenderTask;
 
 	SAFE_RELEASE(&m_pSbtStorage);
 
@@ -311,7 +312,6 @@ void Renderer::createBlurTasks()
 		m_BlurComputeTasks[i]->SetDescriptorHeaps(m_DescriptorHeaps);
 		m_BlurComputeTasks[i]->SetCommandInterface(m_pTempCommandInterface);
 	}
-
 }
 
 void Renderer::createShadowBufferRenderTasks()
@@ -397,7 +397,6 @@ void Renderer::createMergeLightningRenderTasks()
 	gpsd.RasterizerState.DepthBiasClamp = 0.0f;
 	gpsd.RasterizerState.SlopeScaledDepthBias = 0.0f;
 	gpsd.RasterizerState.FrontCounterClockwise = false;
-	gpsd.RasterizerState.ForcedSampleCount = 1;
 
 	// Specify Blend descriptions
 	// copy of defaultRTdesc
@@ -410,6 +409,16 @@ void Renderer::createMergeLightningRenderTasks()
 		gpsd.BlendState.RenderTarget[i] = RTBlenddesc;
 
 	// Depth descriptor
+	// Depth descriptor
+	D3D12_DEPTH_STENCIL_DESC dsd = {};
+	dsd.DepthEnable = true;
+	dsd.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	dsd.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+
+	// DepthStencil
+	dsd.StencilEnable = false;
+	gpsd.DepthStencilState = dsd;
+	gpsd.DSVFormat = m_pMainDepthStencil->GetDSV()->GetDXGIFormat();
 
 	// DepthStencil
 	gpsd.DepthStencilState = {};
@@ -418,23 +427,19 @@ void Renderer::createMergeLightningRenderTasks()
 	std::vector<D3D12_GRAPHICS_PIPELINE_STATE_DESC*> gpsdVector;
 	gpsdVector.push_back(&gpsd);
 
-	for (int i = 0; i < MAX_POINT_LIGHTS; i++)
-	{
-		m_MergeLightningRenderTasks[i] = new MergeLightningRenderTask(
-			m_pDevice5,
-			m_pRootSignature,
-			L"MergeLightningVertex.hlsl", L"MergeLightningPixel.hlsl",
-			&gpsdVector,
-			L"ShadowBufferPassPSO");
+	m_MergeLightningRenderTask = new MergeLightningRenderTask(
+		m_pDevice5,
+		m_pRootSignature,
+		L"MergeLightningVertex.hlsl", L"MergeLightningPixel.hlsl",
+		&gpsdVector,
+		L"ShadowBufferPassPSO");
 
-		m_MergeLightningRenderTasks[i]->SetMainDepthStencil(m_pMainDepthStencil);
-		m_MergeLightningRenderTasks[i]->SetSwapChain(m_pSwapChain);
-		m_MergeLightningRenderTasks[i]->SetFullScreenQuadMesh(m_pFullScreenQuad);
-		m_MergeLightningRenderTasks[i]->SetDescriptorHeaps(m_DescriptorHeaps);
-		m_MergeLightningRenderTasks[i]->SetCommandInterface(m_pTempCommandInterface);
-		m_MergeLightningRenderTasks[i]->CreateSlotInfo();
-	}
-
+	m_MergeLightningRenderTask->SetMainDepthStencil(m_pMainDepthStencil);
+	m_MergeLightningRenderTask->SetSwapChain(m_pSwapChain);
+	m_MergeLightningRenderTask->SetFullScreenQuadMesh(m_pFullScreenQuad);
+	m_MergeLightningRenderTask->SetDescriptorHeaps(m_DescriptorHeaps);
+	m_MergeLightningRenderTask->SetCommandInterface(m_pTempCommandInterface);
+	m_MergeLightningRenderTask->CreateSlotInfo();
 }
 
 void Renderer::InitDXR()
@@ -745,57 +750,28 @@ void Renderer::ExecuteDXR()
 	DX12TEST(cl->DispatchRays(&desc), 0);
 
 
-	unsigned int softShadowBufferOffset;
-	// Write to shadowBuffer (average the light visibility from last 4 frames)
-	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
-	{
-		m_ShadowBufferRenderTasks[i]->SetBackBufferIndex(0);
-		m_ShadowBufferRenderTasks[i]->SetCommandInterfaceIndex(0);
 
-		transition = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_pShadowBufferPingPong[i]->GetResource()->GetID3D12Resource1(),
-			D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
-
-		
-		softShadowHeapOffset = m_DhIndexSoftShadowsUAV + i*2;
-		softShadowBufferOffset = m_DhIndexSoftShadowsBuffer + i * 2;
-
-		m_ShadowBufferRenderTasks[i]->SetHeapOffsets(softShadowHeapOffset, softShadowBufferOffset);
-		m_ShadowBufferRenderTasks[i]->Execute();
-	}
+	// Execute ShadowBufferTask
+	temporalAccumulation();
+	
+	
+	// Execute BlurTasks
+	spatialAccumulation();
 
 
 
-	// The raytracing output needs to be copied to the actual render target used
-	// for display. For this, we need to transition the raytracing output from a
-	// UAV to a copy source, and the render target buffer to a copy destination.
-	// We can then do the actual copy, before transitioning the render target
-	// buffer into a render target, that will be then used to display the image
+	// Calculate Light and output to m_Output
+	lightningMergeTask(cl);
+
+
+
+
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		m_pOutputResource->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // StateBefore
 		D3D12_RESOURCE_STATE_COPY_SOURCE);	   // StateAfter
 	cl->ResourceBarrier(1, &transition);
 
-	
-
-	
-
-	// Blur all light output
-	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
-	{
-		m_BlurComputeTasks[i]->SetBackBufferIndex(0);
-		m_BlurComputeTasks[i]->SetCommandInterfaceIndex(0);
-		m_BlurComputeTasks[i]->SetBlurPingPongResource(m_pShadowBufferPingPong[i]);
-		m_BlurComputeTasks[i]->Execute();
-
-
-		transition = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_pShadowBufferPingPong[i]->GetResource()->GetID3D12Resource1(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,		// StateBefore
-			D3D12_RESOURCE_STATE_COPY_SOURCE);	// StateAfter
-	}
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
@@ -805,7 +781,7 @@ void Renderer::ExecuteDXR()
 
 	cl->CopyResource(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
-		m_pShadowBufferPingPong[0]->GetResource()->GetID3D12Resource1());											// Source
+		m_pOutputResource->GetID3D12Resource1());											// Source
 
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -1598,6 +1574,68 @@ void Renderer::CreateRaytracingPipeline()
 	// the shader pointers by name
 	ThrowIfFailed(m_pRTStateObject->QueryInterface(IID_PPV_ARGS(&m_pRTStateObjectProps)));
 }
+
+void Renderer::temporalAccumulation()
+{
+
+	unsigned int softShadowBufferOffset;
+	unsigned int softShadowHeapOffset;
+	// Write to shadowBuffer (average the light visibility from last 4 frames)
+	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
+	{
+		auto transition = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_pShadowBufferPingPong[i]->GetResource()->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
+
+		softShadowHeapOffset = m_DhIndexSoftShadowsUAV + i * 2;
+		softShadowBufferOffset = m_DhIndexSoftShadowsBuffer + i * 2;
+
+		m_ShadowBufferRenderTasks[i]->SetBackBufferIndex(0);
+		m_ShadowBufferRenderTasks[i]->SetCommandInterfaceIndex(0);
+
+		m_ShadowBufferRenderTasks[i]->SetHeapOffsets(softShadowHeapOffset, softShadowBufferOffset);
+		m_ShadowBufferRenderTasks[i]->Execute();
+	}
+}
+
+void Renderer::spatialAccumulation()
+{
+	// Blur all light output
+	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
+	{
+		m_BlurComputeTasks[i]->SetBackBufferIndex(0);
+		m_BlurComputeTasks[i]->SetCommandInterfaceIndex(0);
+
+		m_BlurComputeTasks[i]->SetBlurPingPongResource(m_pShadowBufferPingPong[i]);
+		m_BlurComputeTasks[i]->Execute();
+
+		auto transition = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_pShadowBufferPingPong[i]->GetResource()->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,		// StateBefore
+			D3D12_RESOURCE_STATE_COPY_SOURCE);	// StateAfter
+	}
+}
+
+void Renderer::lightningMergeTask(ID3D12GraphicsCommandList5* cl)
+{
+	// Reads from m_ShadowBuffers (which are spatiotemporal accumulated)
+	// Then calculates lightning and shading.
+	// Writes to m_pOutputResource, which is later copied to swapchain
+
+	m_MergeLightningRenderTask->SetBackBufferIndex(0);
+	m_MergeLightningRenderTask->SetCommandInterfaceIndex(0);
+
+	cl->SetGraphicsRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
+	cl->SetGraphicsRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
+	cl->SetGraphicsRootConstantBufferView(RS::CBV0, m_pCbCamera->GetDefaultResource()->GetGPUVirtualAdress());
+
+	unsigned int softShadowBufferOffset = m_DhIndexSoftShadowsBuffer;
+	m_MergeLightningRenderTask->SetHeapOffsets(softShadowBufferOffset);
+	m_MergeLightningRenderTask->Execute();
+}
+
+
 
 void Renderer::CreateRaytracingOutputBuffer()
 {

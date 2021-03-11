@@ -164,5 +164,5 @@ void ClosestHit(inout HitInfo payload, in BuiltInTriangleIntersectionAttributes 
     }
     
     float3 ambient = materialColor * float3(0.1f, 0.1f, 0.1f);
-    payload.colorAndDistance = float4(finalColor + ambient, RayTCurrent());
+    payload.colorAndDistance = float4(ambient, RayTCurrent());
 }
