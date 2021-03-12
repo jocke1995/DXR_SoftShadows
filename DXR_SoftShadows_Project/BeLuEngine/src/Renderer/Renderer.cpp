@@ -765,13 +765,7 @@ void Renderer::ExecuteDXR()
 
 
 	// Calculate Light and output to m_Output
-	//lightningMergeTask(cl);
-
-	//transition = CD3DX12_RESOURCE_BARRIER::Transition(
-	//	m_pShadowBufferPingPong[0]->GetResource()->GetID3D12Resource1(),
-	//	D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,		// StateBefore
-	//	D3D12_RESOURCE_STATE_COPY_SOURCE);	// StateAfter
-
+	lightningMergeTask(cl);
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		m_pOutputResource->GetID3D12Resource1(),
@@ -789,7 +783,7 @@ void Renderer::ExecuteDXR()
 
 	cl->CopyResource(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
-		m_pShadowBufferResource[0]->GetID3D12Resource1());											// Source
+		m_pOutputResource->GetID3D12Resource1());											// Source
 
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
