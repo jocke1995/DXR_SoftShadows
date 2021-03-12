@@ -6,7 +6,7 @@
 #define MAX_POINT_LIGHTS 10
 #define MAX_SPOT_LIGHTS  10
 
-#define NUM_TEMPORAL_BUFFERS 0
+#define NUM_TEMPORAL_BUFFERS 10
 
 // This struct can be used to send specific indices as a root constant to the GPU.
 // Example usage is when the indices for pp-effects are sent to gpu.

@@ -3,6 +3,8 @@
 
 #include "RenderTask.h"
 
+class PingPongResource;
+
 class ShadowBufferRenderTask : public RenderTask
 {
 public:
@@ -16,11 +18,12 @@ public:
 	void SetCommandInterface(CommandInterface* inter);
 	void SetFullScreenQuadMesh(Mesh* fsq);
 
+	void SetPingPongLightResources(int num, PingPongResource** ppPingPong);
+	void SetHeapOffsets(unsigned int DhIndexSoftShadowsUAV, unsigned int DhIndexSoftShadowsBuffer);
+
 	void CreateSlotInfo();
 
 	void Execute() override final;
-
-	void SetHeapOffsets(unsigned int pingPongOffset, unsigned int shadowBufferOffset);
 
 private:
 	CommandInterface* m_pCommandInterfaceTemp = nullptr;
@@ -31,9 +34,10 @@ private:
 	size_t m_NumIndices;
 	SlotInfo m_SlotInfo;
 
-	// heap offsets
-	unsigned int m_SoftShadowHeapOffset = 0;
-	unsigned int m_SoftShadowBufferOffset = 0;
+	PingPongResource** m_ppTargetPingPongs = nullptr;
+	int m_NumLights = -1;
+	unsigned int m_DhIndexSoftShadowsUAV = 0;
+	unsigned int m_DhIndexSoftShadowsBuffer = 0;
 };
 
 #endif

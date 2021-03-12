@@ -58,7 +58,7 @@ class CopyTask;
 
 // Compute
 class ComputeTask;
-class BlurComputeTask;
+class BlurAllShadowsTask;
 
 // DX12 Forward Declarations
 struct ID3D12CommandQueue;
@@ -226,9 +226,9 @@ private:
 	void CreateAccelerationStructures();
 
 	// Blur task
-	BlurComputeTask* m_BlurComputeTasks[MAX_POINT_LIGHTS];
-	void createBlurTasks();
-	ShadowBufferRenderTask* m_ShadowBufferRenderTasks[MAX_POINT_LIGHTS];
+	BlurAllShadowsTask* m_BlurAllShadowsTask;
+	void createBlurTask();
+	ShadowBufferRenderTask* m_ShadowBufferRenderTask;
 	void createShadowBufferRenderTasks();
 	MergeLightningRenderTask* m_MergeLightningRenderTask;
 	void createMergeLightningRenderTasks();
@@ -281,8 +281,8 @@ private:
 	// ------------------- DXR temp ----------------
 	PingPongResource* m_pShadowBufferPingPong[MAX_POINT_LIGHTS];
 	Resource* m_pShadowBufferResource[MAX_POINT_LIGHTS];
-	PingPongResource* m_PingPongR[MAX_POINT_LIGHTS][NUM_TEMPORAL_BUFFERS + 1]; // 1 PingPongResource per light, NUM_BUFFERS PingPongResources for temporal accumilation
-	Resource* m_tempUAV[MAX_POINT_LIGHTS][NUM_TEMPORAL_BUFFERS + 1];
+	PingPongResource* m_LightTemporalPingPong[MAX_POINT_LIGHTS][NUM_TEMPORAL_BUFFERS + 1]; // 1 PingPongResource per light, NUM_BUFFERS PingPongResources for temporal accumilation
+	Resource* m_LightTemporalResources[MAX_POINT_LIGHTS][NUM_TEMPORAL_BUFFERS + 1];
 
 
 	// Group of components that's needed for rendering:

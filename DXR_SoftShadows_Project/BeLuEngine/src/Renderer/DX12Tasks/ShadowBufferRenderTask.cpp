@@ -6,6 +6,7 @@
 #include "../CommandInterface.h"
 #include "../DescriptorHeap.h"
 #include "../GPUMemory/GPUMemory.h"
+#include "../GPUMemory/PingPongResource.h"
 #include "../PipelineState/PipelineState.h"
 #include "../RenderView.h"
 #include "../RootSignature.h"
@@ -41,6 +42,12 @@ void ShadowBufferRenderTask::SetFullScreenQuadMesh(Mesh* fsq)
 	m_pFullScreenQuadMesh = fsq;
 }
 
+void ShadowBufferRenderTask::SetPingPongLightResources(int num, PingPongResource** ppPingPong)
+{
+	m_NumLights = num;
+	m_ppTargetPingPongs = ppPingPong;
+}
+
 void ShadowBufferRenderTask::CreateSlotInfo()
 {
 	// Mesh
@@ -69,8 +76,7 @@ void ShadowBufferRenderTask::Execute()
 	commandList->SetPipelineState(m_PipelineStates[0]->GetPSO());
 	commandList->SetGraphicsRootSignature(m_pRootSig);
 	commandList->SetGraphicsRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0)); // Read mesh
-	commandList->SetGraphicsRootDescriptorTable(RS::dtSRV2, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_SoftShadowHeapOffset));
-	commandList->SetGraphicsRootDescriptorTable(RS::dtUAV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_SoftShadowBufferOffset));
+	
 
 	commandList->OMSetRenderTargets(0, NULL, false, nullptr);
 
@@ -93,11 +99,22 @@ void ShadowBufferRenderTask::Execute()
 
 	commandList->IASetIndexBuffer(m_pFullScreenQuadMesh->GetIndexBufferView());
 
-	commandList->DrawIndexedInstanced(m_NumIndices, 1, 0, 0, 0);
+	unsigned int softShadowBufferOffset;
+	unsigned int softShadowHeapOffset;
+	for (unsigned int i = 0; i < m_NumLights; i++)
+	{
+		softShadowHeapOffset = m_DhIndexSoftShadowsUAV + i * 2;
+		softShadowBufferOffset = m_DhIndexSoftShadowsBuffer + i * 2;
+
+		commandList->SetGraphicsRootDescriptorTable(RS::dtSRV2, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(softShadowHeapOffset));
+		commandList->SetGraphicsRootDescriptorTable(RS::dtUAV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(softShadowBufferOffset));
+
+		commandList->DrawIndexedInstanced(m_NumIndices, 1, 0, 0, 0);
+	}
 }
 
-void ShadowBufferRenderTask::SetHeapOffsets(unsigned int pingPongOffset, unsigned int shadowBufferOffset)
+void ShadowBufferRenderTask::SetHeapOffsets(unsigned int DhIndexSoftShadowsUAV, unsigned int DhIndexSoftShadowsBuffer)
 {
-	m_SoftShadowHeapOffset = pingPongOffset;
-	m_SoftShadowBufferOffset = shadowBufferOffset;
+	m_DhIndexSoftShadowsUAV = DhIndexSoftShadowsUAV;
+	m_DhIndexSoftShadowsBuffer = DhIndexSoftShadowsBuffer;
 }

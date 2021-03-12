@@ -53,7 +53,7 @@
 
 // Compute
 #include "DX12Tasks/InlineRTComputeTask.h"
-#include "DX12Tasks/BlurComputeTask.h"
+#include "DX12Tasks/BlurAllShadowsTask.h"
 
 // Event
 #include "../Events/EventBus.h"
@@ -125,8 +125,8 @@ void Renderer::deleteRenderer()
 	{
 		for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
 		{
-			delete m_PingPongR[i][z];
-			delete m_tempUAV[i][z];
+			delete m_LightTemporalPingPong[i][z];
+			delete m_LightTemporalResources[i][z];
 		}
 	}
 
@@ -184,11 +184,8 @@ void Renderer::deleteRenderer()
 	
 	delete m_pOutputResource;
 	
-	for (int i = 0; i < MAX_POINT_LIGHTS; i++)
-	{
-		delete m_BlurComputeTasks[i];
-		delete m_ShadowBufferRenderTasks[i];
-	}
+	delete m_ShadowBufferRenderTask;
+	delete m_BlurAllShadowsTask;
 	delete m_MergeLightningRenderTask;
 
 	SAFE_RELEASE(&m_pSbtStorage);
@@ -283,8 +280,8 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	// Resources for softshadows in blurTask/ShadowBufferTask
 	CreateSoftShadowLightResources();
 
-	createBlurTasks();
 	createShadowBufferRenderTasks();
+	createBlurTask();
 	createMergeLightningRenderTasks();
 
 	initRenderTasks();
@@ -298,7 +295,7 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	m_pCbCameraData = new DXR_CAMERA();
 }
 
-void Renderer::createBlurTasks()
+void Renderer::createBlurTask()
 {
 	UINT resolutionWidth = 0;
 	UINT resolutionHeight = 0;
@@ -309,9 +306,7 @@ void Renderer::createBlurTasks()
 	csNamePSOName.push_back(std::make_pair(L"ComputeBlurHorizontal.hlsl", L"blurHorizontalPSO"));
 	csNamePSOName.push_back(std::make_pair(L"ComputeBlurVertical.hlsl", L"blurVerticalPSO"));
 
-	for (int i = 0; i < MAX_POINT_LIGHTS; i++)
-	{
-		m_BlurComputeTasks[i] = new BlurComputeTask(
+		m_BlurAllShadowsTask = new BlurAllShadowsTask(
 			m_pDevice5, m_pRootSignature,
 			m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV],
 			csNamePSOName,
@@ -319,9 +314,8 @@ void Renderer::createBlurTasks()
 			resolutionWidth, resolutionHeight,
 			FLAG_THREAD::RENDER);
 
-		m_BlurComputeTasks[i]->SetDescriptorHeaps(m_DescriptorHeaps);
-		m_BlurComputeTasks[i]->SetCommandInterface(m_pTempCommandInterface);
-	}
+		m_BlurAllShadowsTask->SetDescriptorHeaps(m_DescriptorHeaps);
+		m_BlurAllShadowsTask->SetCommandInterface(m_pTempCommandInterface);
 }
 
 void Renderer::createShadowBufferRenderTasks()
@@ -367,22 +361,19 @@ void Renderer::createShadowBufferRenderTasks()
 	std::vector<D3D12_GRAPHICS_PIPELINE_STATE_DESC*> gpsdShadowBufferPassVector;
 	gpsdShadowBufferPassVector.push_back(&gpsdShadowBufferPass);
 
-	for (int i = 0; i < MAX_POINT_LIGHTS; i++)
-	{
-		m_ShadowBufferRenderTasks[i] = new ShadowBufferRenderTask(
-			m_pDevice5,
-			m_pRootSignature,
-			L"ShadowBufferVertex.hlsl", L"ShadowBufferPixel.hlsl",
-			&gpsdShadowBufferPassVector,
-			L"ShadowBufferPassPSO");
+	m_ShadowBufferRenderTask = new ShadowBufferRenderTask(
+		m_pDevice5,
+		m_pRootSignature,
+		L"ShadowBufferVertex.hlsl", L"ShadowBufferPixel.hlsl",
+		&gpsdShadowBufferPassVector,
+		L"ShadowBufferPassPSO");
 
-		m_ShadowBufferRenderTasks[i]->SetMainDepthStencil(m_pMainDepthStencil);
-		m_ShadowBufferRenderTasks[i]->SetSwapChain(m_pSwapChain);
-		m_ShadowBufferRenderTasks[i]->SetFullScreenQuadMesh(m_pFullScreenQuad);
-		m_ShadowBufferRenderTasks[i]->SetDescriptorHeaps(m_DescriptorHeaps);
-		m_ShadowBufferRenderTasks[i]->SetCommandInterface(m_pTempCommandInterface);
-		m_ShadowBufferRenderTasks[i]->CreateSlotInfo();
-	}
+	m_ShadowBufferRenderTask->SetMainDepthStencil(m_pMainDepthStencil);
+	m_ShadowBufferRenderTask->SetSwapChain(m_pSwapChain);
+	m_ShadowBufferRenderTask->SetFullScreenQuadMesh(m_pFullScreenQuad);
+	m_ShadowBufferRenderTask->SetDescriptorHeaps(m_DescriptorHeaps);
+	m_ShadowBufferRenderTask->SetCommandInterface(m_pTempCommandInterface);
+	m_ShadowBufferRenderTask->CreateSlotInfo();
 }
 
 void Renderer::createMergeLightningRenderTasks()
@@ -752,15 +743,35 @@ void Renderer::ExecuteDXR()
 	// Dispatch the rays and write to the raytracing output
 
 
+	// Set temporal buffers written to UAV
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
+	{
+		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_LightTemporalResources[i][currentLightTemporalBuffer]->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	}
+
 	DX12TEST(cl->DispatchRays(&desc), 0);
+
+	// Set temporal buffers written to back
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
+	{
+		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_LightTemporalResources[i][currentLightTemporalBuffer]->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+	}
+
+	
 #pragma endregion RayTrace
 
 
-	// Execute ShadowBufferTask
+	// Execute ShadowBufferTask, output to _____
 	temporalAccumulation(cl);
 	
 	
-	// Execute BlurTasks
+	// Execute BlurTasks, output to m_shadowBuffers
 	spatialAccumulation(cl);
 
 
@@ -1697,43 +1708,20 @@ void Renderer::CreateRaytracingPipeline()
 
 void Renderer::temporalAccumulation(ID3D12GraphicsCommandList5* cl)
 {
-	unsigned int softShadowBufferOffset;
-	unsigned int softShadowHeapOffset;
-	// Write to shadowBuffer (average the light visibility from last 4 frames)
-	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
-	{
-		auto transition = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_pShadowBufferPingPong[i]->GetResource()->GetID3D12Resource1(),
-			D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
-
-		softShadowHeapOffset = m_DhIndexSoftShadowsUAV + i * 2;
-		softShadowBufferOffset = m_DhIndexSoftShadowsBuffer + i * 2;
-
-		m_ShadowBufferRenderTasks[i]->SetBackBufferIndex(0);
-		m_ShadowBufferRenderTasks[i]->SetCommandInterfaceIndex(0);
-
-		m_ShadowBufferRenderTasks[i]->SetHeapOffsets(softShadowHeapOffset, softShadowBufferOffset);
-		m_ShadowBufferRenderTasks[i]->Execute();
-	}
+	m_ShadowBufferRenderTask->SetBackBufferIndex(0);
+	m_ShadowBufferRenderTask->SetCommandInterfaceIndex(0);
+	m_ShadowBufferRenderTask->SetHeapOffsets(m_DhIndexSoftShadowsUAV, m_DhIndexSoftShadowsBuffer);
+	m_ShadowBufferRenderTask->SetPingPongLightResources(m_Lights[LIGHT_TYPE::POINT_LIGHT].size(), m_pShadowBufferPingPong);
+	m_ShadowBufferRenderTask->Execute();
 }
 
 void Renderer::spatialAccumulation(ID3D12GraphicsCommandList5* cl)
 {
 	// Blur all light output
-	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
-	{
-		m_BlurComputeTasks[i]->SetBackBufferIndex(0);
-		m_BlurComputeTasks[i]->SetCommandInterfaceIndex(0);
-
-		m_BlurComputeTasks[i]->SetBlurPingPongResource(m_pShadowBufferPingPong[i]);
-		m_BlurComputeTasks[i]->Execute();
-
-		auto transition = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_pShadowBufferPingPong[i]->GetResource()->GetID3D12Resource1(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,		// StateBefore
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);	// StateAfter
-	}
+	m_BlurAllShadowsTask->SetPingPongResorcesToBlur(m_Lights[LIGHT_TYPE::POINT_LIGHT].size(), m_pShadowBufferPingPong);
+	m_BlurAllShadowsTask->SetBackBufferIndex(0);
+	m_BlurAllShadowsTask->SetCommandInterfaceIndex(0);
+	m_BlurAllShadowsTask->Execute();
 }
 
 void Renderer::lightningMergeTask(ID3D12GraphicsCommandList5* cl)
@@ -1761,6 +1749,15 @@ void Renderer::lightningMergeTask(ID3D12GraphicsCommandList5* cl)
 	cl->SetGraphicsRoot32BitConstants(RS::RC_4, 2, data, 0);
 	
 	m_MergeLightningRenderTask->Execute();
+
+	// Set all shadowBuffers to D3D12_RESOURCE_STATE_UNORDERED_ACCESS for next frame
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
+	{
+		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_pShadowBufferResource[i]->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	}
 }
 
 
@@ -1920,7 +1917,7 @@ void Renderer::CreateSoftShadowLightResources()
 	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
 	{
 		m_pShadowBufferResource[i] = new Resource(m_pDevice5, &resDesc, nullptr,
-			L"test_resource", D3D12_RESOURCE_STATE_COPY_SOURCE);
+			L"test_resource", D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
 		m_pShadowBufferPingPong[i] = new PingPongResource(m_pShadowBufferResource[i], m_pDevice5,
 			m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV],
@@ -1936,10 +1933,10 @@ void Renderer::CreateSoftShadowLightResources()
 		// Create UAV resources for each light
 		for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
 		{
-			m_tempUAV[i][z] = new Resource(m_pDevice5, &resDesc, nullptr,
-				L"test_resource", D3D12_RESOURCE_STATE_COPY_SOURCE);
+			m_LightTemporalResources[i][z] = new Resource(m_pDevice5, &resDesc, nullptr,
+				L"test_resource", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
-			m_PingPongR[i][z] = new PingPongResource(m_tempUAV[i][z], m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], &srvDesc, &uavDesc);
+			m_LightTemporalPingPong[i][z] = new PingPongResource(m_LightTemporalResources[i][z], m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], &srvDesc, &uavDesc);
 		}
 	}
 	
