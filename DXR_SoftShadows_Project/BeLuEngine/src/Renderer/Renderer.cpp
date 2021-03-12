@@ -783,7 +783,7 @@ void Renderer::ExecuteDXR()
 
 	cl->CopyResource(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
-		m_pOutputResource->GetID3D12Resource1());											// Source
+		m_pOutputResource->GetID3D12Resource1());					// Source
 
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
