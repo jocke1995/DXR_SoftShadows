@@ -100,3 +100,21 @@ float3 CalcPointLight(
 	//return albedo * pointLight.baseLight.color;
 	//return albedo * NdotL;
 }
+
+float3 CalcPointLight2(
+	in PointLight pointLight,
+	in float4 worldPos,
+	in float3 albedo,
+	in float3 normal,
+	in float2 uv,
+	in float shadow)
+{
+	// Basic Diffuse lightning
+	float3 lightDir = normalize(pointLight.position - worldPos.xyz);
+	float NdotL = max(dot(normal, lightDir), 0.0f);
+
+	return albedo * pointLight.baseLight.color * NdotL * shadow;
+	//return albedo * pointLight.baseLight.color * NdotL * RT_ShadowFactor(worldPos.xyz, 1.0f, distance(pointLight.position, worldPos.xyz), lightDir);
+	//return albedo * pointLight.baseLight.color;
+	//return albedo * NdotL;
+}

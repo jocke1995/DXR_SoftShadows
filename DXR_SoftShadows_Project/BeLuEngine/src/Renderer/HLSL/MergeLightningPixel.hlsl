@@ -60,16 +60,17 @@ void PS_main(VS_OUT input)
 
     float nDotL = max(0.0f, dot(normal, lightDir));
     
-    float shadowSum = 1;
+    float shadowFactor = min(shadowBuffers[0].Sample(point_Wrap, d.xy).r, 1.0);
+    float3 materialColor = float3(0.5, 0.5, 0.5);
     float3 finalColor = float3(0, 0, 0);
 
-    float3 materialColor = float3(0.5, 0.5, 0.5);
-    finalColor += materialColor * lightColor * shadowSum * nDotL;
+    finalColor += CalcPointLight2(pl, float4(worldPos, 1), materialColor, normal, d.xy, shadowFactor);
+	
 
-	float3 ambient = materialColor * float3(0.1f, 0.1f, 0.1f);
-	finalColor = finalColor + ambient;
+    float3 ambient = materialColor * float3(0.1f, 0.1f, 0.1f);
+    finalColor = finalColor + ambient;
 
-	gOutput[input.pos.xy] = float4(finalColor, 1);
+	gOutput[input.pos.xy] = float4(shadowFactor, 0, 0, 1);
 
 	return;
 }
