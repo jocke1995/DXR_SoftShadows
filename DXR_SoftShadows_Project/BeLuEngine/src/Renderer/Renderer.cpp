@@ -1700,7 +1700,7 @@ void Renderer::temporalAccumulation(ID3D12GraphicsCommandList5* cl)
 	unsigned int softShadowBufferOffset;
 	unsigned int softShadowHeapOffset;
 	// Write to shadowBuffer (average the light visibility from last 4 frames)
-	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
 	{
 		auto transition = CD3DX12_RESOURCE_BARRIER::Transition(
 			m_pShadowBufferPingPong[i]->GetResource()->GetID3D12Resource1(),
@@ -1721,7 +1721,7 @@ void Renderer::temporalAccumulation(ID3D12GraphicsCommandList5* cl)
 void Renderer::spatialAccumulation(ID3D12GraphicsCommandList5* cl)
 {
 	// Blur all light output
-	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
 	{
 		m_BlurComputeTasks[i]->SetBackBufferIndex(0);
 		m_BlurComputeTasks[i]->SetCommandInterfaceIndex(0);
