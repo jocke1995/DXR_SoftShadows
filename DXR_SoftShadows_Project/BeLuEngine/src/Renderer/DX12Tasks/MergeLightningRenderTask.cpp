@@ -91,7 +91,22 @@ void MergeLightningRenderTask::Execute()
 
 	commandList->IASetIndexBuffer(m_pFullScreenQuadMesh->GetIndexBufferView());
 
+
+
+	auto transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pDepthStencil->GetDefaultResource()->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_DEPTH_WRITE,		// StateBefore
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);	// StateAfter
+
+
+
 	commandList->DrawIndexedInstanced(m_NumIndices, 1, 0, 0, 0);
+
+
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pDepthStencil->GetDefaultResource()->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,		// StateBefore
+		D3D12_RESOURCE_STATE_DEPTH_WRITE);	// StateAfter
 }
 
 void MergeLightningRenderTask::SetHeapOffsets(unsigned int shadowBufferOffset)

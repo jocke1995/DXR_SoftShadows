@@ -7,10 +7,10 @@ struct VS_OUT
     float3 normal : NORMAL;
 };
 
-struct RootConstant
+struct RootConstant4
 {
-    unsigned int a;
-    unsigned int b;
+    unsigned int depthBufferIndice;
+    unsigned int gBufferIndice;
     unsigned int c;
     unsigned int d;
 };
@@ -21,7 +21,7 @@ Texture2D<float4> shadowBuffers[]   : register (t0, space10);
 ByteAddressBuffer rawBufferLights: register(t0, space3);
 
 ConstantBuffer<DXR_CAMERA>  cbCameraMatrices  : register(b6, space3);
-ConstantBuffer<RootConstant> depthIndex : register(b9, space3);
+ConstantBuffer<RootConstant4> CBindices : register(b9, space3);
 
 SamplerState point_Wrap	: register (s5);
 
@@ -51,10 +51,10 @@ void PS_main(VS_OUT input)
 
     
     float depthSample = input.pos.w;
-    depthSample = textures[depthIndex.a].Sample(point_Wrap, d.xy).r;
+    depthSample = textures[CBindices.depthBufferIndice].Sample(point_Wrap, d.xy).r;
 
     float3 worldPos = WorldPosFromDepth(depthSample, d.xy);
-    float3 normal = input.normal;
+    float3 normal = textures[CBindices.gBufferIndice].Sample(point_Wrap, d.xy).rgb;
 
     float3 lightDir = normalize(lightPos - worldPos);
 
@@ -69,7 +69,7 @@ void PS_main(VS_OUT input)
 	float3 ambient = materialColor * float3(0.1f, 0.1f, 0.1f);
 	finalColor = finalColor + ambient;
 
-	gOutput[input.pos.xy] = float4(depthSample, 0, 0, 1);
+	gOutput[input.pos.xy] = float4(finalColor, 1);
 
 	return;
 }

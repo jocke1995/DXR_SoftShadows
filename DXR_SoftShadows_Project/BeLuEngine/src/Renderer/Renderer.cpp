@@ -1755,8 +1755,11 @@ void Renderer::lightningMergeTask(ID3D12GraphicsCommandList5* cl)
 	cl->SetGraphicsRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
 	cl->SetGraphicsRootConstantBufferView(RS::CBV0, m_pCbCamera->GetDefaultResource()->GetGPUVirtualAdress());
 	//unsigned int data = m_pMainDepthStencil->GetDSV()->GetDescriptorHeapIndex();
-	unsigned int data = m_pMainDepthStencil->GetSRV()->GetDescriptorHeapIndex();
-	cl->SetGraphicsRoot32BitConstant(RS::RC_4, data, 0);
+	unsigned int data[4];
+	data[0] = m_pMainDepthStencil->GetSRV()->GetDescriptorHeapIndex();
+	data[1] = m_GBufferNormal.srv->GetDescriptorHeapIndex();
+
+	cl->SetGraphicsRoot32BitConstants(RS::RC_4, 2, data, 0);
 	
 	m_MergeLightningRenderTask->Execute();
 }
