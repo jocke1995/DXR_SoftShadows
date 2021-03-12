@@ -9,6 +9,7 @@ RaytracingAccelerationStructure SceneBVH : register(t0, space4);
 
 Texture2D textures[]   : register (t0, space2);
 SamplerState MIN_MAG_MIP_LINEAR__WRAP : register(s5);
+RWTexture2D<float4> light_uav[] : register(u0, space1);
 
 ConstantBuffer<CB_PER_OBJECT_STRUCT> cbPerObject	  : register(b1, space3);
 ConstantBuffer<CB_PER_FRAME_STRUCT>  cbPerFrame		  : register(b4, space3);
@@ -118,6 +119,9 @@ void RayGen()
         }
 
         sumFactor /= cbPerScene.spp;
+        // i * 2 + 1 - PingPongResource has (0)SRV (1)UAV.
+        light_uav[i * 2 + 1][DispatchRaysIndex().xy] = min(sumFactor, 1.0);
+
         float nDotL = max(0.0f, dot(normal, lightDir));
         finalColor += materialColor * lightColor * sumFactor * nDotL;
     }
