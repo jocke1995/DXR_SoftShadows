@@ -767,7 +767,7 @@ void Renderer::ExecuteDXR()
 #pragma endregion RayTrace
 
 
-	// Execute ShadowBufferTask, output to _____
+	// Execute ShadowBufferTask, output to m_LightTemporalResources
 	temporalAccumulation(cl);
 	
 	
@@ -867,9 +867,12 @@ void Renderer::ExecuteDXR()
 
 void Renderer::ExecuteInlinePixel()
 {
+	m_FrameCounter = m_FrameCounter + 1;
+
 	IDXGISwapChain4* dx12SwapChain = m_pSwapChain->GetDX12SwapChain();
 	unsigned int backBufferIndex = dx12SwapChain->GetCurrentBackBufferIndex();
-	unsigned int commandInterfaceIndex = m_FrameCounter++ % NUM_SWAP_BUFFERS;
+	unsigned int commandInterfaceIndex = m_FrameCounter % NUM_SWAP_BUFFERS;
+	unsigned int currentLightTemporalBuffer = m_FrameCounter % (NUM_TEMPORAL_BUFFERS + 1);
 
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 	DX12Task::SetCommandInterfaceIndex(commandInterfaceIndex);
@@ -887,9 +890,18 @@ void Renderer::ExecuteInlinePixel()
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
 		1,
 		&m_DepthPrePassCommandLists[commandInterfaceIndex]);
+
+	// GBuffer (Normals only atm)
+	m_RenderTasks[RENDER_TASK_TYPE::GBUFFER_PASS]->Execute();
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
+		1,
+		&m_GBufferCommandLists[commandInterfaceIndex]);
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 
 	m_pTempCommandInterface->Reset(0);
+
+#pragma region InlineRT
+
 	ID3D12GraphicsCommandList5* cl = m_pTempCommandInterface->GetCommandList(0);
 
 	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
@@ -905,16 +917,18 @@ void Renderer::ExecuteInlinePixel()
 	cl->SetGraphicsRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
 	cl->SetGraphicsRootDescriptorTable(RS::dtCBV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
 	cl->SetGraphicsRootDescriptorTable(RS::dtSRV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
+	unsigned int softShadowHeapOffset = m_DhIndexSoftShadowsUAV + 2 * MAX_POINT_LIGHTS * currentLightTemporalBuffer;
+	cl->SetGraphicsRootDescriptorTable(RS::dtUAV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(softShadowHeapOffset));
 	cl->SetGraphicsRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
 	// Set cbvs
 	cl->SetGraphicsRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
 	cl->SetGraphicsRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
 
-	// Change state on front/backbuffer
-	cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		swapChainResource,
-		D3D12_RESOURCE_STATE_PRESENT,
-		D3D12_RESOURCE_STATE_RENDER_TARGET));
+	auto transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pOutputResource->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_COPY_SOURCE, // StateBefore
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	   // StateAfter
+	cl->ResourceBarrier(1, &transition);
 
 	DescriptorHeap* renderTargetHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::RTV];
 	DescriptorHeap* depthBufferHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::DSV];
@@ -926,10 +940,10 @@ void Renderer::ExecuteInlinePixel()
 	// Depth
 	D3D12_CPU_DESCRIPTOR_HANDLE dsh = depthBufferHeap->GetCPUHeapAt(m_pMainDepthStencil->GetDSV()->GetDescriptorHeapIndex());
 
-	cl->OMSetRenderTargets(1, cdhs, true, &dsh);
+	cl->OMSetRenderTargets(0, nullptr, true, &dsh);
 
 	float clearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
-	cl->ClearRenderTargetView(cdhSwapChain, clearColor, 0, nullptr);
+	//cl->ClearRenderTargetView(cdhSwapChain, clearColor, 0, nullptr);
 
 	const D3D12_VIEWPORT viewPortSwapChain = *swapChainRenderTarget->GetRenderView()->GetViewPort();
 	const D3D12_RECT rectSwapChain = *swapChainRenderTarget->GetRenderView()->GetScissorRect();
@@ -940,6 +954,15 @@ void Renderer::ExecuteInlinePixel()
 	cl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	const DirectX::XMMATRIX* viewProjMatTrans = m_pScenePrimaryCamera->GetViewProjectionTranposed();
+
+	// Set temporal buffers written to UAV
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
+	{
+		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_LightTemporalResources[i][currentLightTemporalBuffer]->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	}
 
 	// Draw for every Rendercomponent with stencil testing disabled
 	ID3D12PipelineState* pipelineState = m_RenderTasks[RENDER_TASK_TYPE::FORWARD_RENDER]->GetPipelineState(0)->GetPSO();
@@ -963,11 +986,56 @@ void Renderer::ExecuteInlinePixel()
 		}
 	}
 
-	// Change state on front/backbuffer
-	cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		swapChainResource,
-		D3D12_RESOURCE_STATE_RENDER_TARGET,
-		D3D12_RESOURCE_STATE_PRESENT));
+	// Set temporal buffers written to back
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
+	{
+		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_LightTemporalResources[i][currentLightTemporalBuffer]->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+	}
+
+#pragma endregion InlineRT
+
+	// Execute ShadowBufferTask, output to m_LightTemporalResources
+	temporalAccumulation(cl);
+
+
+	// Execute BlurTasks, output to m_shadowBuffers
+	spatialAccumulation(cl);
+
+
+	// Calculate Light and output to m_Output
+	lightningMergeTask(cl);
+
+
+	// The raytracing output needs to be copied to the actual render target used
+	// for display. For this, we need to transition the raytracing output from a
+	// UAV to a copy source, and the render target buffer to a copy destination.
+	// We can then do the actual copy, before transitioning the render target
+	// buffer into a render target, that will be then used to display the image
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pOutputResource->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // StateBefore
+		D3D12_RESOURCE_STATE_COPY_SOURCE);	   // StateAfter
+	cl->ResourceBarrier(1, &transition);
+
+
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_PRESENT,	 // StateBefore
+		D3D12_RESOURCE_STATE_COPY_DEST); // StateAfter
+	cl->ResourceBarrier(1, &transition);
+
+	cl->CopyResource(
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
+		m_pOutputResource->GetID3D12Resource1());											// Source
+
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_COPY_DEST, // StateBefore
+		D3D12_RESOURCE_STATE_PRESENT);	// StateAfter
+	cl->ResourceBarrier(1, &transition);
 
 	cl->Close();
 
@@ -1035,9 +1103,12 @@ void Renderer::ExecuteInlinePixel()
 
 void Renderer::ExecuteInlineCompute()
 {
+	m_FrameCounter = m_FrameCounter + 1;
+
 	IDXGISwapChain4* dx12SwapChain = m_pSwapChain->GetDX12SwapChain();
 	unsigned int backBufferIndex = dx12SwapChain->GetCurrentBackBufferIndex();
-	unsigned int commandInterfaceIndex = m_FrameCounter++ % NUM_SWAP_BUFFERS;
+	unsigned int commandInterfaceIndex = m_FrameCounter % NUM_SWAP_BUFFERS;
+	unsigned int currentLightTemporalBuffer = m_FrameCounter % (NUM_TEMPORAL_BUFFERS + 1);
 
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 	DX12Task::SetCommandInterfaceIndex(commandInterfaceIndex);
@@ -1066,6 +1137,9 @@ void Renderer::ExecuteInlineCompute()
 	m_pTempCommandInterface->Reset(0);
 	ID3D12GraphicsCommandList5* cl = m_pTempCommandInterface->GetCommandList(0);
 
+
+#pragma region InlineRT
+
 	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
 
 	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
@@ -1075,14 +1149,14 @@ void Renderer::ExecuteInlineCompute()
 	cl->SetDescriptorHeaps(1, &d3d12DescriptorHeap);
 
 	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
-	cl->SetComputeRootDescriptorTable(RS::dtCBV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
-	cl->SetComputeRootDescriptorTable(RS::dtSRV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
-	cl->SetComputeRootConstantBufferView(RS::CBV0, m_pCbCamera->GetDefaultResource()->GetGPUVirtualAdress());
-	cl->SetComputeRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
+	unsigned int softShadowHeapOffset = m_DhIndexSoftShadowsUAV + 2 * MAX_POINT_LIGHTS * currentLightTemporalBuffer;
+	cl->SetComputeRootDescriptorTable(RS::dtUAV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(softShadowHeapOffset));
 
-	// Set cbvs
 	cl->SetComputeRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
 	cl->SetComputeRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootConstantBufferView(RS::CBV0, m_pCbCamera->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
 
 
 	// On the last frame, the raytracing output was used as a copy source, to
@@ -1099,7 +1173,41 @@ void Renderer::ExecuteInlineCompute()
 	ID3D12PipelineState* pipelineState = m_ComputeTasks[COMPUTE_TASK_TYPE::INLINE_RT]->GetPipelineState(0)->GetPSO();
 	cl->SetPipelineState(pipelineState);
 
+
+	// Set temporal buffers written to UAV
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
+	{
+		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_LightTemporalResources[i][currentLightTemporalBuffer]->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	}
+
 	cl->Dispatch(m_IRTNumThreadGroupsX, m_IRTNumThreadGroupsY, 1);
+
+	// Set temporal buffers written to back
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
+	{
+		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_LightTemporalResources[i][currentLightTemporalBuffer]->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+	}
+
+#pragma endregion InlineRT
+
+	// Execute ShadowBufferTask, output to m_LightTemporalResources
+	temporalAccumulation(cl);
+
+
+	// Execute BlurTasks, output to m_shadowBuffers
+	spatialAccumulation(cl);
+
+
+	// Calculate Light and output to m_Output
+	lightningMergeTask(cl);
+
+
 
 	// The raytracing output needs to be copied to the actual render target used
 	// for display. For this, we need to transition the raytracing output from a
@@ -1111,6 +1219,7 @@ void Renderer::ExecuteInlineCompute()
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // StateBefore
 		D3D12_RESOURCE_STATE_COPY_SOURCE);	   // StateAfter
 	cl->ResourceBarrier(1, &transition);
+
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),

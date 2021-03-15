@@ -2,17 +2,11 @@
 #include "LightCalculations.hlsl"
 
 // Raytracing output texture, accessed as a UAV
-RWTexture2D< float4 > gOutput : register(u0);
+RWTexture2D<float4> light_uav[] : register(u0, space1);
 
-// Raytracing acceleration structure, accessed as a SRV
-//RaytracingAccelerationStructure SceneBVH : register(t0, space4);
-
-//Texture2D textures[]   : register (t0, space2);
 SamplerState MIN_MAG_MIP_LINEAR__WRAP : register(s5);
 
 ConstantBuffer<CB_PER_OBJECT_STRUCT> cbPerObject	  : register(b1, space3);
-//ConstantBuffer<CB_PER_FRAME_STRUCT>  cbPerFrame		  : register(b4, space3);
-//ConstantBuffer<CB_PER_SCENE_STRUCT> cbPerScene : register(b5, space3);
 ConstantBuffer<DXR_CAMERA>			 cbCameraMatrices : register(b6, space3);
 ByteAddressBuffer rawBufferLights : register(t0, space3);
 
@@ -42,11 +36,6 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 	float depth = textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).r;
 	float3 worldPos = WorldPosFromDepth(depth, uv);
 
-	float4 normal = textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0);
-
-	float3 materialColor = float3(0.5f, 0.5f, 0.5f);
-	float3 finalColor = float3(0.0f, 0.0f, 0.0f);
-
 	// Init random floats
 	uint frameSeed = cbPerFrame.frameCounter + 200000;
 	uint seed = initRand(frameSeed * uv.x, frameSeed * (1 - uv.y));
@@ -56,27 +45,10 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 	for (int i = 0; i < lHeader.numLights; i++)
 	{
 		PointLight pl = rawBufferLights.Load<PointLight>(sizeof(LightHeader) + i * sizeof(PointLight));
-		
-		finalColor += CalcPointLight(pl, float4(worldPos.xyz, 1.0f), materialColor.rgb, normal.xyz, uv, seed);
+
+		float3 lightDir = normalize(pl.position.xyz - worldPos.xyz);
+		float shadowFactor = RT_ShadowFactorSoft(worldPos.xyz, pl.position.xyz, uv, lightDir, seed);
+		shadowFactor = min(shadowFactor, 1);
+		light_uav[i * 2 + 1][dispatchThreadID.xy] = shadowFactor;
 	}
-
-	float4 ambient = float4(materialColor.rgb, 1.0f) * 0.1f;
-	finalColor += ambient.rgb;
-
-	gOutput[dispatchThreadID.xy] = float4(finalColor.rgb, 1.0f);
-
-	// WORLD POSITION
-	//gOutput[dispatchThreadID.xy] = float4(worldPos.xyz/200, 1.0f);
-	
-	// NORMAL
-	//gOutput[dispatchThreadID.xy] = float4(normal.rgb, 1.0f);
-
-	// DEPTH
-	// gOutput[dispatchThreadID.xy] = float4(depth, 0.0f, 0.0f, 1.0f);
-
-	// UV
-	// gOutput[dispatchThreadID.xy] = float4(uv.xy, 0.0f, 1.0f);
-
-	// FLAT WHITE
-	// gOutput[dispatchThreadID.xy] = float4(1.0f, 1.0f, 1.0f, 1.0f);
 }
