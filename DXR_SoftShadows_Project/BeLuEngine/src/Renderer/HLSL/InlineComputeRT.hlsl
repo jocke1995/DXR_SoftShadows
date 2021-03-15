@@ -3,6 +3,7 @@
 
 // Raytracing output texture, accessed as a UAV
 RWTexture2D< float4 > gOutput : register(u0);
+RWTexture2D<float4> light_uav[] : register(u0, space1);
 
 // Raytracing acceleration structure, accessed as a SRV
 //RaytracingAccelerationStructure SceneBVH : register(t0, space4);
@@ -58,6 +59,11 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 		PointLight pl = rawBufferLights.Load<PointLight>(sizeof(LightHeader) + i * sizeof(PointLight));
 		
 		finalColor += CalcPointLight(pl, float4(worldPos.xyz, 1.0f), materialColor.rgb, normal.xyz, uv, seed);
+
+		float3 lightDir = normalize(pl.position.xyz - worldPos.xyz);
+		float shadowFactor = RT_ShadowFactorSoft(worldPos.xyz, pl.position.xyz, uv, lightDir, seed);
+		shadowFactor = min(shadowFactor, 1);
+		light_uav[i * 2 + 1][dispatchThreadID.xy] = shadowFactor;
 	}
 
 	float4 ambient = float4(materialColor.rgb, 1.0f) * 0.1f;
