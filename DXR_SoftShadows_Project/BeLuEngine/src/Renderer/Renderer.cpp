@@ -899,6 +899,9 @@ void Renderer::ExecuteInlinePixel()
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 
 	m_pTempCommandInterface->Reset(0);
+
+#pragma region InlineRT
+
 	ID3D12GraphicsCommandList5* cl = m_pTempCommandInterface->GetCommandList(0);
 
 	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
@@ -992,6 +995,8 @@ void Renderer::ExecuteInlinePixel()
 			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
 	}
 
+#pragma endregion InlineRT
+
 	// Execute ShadowBufferTask, output to m_LightTemporalResources
 	temporalAccumulation(cl);
 
@@ -1002,7 +1007,6 @@ void Renderer::ExecuteInlinePixel()
 
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
-
 
 
 	// The raytracing output needs to be copied to the actual render target used
@@ -1133,6 +1137,8 @@ void Renderer::ExecuteInlineCompute()
 	m_pTempCommandInterface->Reset(0);
 	ID3D12GraphicsCommandList5* cl = m_pTempCommandInterface->GetCommandList(0);
 
+#pragma region InlineRT
+
 	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
 
 	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
@@ -1187,6 +1193,7 @@ void Renderer::ExecuteInlineCompute()
 			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
 	}
 
+#pragma endregion InlineRT
 
 	// Execute ShadowBufferTask, output to m_LightTemporalResources
 	temporalAccumulation(cl);

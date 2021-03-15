@@ -8,11 +8,6 @@ struct VS_OUT
 	float3 norm		: NORM;
 };
 
-struct PS_OUTPUT
-{
-	float4 sceneColor: SV_TARGET0;
-};
-
 ByteAddressBuffer rawBufferLights: register(t0, space3);
 
 ConstantBuffer<CB_PER_OBJECT_STRUCT> cbPerObject : register(b1, space3);
@@ -20,12 +15,6 @@ RWTexture2D<float4> light_uav[] : register(u0, space1);
 
 void PS_main(VS_OUT input)
 {
-	// Sample from texture (DEBUG ONLY, not to be used when measuring)
-	//float4 albedo   = textures[cbPerObject.info.textureAlbedo].Sample(Anisotropic16_Wrap, input.uv);
-	float4 albedo = float4(0.5f, 0.5f, 0.5f, 1.0f);
-
-	float3 finalColor = float3(0.0f, 0.0f, 0.0f);
-
 	// Init random floats
 	uint frameSeed = cbPerFrame.frameCounter + 200000;
 
@@ -39,21 +28,12 @@ void PS_main(VS_OUT input)
 	{
 		PointLight pl = rawBufferLights.Load<PointLight>(sizeof(LightHeader) + i * sizeof(PointLight));
 
-		finalColor += CalcPointLight(pl, input.worldPos, albedo, input.norm, input.uv, seed);
-
 		float3 lightDir = normalize(pl.position.xyz - input.worldPos.xyz);
 		float shadowFactor = RT_ShadowFactorSoft(input.worldPos.xyz, pl.position.xyz, input.uv, lightDir, seed);
 		shadowFactor = min(shadowFactor, 1);
 
 		light_uav[i * 2 + 1][input.pos.xy] = shadowFactor;
-		
 	}
 
-	float4 ambient = albedo * 0.1f;
-	finalColor += ambient.rgb;
-
-	// DEBUG DEPTH TEXTURE (Can only see things when an object is really really close to the nearPlane, else everything is just red)
-	// float depth = textures[2].Sample(Anisotropic16_Wrap, input.uv);
-	// output.sceneColor = float4(depth, 0.0f, 0.0f, 1.0f);
-	return;// output;
+	return;
 }

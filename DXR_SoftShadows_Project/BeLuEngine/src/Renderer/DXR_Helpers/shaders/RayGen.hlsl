@@ -2,7 +2,6 @@
 #include "hlslhelpers.hlsl"
 
 // Raytracing output texture, accessed as a UAV
-RWTexture2D< float4 > gOutput : register(u0);
 
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0, space4);
@@ -47,11 +46,6 @@ void RayGen()
 	float depth = textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).r;
 
 	float3 worldPos = WorldPosFromDepth(depth, uv);
-
-    float4 normal = textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0);
-
-    float3 materialColor = float3(0.5f, 0.5f, 0.5f);
-    float3 finalColor = float3(0.0f, 0.0f, 0.0f);
 
     // Init random floats
     uint frameSeed = cbPerFrame.frameCounter + 200000;
@@ -121,23 +115,5 @@ void RayGen()
         sumFactor /= cbPerScene.spp;
         // i * 2 + 1 - PingPongResource has (0)SRV (1)UAV.
         light_uav[i * 2 + 1][DispatchRaysIndex().xy] = min(sumFactor, 1.0);
-
-        float nDotL = max(0.0f, dot(normal, lightDir));
-        finalColor += materialColor * lightColor * sumFactor * nDotL;
     }
-
-    finalColor += materialColor * 0.1f;
-    gOutput[launchIndex] = float4(finalColor.rgb, 1.0f); 
-
-    // NORMAL
-    // gOutput[launchIndex] = float4(normal.rgb, 1.0f);
-    
-    // DEPTH
-	// gOutput[launchIndex] = float4(depth, 0.0f, 0.0f, 1.0f);
-
-    // UV
-	// gOutput[launchIndex] = float4(uv.xy, 0.0f, 1.0f);
-    
-    // FLAT WHITE
-	// gOutput[launchIndex] = float4(1.0f, 1.0f, 1.0f, 1.0f);
 }
