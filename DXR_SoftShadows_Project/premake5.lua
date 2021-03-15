@@ -1,6 +1,6 @@
 workspace "DXR_SoftShadows"
     architecture "x64"
-    configurations { "Debug", "Release" }
+    configurations { "Debug", "Release", "Dist" }
     startproject "Sandbox"
     systemversion "latest"
     
@@ -27,7 +27,7 @@ project "BeLuEngine"
     links {
         "d3d12",
         "dxgi",
-        "d3dcompiler",
+        "dxcompiler",
         "dxguid",
         "assimp-vc142-mt",
     }
@@ -38,11 +38,15 @@ project "BeLuEngine"
     }
     defines{"_CRT_SECURE_NO_DEPRECATE", "_CRT_NONSTDC_NO_DEPRECATE"}
         filter "configurations:Debug"
-            defines { "_DEBUG", "BT_USE_DOUBLE_PRECISION"  }
+            defines { "DEBUG", "BT_USE_DOUBLE_PRECISION"  }
             symbols "On"
 
         filter "configurations:Release"
-            defines { "NDEBUG", "BT_USE_DOUBLE_PRECISION" }
+            defines { "DEBUG", "BT_USE_DOUBLE_PRECISION" }
+            optimize "On"
+
+        filter "configurations:Dist"
+            defines { "DIST", "BT_USE_DOUBLE_PRECISION" }
             optimize "On"
 
 project "Sandbox"
@@ -66,11 +70,66 @@ project "Sandbox"
     links {
         "BeLuEngine"
     }
+	
+	postbuildcommands
+    {
+        ("{COPY} ../dll ../bin/%{cfg.buildcfg}/Sandbox"),
+		("{COPY} ../bin/%{cfg.buildcfg}/Sandbox ../bin/%{cfg.buildcfg}/PerformanceTest/Sandbox")
+    }
     
     filter "configurations:Debug"
-        defines { "_DEBUG" }
+        defines { "DEBUG" }
         symbols "On"
     
     filter "configurations:Release"
-        defines { "NDEBUG" }
+        defines { "DEBUG" }
+        optimize "On"
+
+    filter "configurations:Dist"
+        defines { "DIST", "BT_USE_DOUBLE_PRECISION" }
+        optimize "On"
+		
+	
+	
+	
+project "PerformanceTest"
+    location "PerformanceTest"
+    kind "ConsoleApp"
+    language "C++"
+    targetdir "bin/%{cfg.buildcfg}/%{prj.name}"
+    objdir "bin-int/%{cfg.buildcfg}/%{prj.name}"
+    staticruntime "On"
+    files { "%{prj.location}/src/**.cpp", "%{prj.location}/src/**.h", "%{prj.location}/src/**.hlsl", }
+
+    filter { "files:**.hlsl" }
+        flags "ExcludeFromBuild"
+    
+    filter "configurations:*"
+        cppdialect "C++17"
+    
+    includedirs {"Vendor/Include/", "BeLuEngine/src/"}
+    libdirs { "Vendor/Lib/**" }
+    links {
+		"Sandbox"
+    }
+	
+	postbuildcommands
+    {
+		("{COPY} ../PerformanceTest/gnuplot/Sample_Data_Timeline.gp ../bin/%{cfg.buildcfg}/PerformanceTest/"),
+		("{COPY} ../BeLuEngine ../bin/%{cfg.buildcfg}/PerformanceTest/BeLuEngine"),
+		("{COPY} ../Sandbox ../bin/%{cfg.buildcfg}/PerformanceTest/Sandbox"),
+		("{COPY} ../Vendor ../bin/%{cfg.buildcfg}/PerformanceTest/Vendor")
+    }
+    
+    filter "configurations:Debug"
+        defines { "DEBUG" }
+        symbols "On"
+		debugdir "bin/%{cfg.buildcfg}/%{prj.name}"
+    
+    filter "configurations:Release"
+        defines { "DEBUG" }
+        optimize "On"
+
+    filter "configurations:Dist"
+        defines { "DIST", "BT_USE_DOUBLE_PRECISION" }
         optimize "On"

@@ -19,6 +19,8 @@ public:
     virtual ~OrthographicCamera();
 
     // Gets
+    const DirectX::XMMATRIX* GetProjMatrix() const override;
+    const DirectX::XMMATRIX* GetProjMatrixInverse() const override;
     const DirectX::XMMATRIX* GetViewProjection() const override;
     const DirectX::XMMATRIX* GetViewProjectionTranposed() const override;
     

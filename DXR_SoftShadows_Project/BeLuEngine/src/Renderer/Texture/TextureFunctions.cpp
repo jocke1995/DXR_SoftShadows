@@ -122,7 +122,7 @@ unsigned int LoadImageDataFromFile(BYTE** imageData, D3D12_RESOURCE_DESC* resour
 
 		if (FAILED(hr))
 		{
-			Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to \'coCreateInstance\' when loading texture from file.\n");
+			BL_LOG_CRITICAL("Failed to \'coCreateInstance\' when loading texture from file.\n");
 			return 0;
 		}
 	}
@@ -138,7 +138,7 @@ unsigned int LoadImageDataFromFile(BYTE** imageData, D3D12_RESOURCE_DESC* resour
 	);
 	if (FAILED(hr))
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to \'CreateDecoderFromFilename\' when loading texture from file.\n");
+		BL_LOG_CRITICAL("Failed to \'CreateDecoderFromFilename\' when loading texture from file.\n");
 		return 0;
 	}
 
@@ -146,7 +146,7 @@ unsigned int LoadImageDataFromFile(BYTE** imageData, D3D12_RESOURCE_DESC* resour
 	hr = wicDecoder->GetFrame(0, &wicFrame);
 	if (FAILED(hr))
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to \'GetFrame\' when loading texture from file.\n");
+		BL_LOG_CRITICAL("Failed to \'GetFrame\' when loading texture from file.\n");
 		return 0;
 	}
 
@@ -155,7 +155,7 @@ unsigned int LoadImageDataFromFile(BYTE** imageData, D3D12_RESOURCE_DESC* resour
 	hr = wicFrame->GetPixelFormat(&pixelFormat);
 	if (FAILED(hr))
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to \'GetPixelFormat\' when loading texture from file.\n");
+		BL_LOG_CRITICAL("Failed to \'GetPixelFormat\' when loading texture from file.\n");
 		return 0;
 	}
 
@@ -164,7 +164,7 @@ unsigned int LoadImageDataFromFile(BYTE** imageData, D3D12_RESOURCE_DESC* resour
 	hr = wicFrame->GetSize(&textureWidth, &textureHeight);
 	if (FAILED(hr))
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to \'GetSize\' when loading texture from file.\n");
+		BL_LOG_CRITICAL("Failed to \'GetSize\' when loading texture from file.\n");
 		return 0;
 	}
 
@@ -179,7 +179,7 @@ unsigned int LoadImageDataFromFile(BYTE** imageData, D3D12_RESOURCE_DESC* resour
 		// Return if no dxgi compatible format was found
 		if (convertToPixelFormat == GUID_WICPixelFormatDontCare)
 		{
-			Log::PrintSeverity(Log::Severity::CRITICAL, "No dxgi compatible format was found for texture.\n");
+			BL_LOG_CRITICAL("No dxgi compatible format was found for texture.\n");
 			return 0;
 		}
 
@@ -190,7 +190,7 @@ unsigned int LoadImageDataFromFile(BYTE** imageData, D3D12_RESOURCE_DESC* resour
 		hr = wicFactory->CreateFormatConverter(&wicConverter);
 		if (FAILED(hr))
 		{
-			Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to \'CreateFormatConverter\' when loading texture from file.\n");
+			BL_LOG_CRITICAL("Failed to \'CreateFormatConverter\' when loading texture from file.\n");
 			return 0;
 		}
 
@@ -199,7 +199,7 @@ unsigned int LoadImageDataFromFile(BYTE** imageData, D3D12_RESOURCE_DESC* resour
 		hr = wicConverter->CanConvert(pixelFormat, convertToPixelFormat, &canConvert);
 		if (FAILED(hr) || !canConvert)
 		{
-			Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to \'canConvert\' when loading texture from file.\n");
+			BL_LOG_CRITICAL("Failed to \'canConvert\' when loading texture from file.\n");
 			return 0;
 		}
 
@@ -207,7 +207,7 @@ unsigned int LoadImageDataFromFile(BYTE** imageData, D3D12_RESOURCE_DESC* resour
 		hr = wicConverter->Initialize(wicFrame, convertToPixelFormat, WICBitmapDitherTypeErrorDiffusion, 0, 0, WICBitmapPaletteTypeCustom);
 		if (FAILED(hr))
 		{
-			Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to \'Initialize\' when loading texture from file.\n");
+			BL_LOG_CRITICAL("Failed to \'Initialize\' when loading texture from file.\n");
 			return 0;
 		}
 

@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "CopyPerFrameTask.h"
 
+#include "../GPUMemory/GPUMemory.h"
 // DX12 Specifics
 #include "../CommandInterface.h"
 
@@ -26,6 +27,19 @@ void CopyPerFrameTask::ClearSpecific(const Resource* uploadResource)
 		{
 			// Remove
 			m_UploadDefaultData.erase(m_UploadDefaultData.begin() + i);
+			return; // FOUND
+		}
+		i++;
+	}
+
+	// two arrays in copyPerFrameTask
+	for (ShaderResource_ContinousMemory* memToUpload : m_ContinousMemoryToUploadData)
+	{
+		if (memToUpload->shaderResource->GetUploadResource() == uploadResource)
+		{
+			// Remove
+			m_ContinousMemoryToUploadData.erase(m_ContinousMemoryToUploadData.begin() + i);
+			return; // FOUND
 		}
 		i++;
 	}
@@ -34,6 +48,7 @@ void CopyPerFrameTask::ClearSpecific(const Resource* uploadResource)
 void CopyPerFrameTask::Clear()
 {
 	m_UploadDefaultData.clear();
+	m_ContinousMemoryToUploadData.clear();
 }
 
 void CopyPerFrameTask::Execute()
@@ -50,6 +65,16 @@ void CopyPerFrameTask::Execute()
 			std::get<0>(tuple),		// UploadHeap
 			std::get<1>(tuple),		// DefaultHeap
 			std::get<2>(tuple));	// Data
+	}
+
+	// Loop through the copyTasks where there are multiple calls to SetData. So when there are more then one kind of type in a resource Example: (rawBuffer for lights)
+	for (ShaderResource_ContinousMemory* memToUpload : m_ContinousMemoryToUploadData)
+	{
+		copyResourceAppend(
+			commandList,
+			memToUpload->shaderResource->GetUploadResource(),
+			memToUpload->shaderResource->GetDefaultResource(),
+			memToUpload->dataSizeVec);
 	}
 
 	commandList->Close();

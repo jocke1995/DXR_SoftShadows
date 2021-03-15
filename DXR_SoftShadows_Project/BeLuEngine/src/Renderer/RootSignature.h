@@ -11,12 +11,15 @@ enum RS
 	dtCBV,
 	dtSRV,
 	dtUAV,
+	dtRaytracing,
 	SRV0,
 	UAV0,
 	CBV0,
 	CB_PER_OBJECT_CBV,
 	CB_PER_FRAME,
 	CB_PER_SCENE,
+	dtSRV2,
+	RC_4,
 	NUM_PARAMS
 };
 

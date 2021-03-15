@@ -79,3 +79,4 @@ const DirectX::XMMATRIX* BaseCamera::GetViewMatrixInverse() const
 {
 	return &m_ViewMatrixInverse;
 }
+

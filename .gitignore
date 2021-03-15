@@ -3,6 +3,9 @@
 DXR_SoftShadows_Project/bin/
 DXR_SoftShadows_Project/*.bat
 
+**.csv
+DXR_SoftShadows_Project/Sandbox/*.csv
+
 **.sln
 **.vcxproj
 **.user

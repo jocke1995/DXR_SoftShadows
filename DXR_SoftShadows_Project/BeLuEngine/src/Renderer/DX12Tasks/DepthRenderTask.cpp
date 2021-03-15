@@ -93,7 +93,9 @@ void DepthRenderTask::drawRenderComponent(
 		// Create a CB_PER_OBJECT struct
 		CB_PER_OBJECT_STRUCT perObject = { *WTransposed, WVPTransposed, *info };
 
+		// Temp, should not SetData here
 		rc->CB_PER_OBJECT_UPLOAD_RESOURCES[i]->SetData(&perObject);
+
 		cl->SetGraphicsRootConstantBufferView(RS::CB_PER_OBJECT_CBV, rc->CB_PER_OBJECT_UPLOAD_RESOURCES[i]->GetGPUVirtualAdress());
 
 		cl->IASetIndexBuffer(m->GetIndexBufferView());

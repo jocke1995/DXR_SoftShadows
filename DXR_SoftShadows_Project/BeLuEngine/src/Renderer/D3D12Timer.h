@@ -10,6 +10,7 @@ namespace D3D12
 		UINT64 Stop;
 	};
 
+	static double s_GPUFreqToMS;
 	// D3D12 timer.
 	class D3D12Timer {
 	public:
@@ -37,10 +38,14 @@ namespace D3D12
 		// Calcluate time and map memory to CPU.
 		void CalculateTime();
 
+		void InitGPUFrequency(ID3D12CommandQueue* pCommandQueue);
+
 		// Get time from m_Start to m_Stop in nano seconds.
 		UINT64 GetDeltaTime();
+		double GetDeltaTimeMS();
 		UINT64 GetEndTime();
 		UINT64 GetBeginTime();
+		static double GetGPUFreq();
 
 		// Whether timer is active.
 		bool IsActive();

@@ -6,7 +6,8 @@ Resource::Resource(
 	unsigned long long entrySize,
 	RESOURCE_TYPE type,
 	std::wstring name,
-	D3D12_RESOURCE_FLAGS flags)
+	D3D12_RESOURCE_FLAGS flags,
+	D3D12_RESOURCE_STATES startState)
 {
 	m_Id = s_IdCounter++;
 
@@ -15,17 +16,16 @@ Resource::Resource(
 	m_Name = name;
 
 	D3D12_HEAP_TYPE d3d12HeapType;
-	D3D12_RESOURCE_STATES startState;
+	D3D12_RESOURCE_STATES startStateTemp = startState;
 
 	switch (type)
 	{
 	case RESOURCE_TYPE::UPLOAD:
 		d3d12HeapType = D3D12_HEAP_TYPE_UPLOAD;
-		startState = D3D12_RESOURCE_STATE_GENERIC_READ;
+		startStateTemp = D3D12_RESOURCE_STATE_GENERIC_READ;
 		break;
 	case RESOURCE_TYPE::DEFAULT:
 		d3d12HeapType = D3D12_HEAP_TYPE_DEFAULT;
-		startState = D3D12_RESOURCE_STATE_COMMON;
 		break;
 	}
 
@@ -41,7 +41,7 @@ Resource::Resource(
 	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 	resourceDesc.Flags = flags;
 
-	createResource(device, &resourceDesc, nullptr, startState);
+	createResource(device, &resourceDesc, nullptr, startStateTemp);
 }
 
 Resource::Resource(
@@ -107,7 +107,7 @@ void Resource::SetData(const void* data, unsigned int subResourceIndex) const
 {
 	if (m_Type == RESOURCE_TYPE::DEFAULT)
 	{
-		Log::PrintSeverity(Log::Severity::WARNING, "Trying to Map into default heap\n");
+		BL_LOG_WARNING("Trying to Map into default heap\n");
 		return;
 	}
 
@@ -117,6 +117,27 @@ void Resource::SetData(const void* data, unsigned int subResourceIndex) const
 
 	m_pResource->Map(subResourceIndex, nullptr, &dataBegin); // Get a dataBegin pointer where we can copy data to
 	memcpy(dataBegin, data, m_EntrySize);
+	m_pResource->Unmap(subResourceIndex, nullptr);
+}
+
+void Resource::SetDataAppend(const std::vector<std::pair<const void*, unsigned int>>& dataVec, unsigned int subResourceIndex) const
+{
+	if (m_Type == RESOURCE_TYPE::DEFAULT)
+	{
+		BL_LOG_WARNING("Trying to Map into default heap\n");
+		return;
+	}
+
+	uint8_t* dataBegin = nullptr;
+
+	// Set up the heap data
+
+	m_pResource->Map(subResourceIndex, nullptr, (void**)&dataBegin); // Get a dataBegin pointer where we can copy data to
+	for (std::pair<const void*, unsigned int> data_size : dataVec)
+	{
+		memcpy(dataBegin, data_size.first, data_size.second);
+		dataBegin += data_size.second;
+	}
 	m_pResource->Unmap(subResourceIndex, nullptr);
 }
 
@@ -147,7 +168,7 @@ void Resource::createResource(
 	if (FAILED(hr))
 	{
 		std::string cbName(m_Name.begin(), m_Name.end());
-		Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to create Resource with name: \'%s\'\n", cbName.c_str());
+		BL_LOG_CRITICAL("Failed to create Resource with name: \'%s\'\n", cbName.c_str());
 	}
 
 	m_pResource->SetName(m_Name.c_str());
