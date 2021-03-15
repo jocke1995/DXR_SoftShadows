@@ -13,6 +13,7 @@ ByteAddressBuffer rawBufferLights: register(t0, space3);
 ConstantBuffer<CB_PER_OBJECT_STRUCT> cbPerObject : register(b1, space3);
 RWTexture2D<float4> light_uav[] : register(u0, space1);
 
+[earlydepthstencil]
 void PS_main(VS_OUT input)
 {
 	// Init random floats
