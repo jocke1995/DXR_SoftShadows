@@ -1137,6 +1137,7 @@ void Renderer::ExecuteInlineCompute()
 	m_pTempCommandInterface->Reset(0);
 	ID3D12GraphicsCommandList5* cl = m_pTempCommandInterface->GetCommandList(0);
 
+
 #pragma region InlineRT
 
 	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
