@@ -36,7 +36,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     AssetLoader* al = AssetLoader::Get();
 
     Scene* scene;
-    if (params.scene == L"teast")
+    if (params.scene == L"test")
     {
          scene = TestScene(sceneManager);
     }

@@ -59,7 +59,7 @@ inline bool ParseParameters(ApplicationParameters* output)
                 }
             }
 
-            // Inline Raytracing
+            // quitOnFinish
             if (wcscmp(szArglist[i], L"-q") == 0)
             {
                 ++i;
@@ -76,7 +76,7 @@ inline bool ParseParameters(ApplicationParameters* output)
                 }
             }
 
-            // Result file
+            // NumLights
             if (wcscmp(szArglist[i], L"-l") == 0)
             {
                 output->numLights = std::stoi(szArglist[++i]);

@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
     -l 10               // Num Lights
     */
 
-    wchar_t test1Args[] = L"-o ../RTX3080.csv -q 1";
+    wchar_t test1Args[] = L"-o ../RTX3080.csv -q 0";
     wchar_t test1Argsi[] = L"-o ../RTX3080i.csv -q 1 -i 1";
 
     // Scene 1
@@ -83,9 +83,9 @@ int main(int argc, char* argv[])
     Printl("..................................................\n");
 
     // Scene 1 (inline RT)
-    Printl("Scene 1 (inline)..................................");
-    TestSandbox(test1Argsi);
-    Printl("..................................................\n");
+    //Printl("Scene 1 (inline)..................................");
+    //TestSandbox(test1Argsi);
+    //Printl("..................................................\n");
 
 
     Printl("..................................................");
