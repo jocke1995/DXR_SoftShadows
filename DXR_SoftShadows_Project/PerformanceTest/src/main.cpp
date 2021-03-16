@@ -73,18 +73,43 @@ int main(int argc, char* argv[])
     -l 10               // Num Lights
     */
 
-    wchar_t test1Args[] = L"-q 1 -i rt";
-    wchar_t test1Argsi[] = L"-q 1 -i ip";
+#pragma region TestSponza
+    wchar_t Sponza1Light_RT[] = L"-q 1 -i rt -s Sponza -l 1";
+    wchar_t Sponza2Light_RT[] = L"-q 1 -i rt -s Sponza -l 2";
+    wchar_t Sponza4Light_RT[] = L"-q 1 -i rt -s Sponza -l 4";
+    wchar_t Sponza8Light_RT[] = L"-q 1 -i rt -s Sponza -l 8";
+
+    wchar_t Sponza1Light_IP[] = L"-q 1 -i ip -s Sponza -l 1";
+    wchar_t Sponza2Light_IP[] = L"-q 1 -i ip -s Sponza -l 2";
+    wchar_t Sponza4Light_IP[] = L"-q 1 -i ip -s Sponza -l 4";
+    wchar_t Sponza8Light_IP[] = L"-q 1 -i ip -s Sponza -l 8";
+
+    wchar_t Sponza1Light_IC[] = L"-q 1 -i ic -s Sponza -l 1";
+    wchar_t Sponza2Light_IC[] = L"-q 1 -i ic -s Sponza -l 2";
+    wchar_t Sponza4Light_IC[] = L"-q 1 -i ic -s Sponza -l 4";
+    wchar_t Sponza8Light_IC[] = L"-q 1 -i ic -s Sponza -l 8";
 
     // Scene 1
-    Printl("Scene 1...........................................");
-    TestSandbox(test1Args);
-    Printl("..................................................\n");
+    Printl("Sponza Scenes RT START...........................................");
+    TestSandbox(Sponza1Light_RT);
+    TestSandbox(Sponza2Light_RT);
+    TestSandbox(Sponza4Light_RT);
+    TestSandbox(Sponza8Light_RT);
+    Printl("Sponza Scenes RT END..................................................\n");
+    Printl("Sponza Scenes InlinePixel START...........................................");
+    TestSandbox(Sponza1Light_IP);
+    TestSandbox(Sponza2Light_IP);
+    TestSandbox(Sponza4Light_IP);
+    TestSandbox(Sponza8Light_IP);
+    Printl("Sponza Scenes InlinePixel END..................................................\n");
+    Printl("Sponza Scenes InlineCompute START...........................................");
+    TestSandbox(Sponza1Light_IC);
+    TestSandbox(Sponza2Light_IC);
+    TestSandbox(Sponza4Light_IC);
+    TestSandbox(Sponza8Light_IC);
+    Printl("Sponza Scenes InlineCompute END..................................................\n");
 
-    // Scene 1 (inline RT)
-    //Printl("Scene 1 (inline)..................................");
-    //TestSandbox(test1Argsi);
-    //Printl("..................................................\n");
+#pragma endregion TestSponza
 
 
     Printl("..................................................");
