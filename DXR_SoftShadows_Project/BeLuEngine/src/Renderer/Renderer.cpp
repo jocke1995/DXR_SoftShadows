@@ -530,8 +530,8 @@ void Renderer::OutputTestResults(double dt)
 		if (csvExporter.IsFileEmpty(m_OutputName))
 		{
 			csvExporter << std::string("#") << "Header data: GPU" << "," << "Driver" << "," << "Time Measured (Seconds)" << "\n";
-			csvExporter << std::string("#") << "Body data: NumLights" << "," << "FramesMeasured" << "," << "DispatchRays Time (ms)" << "\n";
-			csvExporter << m_GPUName << "," << m_DriverVersion << "," << secondsMeasured << "\n";
+			csvExporter << std::string("#") << "Body data: NumLights" << "," << "FramesMeasured" << "," << "DispatchRays Time (ms)" << "," << "Frame Time (ms)" << "\n";
+			csvExporter << m_GPUName << "," << m_DriverVersion << "," << SECONDS_TO_MEASURE << "\n";
 		}
 		csvExporter << m_NumLights << "," << m_FrameCounter - NUM_TEMPORAL_BUFFERS + 1 << "," << resultAverage << "," << CPUresultAverage << "\n";
 
