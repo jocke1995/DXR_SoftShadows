@@ -67,8 +67,10 @@
 
 #define SECONDS_TO_MEASURE 5//3*60
 double resultAverage = -1;
+double CPUresultAverage = -1;
 CSVExporter csvExporter;
 std::vector<double> frameData;
+std::vector<double> CPUframeData;
 
 Renderer::Renderer()
 {
@@ -273,6 +275,7 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 
 	// Temp
 	frameData.reserve(10000);
+	CPUframeData.reserve(10000);
 
 	m_pTempCommandInterface = new CommandInterface(m_pDevice5, COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
 	m_pTempCommandInterface->Reset(0);
@@ -507,26 +510,30 @@ void Renderer::OutputTestResults(double dt)
 	{
 		// Save frame time
 		frameData.push_back(dtMS);
+		CPUframeData.push_back(m_LastCPUDT * 1000);
 	}
 	else if (secondsMeasured >= SECONDS_TO_MEASURE)
 	{
 		// Compute average
 		double sum = 0;
+		double CPUsum = 0;
 		for (unsigned int i = 0; i < frameData.size(); i++)
 		{
 			sum += frameData.at(i);
+			CPUsum += CPUframeData.at(i);
 		}
 
 		resultAverage = sum / frameData.size();
+		CPUresultAverage = CPUsum / CPUframeData.size();
 
 		// Comment if empty file
 		if (csvExporter.IsFileEmpty(m_OutputName))
 		{
-			csvExporter << std::string("#") << "Header data: GPU" << "," << "Driver" << "," << "Time Measured" << "," << "Total Frames" << "\n";
-			csvExporter << std::string("#") << "Body data: NumLights" << "," << "DispatchRays Time (ms)" << "," << "Total Frame Time (ms)" << "\n";
-			csvExporter << m_GPUName << "," << m_DriverVersion << "," << "Time Measured" << "," << frameData.size() << "\n";
+			csvExporter << std::string("#") << "Header data: GPU" << "," << "Driver" << "," << "Time Measured (Seconds)" << "\n";
+			csvExporter << std::string("#") << "Body data: NumLights" << "," << "FramesMeasured" << "," << "DispatchRays Time (ms)" << "\n";
+			csvExporter << m_GPUName << "," << m_DriverVersion << "," << secondsMeasured << "\n";
 		}
-		csvExporter << m_NumLights << "," << resultAverage << "," << "1337" << "\n";
+		csvExporter << m_NumLights << "," << m_FrameCounter - NUM_TEMPORAL_BUFFERS + 1 << "," << resultAverage << "," << CPUresultAverage << "\n";
 
 		csvExporter.Append(m_OutputName);
 
@@ -567,6 +574,11 @@ void Renderer::Update(double dt)
 	m_pCbCameraData->projectionI = *m_pScenePrimaryCamera->GetProjMatrixInverse();
 	m_pCbCameraData->view		 = *m_pScenePrimaryCamera->GetViewMatrix();
 	m_pCbCameraData->viewI		 = *m_pScenePrimaryCamera->GetViewMatrixInverse();
+}
+
+void Renderer::UpdateLastDT(double dt)
+{
+	m_LastCPUDT = dt;
 }
 
 void Renderer::SortObjects()
