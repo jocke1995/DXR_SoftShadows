@@ -36,13 +36,66 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     AssetLoader* al = AssetLoader::Get();
 
     Scene* scene;
-    if (params.scene == L"teast")
+    if (params.scene == L"test")
     {
          scene = TestScene(sceneManager);
     }
-    else
+    else if(params.scene == L"Sponza")  // Sponza test scenes
     {
-        scene = SponzaScene3(sceneManager);
+        if (params.numLights == 1)
+        {
+            scene = SponzaScene1Light(sceneManager);
+        }
+        else if (params.numLights == 2)
+        {
+            scene = SponzaScene2Lights(sceneManager);
+        }
+        else if (params.numLights == 4)
+        {
+            scene = SponzaScene4Lights(sceneManager);
+        }
+        else if (params.numLights == 8)
+        {
+            scene = SponzaScene8Lights(sceneManager);
+        }
+    }
+    else if (params.scene == L"Dragon")
+    {
+        if (params.numLights == 1)
+        {
+            scene = DragonScene1Light(sceneManager);
+        }
+        else if (params.numLights == 2)
+        {
+            scene = DragonScene2Lights(sceneManager);
+        }
+        else if (params.numLights == 4)
+        {
+            scene = DragonScene4Lights(sceneManager);
+        }
+        else if (params.numLights == 8)
+        {
+            scene = DragonScene8Lights(sceneManager);
+        }
+    }
+    else if (params.scene == L"SponzaDragons")
+    {
+        if (params.numLights == 1)
+        {
+            scene = SponzaDragonsScene1Light(sceneManager);
+        }
+        else if (params.numLights == 2)
+        {
+            scene = SponzaDragonsScene2Lights(sceneManager);
+        }
+        else if (params.numLights == 4)
+        {
+            scene = SponzaDragonsScene4Lights(sceneManager);
+        }
+        else if (params.numLights == 8)
+        {
+            scene = SponzaDragonsScene8Lights(sceneManager);
+        }
     }
 
     // Set scene
@@ -151,6 +204,7 @@ Scene* TestScene(SceneManager* sm)
     AssetLoader* al = AssetLoader::Get();
 
     // Get the models needed
+    Model* dragonModel = al->LoadModel(L"../Vendor/Resources/Models/StanfordDragon/drag.obj");
     Model* sponza = al->LoadModel(L"../Vendor/Resources/Scenes/Sponza/textures_pbr/sponza.obj");
     Model* sphereModel = al->LoadModel(L"../Vendor/Resources/Models/SpherePBR/ball.obj");
 
@@ -199,6 +253,19 @@ Scene* TestScene(SceneManager* sm)
     tc->GetTransform()->SetScale(1.0f);
     tc->GetTransform()->SetPosition(5, 35, 15);
     /* ---------------------- Spheres ---------------------- */
+
+    /* ---------------------- Stanford Dragon ---------------------- */
+    entity = scene->AddEntity("dragon");
+    mc = entity->AddComponent<component::ModelComponent>();
+    tc = entity->AddComponent<component::TransformComponent>();
+
+    mc->SetModel(dragonModel);
+    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
+    tc->GetTransform()->SetScale(80.0f);
+    tc->GetTransform()->SetRotationY(PI / 2);
+    tc->GetTransform()->SetRotationX(-PI / 2);
+    tc->GetTransform()->SetPosition(100.0f, 10.0f, 0.0f);
+    /* ---------------------- Stanford Dragon ---------------------- */
 
     /* ---------------------- PointLight1 ---------------------- */
     entity = scene->AddEntity("pointLight1");

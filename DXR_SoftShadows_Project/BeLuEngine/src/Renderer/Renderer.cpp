@@ -640,66 +640,6 @@ void Renderer::SortObjects()
 	setRenderTasksRenderComponents();
 }
 
-
-void Renderer::Execute(double dt)
-{
-	IDXGISwapChain4* dx12SwapChain = m_pSwapChain->GetDX12SwapChain();
-	unsigned int backBufferIndex = dx12SwapChain->GetCurrentBackBufferIndex();
-	unsigned int commandInterfaceIndex = m_FrameCounter++ % NUM_SWAP_BUFFERS;
-
-	DX12Task::SetBackBufferIndex(backBufferIndex);
-	DX12Task::SetCommandInterfaceIndex(commandInterfaceIndex);
-
-	CopyTask* copyTask = nullptr;
-	ComputeTask* computeTask = nullptr;
-	RenderTask* renderTask = nullptr;
-	/* --------------------- Record command lists --------------------- */
-
-	// TODO: All in one commandlist, or is this ok, since we will only measure the intresting parts anyways...?
-
-	// Copy on demand
-	copyTask = m_CopyTasks[COPY_TASK_TYPE::COPY_ON_DEMAND];
-	copyTask->Execute();
-
-	// Copy per frame
-	copyTask = m_CopyTasks[COPY_TASK_TYPE::COPY_PER_FRAME];
-	copyTask->Execute();
-
-	// Depth pre-pass
-	renderTask = m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS];
-	renderTask->Execute();
-
-	// Opaque draw
-	renderTask = m_RenderTasks[RENDER_TASK_TYPE::FORWARD_RENDER];
-	renderTask->Execute();
-
-	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
-		m_DirectCommandLists[commandInterfaceIndex].size(),
-		m_DirectCommandLists[commandInterfaceIndex].data());
-
-	/* --------------------------------------------------------------- */
-
-	// Wait if the CPU is to far ahead of the gpu
-	waitForGPU();
-	//m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->Signal(m_pFenceFrame, m_FenceFrameValue);
-	//waitForFrame(0);
-	//m_FenceFrameValue++;
-
-	/*------------------- Post draw stuff -------------------*/
-	// Clear copy on demand
-	m_CopyTasks[COPY_TASK_TYPE::COPY_ON_DEMAND]->Clear();
-
-	/*------------------- Present -------------------*/
-	HRESULT hr = dx12SwapChain->Present(0, 0);
-
-#ifdef DEBUG
-	if (FAILED(hr))
-	{
-		BL_LOG_CRITICAL("Swapchain Failed to present\n");
-	}
-#endif
-}
-
 #define DX12TEST(fnc, x) m_DXTimer.Start(cl, x);fnc;m_DXTimer.Stop(cl, x);m_DXTimer.ResolveQueryToCPU(cl, x);
 
 void Renderer::ExecuteDXR(double dt)
@@ -737,10 +677,9 @@ void Renderer::ExecuteDXR(double dt)
 	m_pTempCommandInterface->Reset(0);
 	auto cl = m_pTempCommandInterface->GetCommandList(0);
 
-
 #pragma region RayTrace
-
-	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
+	DX12TEST(
+		const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
 	ID3D12Resource1* swapChainResource = swapChainRenderTarget->GetResource()->GetID3D12Resource1();
 	const unsigned int swapChainIndex = swapChainRenderTarget->GetDescriptorHeapIndex();
 
@@ -820,7 +759,8 @@ void Renderer::ExecuteDXR(double dt)
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 	}
 
-	DX12TEST(cl->DispatchRays(&desc), 0);
+	//DX12TEST(cl->DispatchRays(&desc), 0);
+	cl->DispatchRays(&desc);
 
 	// Set temporal buffers written to back
 	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
@@ -831,9 +771,9 @@ void Renderer::ExecuteDXR(double dt)
 			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
 	}
 
-	
+	, 0);
 #pragma endregion RayTrace
-
+	
 
 	// Execute ShadowBufferTask, output to m_LightTemporalResources
 	temporalAccumulation(cl);
@@ -899,6 +839,7 @@ void Renderer::ExecuteInlinePixel(double dt)
 
 	IDXGISwapChain4* dx12SwapChain = m_pSwapChain->GetDX12SwapChain();
 	unsigned int backBufferIndex = dx12SwapChain->GetCurrentBackBufferIndex();
+
 	unsigned int commandInterfaceIndex = m_FrameCounter % NUM_SWAP_BUFFERS;
 	unsigned int currentLightTemporalBuffer = m_FrameCounter % (NUM_TEMPORAL_BUFFERS + 1);
 
@@ -907,14 +848,12 @@ void Renderer::ExecuteInlinePixel(double dt)
 
 	// Copy per frame
 	m_CopyTasks[COPY_TASK_TYPE::COPY_PER_FRAME]->Execute();
-
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
 		1,
 		&m_DXRCpftCommandLists[commandInterfaceIndex]);
 
-	// Matrices are uploaded here temporarily
+	// Depth pre-pass
 	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
-
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
 		1,
 		&m_DepthPrePassCommandLists[commandInterfaceIndex]);
@@ -927,10 +866,9 @@ void Renderer::ExecuteInlinePixel(double dt)
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 
 	m_pTempCommandInterface->Reset(0);
+	auto cl = m_pTempCommandInterface->GetCommandList(0);
 
 #pragma region InlineRT
-
-	ID3D12GraphicsCommandList5* cl = m_pTempCommandInterface->GetCommandList(0);
 
 	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
 	ID3D12Resource1* swapChainResource = swapChainRenderTarget->GetResource()->GetID3D12Resource1();
@@ -1095,6 +1033,7 @@ void Renderer::ExecuteInlineCompute(double dt)
 
 	IDXGISwapChain4* dx12SwapChain = m_pSwapChain->GetDX12SwapChain();
 	unsigned int backBufferIndex = dx12SwapChain->GetCurrentBackBufferIndex();
+
 	unsigned int commandInterfaceIndex = m_FrameCounter % NUM_SWAP_BUFFERS;
 	unsigned int currentLightTemporalBuffer = m_FrameCounter % (NUM_TEMPORAL_BUFFERS + 1);
 
@@ -1103,14 +1042,12 @@ void Renderer::ExecuteInlineCompute(double dt)
 
 	// Copy per frame
 	m_CopyTasks[COPY_TASK_TYPE::COPY_PER_FRAME]->Execute();
-
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
 		1,
 		&m_DXRCpftCommandLists[commandInterfaceIndex]);
 
-	// Matrices are uploaded here temporarily
+	// Depth pre-pass
 	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
-
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
 		1,
 		&m_DepthPrePassCommandLists[commandInterfaceIndex]);
@@ -1123,7 +1060,7 @@ void Renderer::ExecuteInlineCompute(double dt)
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 
 	m_pTempCommandInterface->Reset(0);
-	ID3D12GraphicsCommandList5* cl = m_pTempCommandInterface->GetCommandList(0);
+	auto cl = m_pTempCommandInterface->GetCommandList(0);
 
 
 #pragma region InlineRT
@@ -2720,7 +2657,7 @@ void Renderer::submitUploadPerSceneData()
 	m_pCbPerSceneData->pointLightRawBufferIndex = m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetSRV()->GetDescriptorHeapIndex();
 	m_pCbPerSceneData->depthBufferIndex = m_pDepthBufferSRV->GetDescriptorHeapIndex();
 	m_pCbPerSceneData->gBufferNormalIndex = m_GBufferNormal.srv->GetDescriptorHeapIndex();
-	m_pCbPerSceneData->spp = 1;
+	m_pCbPerSceneData->spp = 2;
 
 
 	// Submit CB_PER_SCENE to be uploaded to VRAM
