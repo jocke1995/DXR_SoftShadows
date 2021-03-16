@@ -45,6 +45,9 @@ Scene* SponzaScene1Light(SceneManager* sm)
     cc = entity->AddComponent<component::CameraComponent>(CAMERA_TYPE::PERSPECTIVE, true);
     ic = entity->AddComponent<component::InputComponent>();
     scene->SetPrimaryCamera(cc->GetCamera());
+
+    cc->GetCamera()->SetPosition(-348.85f, 204.96f, -21.56f);
+    cc->GetCamera()->SetDirection(0.899f, -0.41f, 0.15f);
     /* ---------------------- Player ---------------------- */
 
     /* ---------------------- Sponza ---------------------- */
