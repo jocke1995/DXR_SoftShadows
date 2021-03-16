@@ -76,8 +76,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     BL_LOG("Entering Game-Loop ...\n\n");
     while (!window->ExitWindow())
     {
-        static bool DXR = true;
-
         // Check if change mode
         bool isF1 = input->GetKeyState(SCAN_CODES::F1);
         bool isF2 = input->GetKeyState(SCAN_CODES::F2);
@@ -112,7 +110,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 
         /* ------ Update ------ */
         timer->Update();
-        renderer->UpdateLastDT(timer->GetDeltaTime());
    
         sceneManager->Update(timer->GetDeltaTime());
    

@@ -499,23 +499,23 @@ void Renderer::SetResultsFileName()
 
 void Renderer::OutputTestResults(double dt)
 {
-	auto timestamps = m_DXTimer.GetTimestampPair(0);
-	double dtMS = (timestamps.Stop - timestamps.Start) * m_DXTimer.GetGPUFreq();
-	//BL_LOG_INFO("DXR deltaTime: %lf\n", dt);
-
 	static double secondsMeasured = 0;
-	secondsMeasured += dt;
+	const int framesToSkip = 100;
 
 	// Skip the first frames
-	if (m_FrameCounter <= NUM_TEMPORAL_BUFFERS + 1)
+	if (m_FrameCounter <= framesToSkip)//NUM_TEMPORAL_BUFFERS + 1)
 	{
 		return;
 	}
 	else if (secondsMeasured < SECONDS_TO_MEASURE)
 	{
+		auto timestamps = m_DXTimer.GetTimestampPair(0);
+		double dtMS = (timestamps.Stop - timestamps.Start) * m_DXTimer.GetGPUFreq();
+		secondsMeasured += dt;
+
 		// Save frame time
 		frameData.push_back(dtMS);
-		CPUframeData.push_back(m_LastCPUDT * 1000);
+		CPUframeData.push_back(dt * 1000);
 	}
 	else if (secondsMeasured >= SECONDS_TO_MEASURE)
 	{
@@ -538,7 +538,7 @@ void Renderer::OutputTestResults(double dt)
 			csvExporter << std::string("#") << "Body data: NumLights" << "," << "FramesMeasured" << "," << "DispatchRays Time (ms)" << "," << "Frame Time (ms)" << "\n";
 			csvExporter << m_GPUName << "," << m_DriverVersion << "," << SECONDS_TO_MEASURE << "\n";
 		}
-		csvExporter << m_NumLights << "," << m_FrameCounter - NUM_TEMPORAL_BUFFERS + 1 << "," << resultAverage << "," << CPUresultAverage << "\n";
+		csvExporter << m_NumLights << "," << m_FrameCounter - framesToSkip << "," << resultAverage << "," << CPUresultAverage << "\n";
 
 		csvExporter.Append(m_OutputName);
 
@@ -550,7 +550,9 @@ void Renderer::OutputTestResults(double dt)
 		{
 			PostQuitMessage(0);
 		}
-
+		
+		// Results will not be accurate since exporting takes performance
+		// Anyway, set test to start
 		secondsMeasured = 0;
 	}
 }
@@ -579,11 +581,6 @@ void Renderer::Update(double dt)
 	m_pCbCameraData->projectionI = *m_pScenePrimaryCamera->GetProjMatrixInverse();
 	m_pCbCameraData->view		 = *m_pScenePrimaryCamera->GetViewMatrix();
 	m_pCbCameraData->viewI		 = *m_pScenePrimaryCamera->GetViewMatrixInverse();
-}
-
-void Renderer::UpdateLastDT(double dt)
-{
-	m_LastCPUDT = dt;
 }
 
 void Renderer::SortObjects()
