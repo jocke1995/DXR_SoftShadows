@@ -477,9 +477,9 @@ void Renderer::SetQuitOnFinish(bool b)
 	m_QuitOnFinish = b;
 }
 
-void Renderer::SetUseInlineRT(bool b)
+void Renderer::SetRTType(std::wstring wstr)
 {
-	m_UseInlineRT = b;
+	m_RTType = to_string(wstr);
 }
 
 void Renderer::SetNumLights(int num)
@@ -487,9 +487,14 @@ void Renderer::SetNumLights(int num)
 	m_NumLights = num;
 }
 
-void Renderer::SetResultsFileName(std::wstring outputName)
+void Renderer::SetSceneName(std::wstring sceneName)
 {
-	m_OutputName = outputName;
+	m_SceneName = sceneName;
+}
+
+void Renderer::SetResultsFileName()
+{
+	m_OutputName = to_wstring("../" + m_GPUName + "_" + to_string(m_SceneName) + "_" + m_RTType + ".csv");
 }
 
 void Renderer::OutputTestResults(double dt)
@@ -2140,11 +2145,11 @@ bool Renderer::createDevice()
 
 			m_GPUName = to_string(adapterDesc.Description);
 			m_DriverVersion = getDriverVersion();
-
+			SetResultsFileName();
+			
 			BL_LOG("Adapter: %s\n", m_GPUName.c_str());
 			BL_LOG("Driver Version: %s\n", m_DriverVersion.c_str());
-			
-			
+
 			D3D12_FEATURE_DATA_D3D12_OPTIONS5 features5 = {};
 			HRESULT hr = pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &features5, sizeof(D3D12_FEATURE_DATA_D3D12_OPTIONS5));
 			SAFE_RELEASE(&pDevice);

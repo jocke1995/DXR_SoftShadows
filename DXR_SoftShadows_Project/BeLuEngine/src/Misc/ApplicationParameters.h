@@ -7,8 +7,7 @@
 struct ApplicationParameters
 {
     std::wstring scene = L"test";
-    std::wstring outputFile = L"noname.csv";
-    bool useInlineRaytracing = false;
+    std::wstring RayTracingType = L"notype";
     bool quitOnFinish = false;
     int numLights = 1;
 };
@@ -36,27 +35,10 @@ inline bool ParseParameters(ApplicationParameters* output)
                 output->scene = szArglist[++i];
             }
 
-            // Result file
-            if (wcscmp(szArglist[i], L"-o") == 0)
-            {
-                output->outputFile = szArglist[++i];
-            }
-
             // Inline Raytracing
             if (wcscmp(szArglist[i], L"-i") == 0)
             {
-                ++i;
-
-                if (wcscmp(szArglist[i], L"true") == 0 || wcscmp(szArglist[i], L"True") == 0 || wcscmp(szArglist[i], L"TRUE") == 0 ||
-                    wcscmp(szArglist[i], L"yes") == 0 || wcscmp(szArglist[i], L"Yes") == 0 || wcscmp(szArglist[i], L"YES") == 0 ||
-                    wcscmp(szArglist[i], L"1") == 0)
-                {
-                    output->useInlineRaytracing = true;
-                }
-                else
-                {
-                    output->useInlineRaytracing = false;
-                }
+                output->RayTracingType = szArglist[++i];
             }
 
             // quitOnFinish
