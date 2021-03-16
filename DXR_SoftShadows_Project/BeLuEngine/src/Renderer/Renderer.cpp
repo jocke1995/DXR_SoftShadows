@@ -1050,7 +1050,7 @@ void Renderer::ExecuteInlineCompute(double dt)
 
 	DX12TEST(
 
-		cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
+	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
 
 	cl->SetDescriptorHeaps(1, &dhCBVSRVUAV);
 
@@ -1066,7 +1066,7 @@ void Renderer::ExecuteInlineCompute(double dt)
 
 
 	// Draw for every Rendercomponent with stencil testing disabled
-	ID3D12PipelineState * pipelineState = m_ComputeTasks[COMPUTE_TASK_TYPE::INLINE_RT]->GetPipelineState(0)->GetPSO();
+	ID3D12PipelineState* pipelineState = m_ComputeTasks[COMPUTE_TASK_TYPE::INLINE_RT]->GetPipelineState(0)->GetPSO();
 	cl->SetPipelineState(pipelineState);
 
 
