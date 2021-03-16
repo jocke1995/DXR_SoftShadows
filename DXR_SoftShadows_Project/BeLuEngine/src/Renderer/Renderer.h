@@ -121,7 +121,6 @@ public:
 
 	// Call each frame
 	void Update(double dt);
-	void UpdateLastDT(double dt);
 	void SortObjects();
 	void Execute(double dt);
 	void ExecuteDXR(double dt);
@@ -200,7 +199,6 @@ private:
 
 	// ------------------- DXR temp ----------------
 	// Test variables
-	double m_LastCPUDT = 0;
 	std::string m_GPUName = "Unknown";
 	std::string m_DriverVersion = "Unknown";
 	bool m_QuitOnFinish = false;
