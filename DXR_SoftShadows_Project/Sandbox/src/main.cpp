@@ -53,15 +53,32 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     sceneManager->Update(0);
     renderer->InitDXR();
 
+    // 0: RT
+    // 1: Inline RT (Pixel shader)
+    // 2: inline RT (Compute shader)
+    static int mode = 0;
+
+    if (params.RayTracingType == L"rt")
+    {
+        mode = 0;
+    }
+    else if (params.RayTracingType == L"ip")
+    {
+        mode = 1;
+    }
+    else if (params.RayTracingType == L"ic")
+    {
+        mode = 2;
+    }
+
+    Log::Print("Mode: %d\n", mode);
+
    BL_LOG("Entering Game-Loop ...\n\n");
    while (!window->ExitWindow())
    {
        static bool DXR = true;
 
-       // 0: RT
-       // 1: Inline RT (Pixel shader)
-       // 2: inline RT (Compute shader)
-       static int mode = 0;
+       
 
        // Check if change mode
        bool isF1 = input->GetKeyState(SCAN_CODES::F1);

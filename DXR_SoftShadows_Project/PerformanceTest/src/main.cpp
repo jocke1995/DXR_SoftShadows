@@ -68,14 +68,13 @@ int main(int argc, char* argv[])
     Commandline args:
 
     -s test             // Scene
-    -o 123.txt          // Output Result File
-    -i false            // Use Inline-Raytracing
+    -i rt               // Raytracing Type (rt, ip, ic)
     -q false            // Quit after test
     -l 10               // Num Lights
     */
 
-    wchar_t test1Args[] = L"-o ../RTX3080.csv -q 1";
-    wchar_t test1Argsi[] = L"-o ../RTX3080i.csv -q 1 -i 1";
+    wchar_t test1Args[] = L"-q 1 -i rt";
+    wchar_t test1Argsi[] = L"-q 1 -i ip";
 
     // Scene 1
     Printl("Scene 1...........................................");
