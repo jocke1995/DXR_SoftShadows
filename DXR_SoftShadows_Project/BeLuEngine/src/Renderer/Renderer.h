@@ -198,6 +198,7 @@ private:
 	// ------------------- DXR temp ----------------
 	// Test variables
 	std::string m_GPUName = "Unknown";
+	std::string m_DriverVersion = "Unknown";
 	bool m_QuitOnFinish = false;
 	bool m_UseInlineRT = false;
 	int m_NumLights = 1;
@@ -333,6 +334,7 @@ private:
 
 	void setRenderTasksPrimaryCamera();
 	bool createDevice();
+	std::string getDriverVersion();
 	void createCommandQueues();
 	void createSwapChain();
 	void createGBufferRenderTargets();

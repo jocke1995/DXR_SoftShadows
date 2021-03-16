@@ -2146,8 +2146,14 @@ bool Renderer::createDevice()
 			DXGI_ADAPTER_DESC adapterDesc = {};
 			adapter->GetDesc(&adapterDesc);
 
-			BL_LOG("Adapter: %S\n", adapterDesc.Description);
+			system("nvidia-smi -q --xml-format -f nvidia-smi.txt");
+
 			m_GPUName = to_string(adapterDesc.Description);
+			m_DriverVersion = getDriverVersion();
+
+			BL_LOG("Adapter: %s\n", m_GPUName.c_str());
+			BL_LOG("Driver Version: %s\n", m_DriverVersion.c_str());
+			
 			
 			D3D12_FEATURE_DATA_D3D12_OPTIONS5 features5 = {};
 			HRESULT hr = pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &features5, sizeof(D3D12_FEATURE_DATA_D3D12_OPTIONS5));
@@ -2239,6 +2245,32 @@ void Renderer::createSwapChain()
 		m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE],
 		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::RTV],
 		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]);
+}
+
+std::string Renderer::getDriverVersion()
+{
+	// Open nvidia-smi.txt
+	std::ifstream file;
+	file.open("nvidia-smi.txt", std::ios_base::in);
+
+	const int buf_size = 5000;
+	char buffer[buf_size];
+	file.read(buffer, buf_size);
+
+	// find driverversion
+	std::string bufferString = std::string(buffer);
+	const char findStr[] = "<driver_version>";
+	const char findStrEnd[] = "</driver_version>";
+	unsigned int findLength = std::strlen(findStr);
+
+	unsigned int foundIndexStart, foundIndexEnd;
+	foundIndexStart = bufferString.find(findStr, 0);
+
+	foundIndexEnd = bufferString.find(findStrEnd, foundIndexStart + findLength);
+
+	std::string driverVersion = std::string(buffer + foundIndexStart + findLength, buffer + foundIndexEnd);
+	
+	return driverVersion;
 }
 
 void Renderer::createGBufferRenderTargets()

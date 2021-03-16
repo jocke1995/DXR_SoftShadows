@@ -5,6 +5,7 @@ DXR_SoftShadows_Project/*.bat
 
 **.csv
 DXR_SoftShadows_Project/Sandbox/*.csv
+nvidia-smi.txt
 
 **.sln
 **.vcxproj
