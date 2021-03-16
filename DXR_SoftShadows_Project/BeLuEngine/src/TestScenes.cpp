@@ -24,7 +24,7 @@ __________
 [__|___|__]
 
 */
-Scene* SponzaScene1(SceneManager* sm)
+Scene* SponzaScene1Light(SceneManager* sm)
 {
     // Create Scene
     Scene* scene = sm->CreateScene("SponzaScene");
@@ -82,7 +82,7 @@ __________
 [__|___|__]
 
 */
-Scene* SponzaScene2(SceneManager* sm)
+Scene* SponzaScene2Lights(SceneManager* sm)
 {
     // Create Scene
     Scene* scene = sm->CreateScene("SponzaScene");
@@ -147,7 +147,7 @@ ____________
 [___|___|___]
 
 */
-Scene* SponzaScene3(SceneManager* sm)
+Scene* SponzaScene4Lights(SceneManager* sm)
 {
     // Create Scene
     Scene* scene = sm->CreateScene("SponzaScene");
@@ -226,7 +226,7 @@ ____________
 [___|___|___]
 
 */
-Scene* SponzaScene4(SceneManager* sm)
+Scene* SponzaScene8Lights(SceneManager* sm)
 {
     // Create Scene
     Scene* scene = sm->CreateScene("SponzaScene");
@@ -321,7 +321,7 @@ Scene* SponzaScene4(SceneManager* sm)
     return scene;
 }
 
-Scene* DragonScene1(SceneManager* sm)
+Scene* DragonScene1Light(SceneManager* sm)
 {
     // Create Scene
     Scene* scene = sm->CreateScene("SponzaScene");
@@ -381,7 +381,7 @@ Scene* DragonScene1(SceneManager* sm)
     return scene;
 }
 
-Scene* DragonScene2(SceneManager* sm)
+Scene* DragonScene2Lights(SceneManager* sm)
 {
     // Create Scene
     Scene* scene = sm->CreateScene("SponzaScene");
@@ -448,7 +448,7 @@ Scene* DragonScene2(SceneManager* sm)
     return scene;
 }
 
-Scene* DragonScene3(SceneManager* sm)
+Scene* DragonScene4Lights(SceneManager* sm)
 {
     // Create Scene
     Scene* scene = sm->CreateScene("SponzaScene");
@@ -529,7 +529,7 @@ Scene* DragonScene3(SceneManager* sm)
     return scene;
 }
 
-Scene* DragonScene4(SceneManager* sm)
+Scene* DragonScene8Lights(SceneManager* sm)
 {
     // Create Scene
     Scene* scene = sm->CreateScene("SponzaScene");
@@ -650,7 +650,7 @@ __________
 [__|___|__]
 
 */
-Scene* SponzaDragonsScene1(SceneManager* sm)
+Scene* SponzaDragonsScene1Light(SceneManager* sm)
 {
     // Create Scene
     Scene* scene = sm->CreateScene("SponzaScene");
@@ -755,7 +755,7 @@ __________
 [__|___|__]
 
 */
-Scene* SponzaDragonsScene2(SceneManager* sm)
+Scene* SponzaDragonsScene2Lights(SceneManager* sm)
 {
     // Create Scene
     Scene* scene = sm->CreateScene("SponzaScene");
@@ -867,7 +867,7 @@ ____________
 [___|___|___]
 
 */
-Scene* SponzaDragonsScene3(SceneManager* sm)
+Scene* SponzaDragonsScene4Lights(SceneManager* sm)
 {
     // Create Scene
     Scene* scene = sm->CreateScene("SponzaScene");
@@ -993,7 +993,7 @@ ____________
 [___|___|___]
 
 */
-Scene* SponzaDragonsScene4(SceneManager* sm)
+Scene* SponzaDragonsScene8Lights(SceneManager* sm)
 {
     // Create Scene
     Scene* scene = sm->CreateScene("SponzaScene");
