@@ -116,14 +116,15 @@ public:
 	void SetUseInlineRT(bool b);
 	void SetNumLights(int num);
 	void SetResultsFileName(std::wstring outputName);
+	void OutputTestResults(double dt);
 
 	// Call each frame
 	void Update(double dt);
 	void SortObjects();
-	void Execute();
-	void ExecuteDXR();
-	void ExecuteInlinePixel();
-	void ExecuteInlineCompute();
+	void Execute(double dt);
+	void ExecuteDXR(double dt);
+	void ExecuteInlinePixel(double dt);
+	void ExecuteInlineCompute(double dt);
 
 	// Render inits, these functions are called by respective components through SetScene to prepare for drawing
 	void InitModelComponent(component::ModelComponent* component);

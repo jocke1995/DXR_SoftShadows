@@ -65,7 +65,7 @@
 
 
 
-#define NUM_FRAMES 10
+#define SECONDS_TO_MEASURE 5//3*60
 double resultAverage = -1;
 CSVExporter csvExporter;
 std::vector<double> frameData;
@@ -272,7 +272,7 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 
 
 	// Temp
-	frameData.reserve(NUM_FRAMES);
+	frameData.reserve(10000);
 
 	m_pTempCommandInterface = new CommandInterface(m_pDevice5, COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
 	m_pTempCommandInterface->Reset(0);
@@ -489,6 +489,60 @@ void Renderer::SetResultsFileName(std::wstring outputName)
 	m_OutputName = outputName;
 }
 
+void Renderer::OutputTestResults(double dt)
+{
+	auto timestamps = m_DXTimer.GetTimestampPair(0);
+	double dtMS = (timestamps.Stop - timestamps.Start) * m_DXTimer.GetGPUFreq();
+	//BL_LOG_INFO("DXR deltaTime: %lf\n", dt);
+
+	static double secondsMeasured = 0;
+	secondsMeasured += dt;
+
+	// Skip the first frames
+	if (m_FrameCounter <= NUM_TEMPORAL_BUFFERS + 1)
+	{
+		return;
+	}
+	else if (secondsMeasured < SECONDS_TO_MEASURE)
+	{
+		// Save frame time
+		frameData.push_back(dtMS);
+	}
+	else if (secondsMeasured >= SECONDS_TO_MEASURE)
+	{
+		// Compute average
+		double sum = 0;
+		for (unsigned int i = 0; i < frameData.size(); i++)
+		{
+			sum += frameData.at(i);
+		}
+
+		resultAverage = sum / frameData.size();
+
+		// Comment if empty file
+		if (csvExporter.IsFileEmpty(m_OutputName))
+		{
+			csvExporter << std::string("#") << "Header data: GPU" << "," << "Driver" << "," << "Time Measured" << "," << "Total Frames" << "\n";
+			csvExporter << std::string("#") << "Body data: NumLights" << "," << "DispatchRays Time (ms)" << "," << "Total Frame Time (ms)" << "\n";
+			csvExporter << m_GPUName << "," << m_DriverVersion << "," << "Time Measured" << "," << frameData.size() << "\n";
+		}
+		csvExporter << m_NumLights << "," << resultAverage << "," << "1337" << "\n";
+
+		csvExporter.Append(m_OutputName);
+
+		BL_LOG_INFO("Exported.......\n");
+
+
+		// Quit on finish
+		if (m_QuitOnFinish)
+		{
+			PostQuitMessage(0);
+		}
+
+		secondsMeasured = 0;
+	}
+}
+
 void Renderer::Update(double dt)
 {
 	float3 right = reinterpret_cast<float3&>(m_pScenePrimaryCamera->GetRightVector());
@@ -573,7 +627,7 @@ void Renderer::SortObjects()
 }
 
 
-void Renderer::Execute()
+void Renderer::Execute(double dt)
 {
 	IDXGISwapChain4* dx12SwapChain = m_pSwapChain->GetDX12SwapChain();
 	unsigned int backBufferIndex = dx12SwapChain->GetCurrentBackBufferIndex();
@@ -634,7 +688,7 @@ void Renderer::Execute()
 
 #define DX12TEST(fnc, x) m_DXTimer.Start(cl, x);fnc;m_DXTimer.Stop(cl, x);m_DXTimer.ResolveQueryToCPU(cl, x);
 
-void Renderer::ExecuteDXR()
+void Renderer::ExecuteDXR(double dt)
 {
 	m_FrameCounter = m_FrameCounter + 1;
 
@@ -811,47 +865,7 @@ void Renderer::ExecuteDXR()
 	waitForGPU();
 
 #pragma region TimeMeasurment
-	auto timestamps = m_DXTimer.GetTimestampPair(0);
-	double dt = (timestamps.Stop - timestamps.Start) * m_DXTimer.GetGPUFreq();
-	//BL_LOG_INFO("DXR deltaTime: %lf\n", dt);
-
-	static unsigned int nrOfFrames = 0;
-
-	if (nrOfFrames < NUM_FRAMES)
-	{
-		// Save frame time
-		frameData.push_back(dt);
-	}
-	else if (nrOfFrames == NUM_FRAMES)
-	{
-		// Compute average
-		double sum = 0;
-		for (unsigned int i = 0; i < frameData.size(); i++)
-		{
-			sum += frameData.at(i);
-		}
-
-		resultAverage = sum / frameData.size();
-
-		// Comment if empty file
-		if (csvExporter.IsFileEmpty(m_OutputName))
-		{
-			csvExporter << m_GPUName << "," << m_UseInlineRT << "," << NUM_FRAMES << "\n";
-		}
-		csvExporter << m_NumLights << "," << resultAverage << "\n";
-
-		csvExporter.Append(m_OutputName);
-
-		BL_LOG_INFO("Exported.......\n");
-
-
-		// Quit on finish
-		if (m_QuitOnFinish)
-		{
-			PostQuitMessage(0);
-		}
-	}
-	nrOfFrames++;
+	OutputTestResults(dt);
 #pragma endregion TimeMeasurment
 
 	/*------------------- Present -------------------*/
@@ -865,7 +879,7 @@ void Renderer::ExecuteDXR()
 #endif
 }
 
-void Renderer::ExecuteInlinePixel()
+void Renderer::ExecuteInlinePixel(double dt)
 {
 	m_FrameCounter = m_FrameCounter + 1;
 
@@ -1047,47 +1061,7 @@ void Renderer::ExecuteInlinePixel()
 	waitForGPU();
 
 #pragma region TimeMeasurment
-	auto timestamps = m_DXTimer.GetTimestampPair(0);
-	double dt = (timestamps.Stop - timestamps.Start) * m_DXTimer.GetGPUFreq();
-	//BL_LOG_INFO("DXR deltaTime: %lf\n", dt);
-
-	static unsigned int nrOfFrames = 0;
-
-	if (nrOfFrames < NUM_FRAMES)
-	{
-		// Save frame time
-		frameData.push_back(dt);
-	}
-	else if (nrOfFrames == NUM_FRAMES)
-	{
-		// Compute average
-		double sum = 0;
-		for (unsigned int i = 0; i < frameData.size(); i++)
-		{
-			sum += frameData.at(i);
-		}
-
-		resultAverage = sum / frameData.size();
-
-		// Comment if empty file
-		if (csvExporter.IsFileEmpty(m_OutputName))
-		{
-			csvExporter << m_GPUName << "," << m_UseInlineRT << "," << NUM_FRAMES << "\n";
-		}
-		csvExporter << m_NumLights << "," << resultAverage << "\n";
-
-		csvExporter.Append(m_OutputName);
-
-		BL_LOG_INFO("Exported.......\n");
-
-
-		// Quit on finish
-		if (m_QuitOnFinish)
-		{
-			PostQuitMessage(0);
-		}
-	}
-	nrOfFrames++;
+	OutputTestResults(dt);
 #pragma endregion TimeMeasurment
 
 	/*------------------- Present -------------------*/
@@ -1101,7 +1075,7 @@ void Renderer::ExecuteInlinePixel()
 #endif
 }
 
-void Renderer::ExecuteInlineCompute()
+void Renderer::ExecuteInlineCompute(double dt)
 {
 	m_FrameCounter = m_FrameCounter + 1;
 
@@ -1245,6 +1219,10 @@ void Renderer::ExecuteInlineCompute()
 
 	/*------------------- Post draw stuff -------------------*/
 	waitForGPU();
+
+#pragma region TimeMeasurment
+	OutputTestResults(dt);
+#pragma endregion TimeMeasurment
 
 	/*------------------- Present -------------------*/
 	HRESULT hr = dx12SwapChain->Present(0, 0);
