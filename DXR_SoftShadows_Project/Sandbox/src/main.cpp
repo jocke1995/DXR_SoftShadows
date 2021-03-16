@@ -58,26 +58,44 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
         {
             scene = SponzaScene8Lights(sceneManager);
         }
-        
-        // Dragon test scenes
-        //scene = DragonScene1(sceneManager);
-        //scene = DragonScene2(sceneManager);
-        //scene = DragonScene3(sceneManager);
-        //scene = DragonScene4(sceneManager);
-        
-        // Sponza + dragons test scenes
-        //scene = SponzaDragonsScene1(sceneManager);
-        //scene = SponzaDragonsScene2(sceneManager);
-        //scene = SponzaDragonsScene3(sceneManager);
-        //scene = SponzaDragonsScene4(sceneManager);
     }
     else if (params.scene == L"Dragon")
     {
-
+        if (params.numLights == 1)
+        {
+            scene = DragonScene1Light(sceneManager);
+        }
+        else if (params.numLights == 2)
+        {
+            scene = DragonScene2Lights(sceneManager);
+        }
+        else if (params.numLights == 4)
+        {
+            scene = DragonScene4Lights(sceneManager);
+        }
+        else if (params.numLights == 8)
+        {
+            scene = DragonScene8Lights(sceneManager);
+        }
     }
-    else if (params.scene == L"SponzaDragon")
+    else if (params.scene == L"SponzaDragons")
     {
-
+        if (params.numLights == 1)
+        {
+            scene = SponzaDragonsScene1Light(sceneManager);
+        }
+        else if (params.numLights == 2)
+        {
+            scene = SponzaDragonsScene2Lights(sceneManager);
+        }
+        else if (params.numLights == 4)
+        {
+            scene = SponzaDragonsScene4Lights(sceneManager);
+        }
+        else if (params.numLights == 8)
+        {
+            scene = SponzaDragonsScene8Lights(sceneManager);
+        }
     }
 
     // Set scene

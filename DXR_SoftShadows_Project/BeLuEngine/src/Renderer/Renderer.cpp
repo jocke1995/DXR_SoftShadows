@@ -2696,7 +2696,7 @@ void Renderer::submitUploadPerSceneData()
 	m_pCbPerSceneData->pointLightRawBufferIndex = m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetSRV()->GetDescriptorHeapIndex();
 	m_pCbPerSceneData->depthBufferIndex = m_pDepthBufferSRV->GetDescriptorHeapIndex();
 	m_pCbPerSceneData->gBufferNormalIndex = m_GBufferNormal.srv->GetDescriptorHeapIndex();
-	m_pCbPerSceneData->spp = 8;
+	m_pCbPerSceneData->spp = 2;
 
 
 	// Submit CB_PER_SCENE to be uploaded to VRAM
