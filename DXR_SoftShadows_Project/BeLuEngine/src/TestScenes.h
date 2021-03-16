@@ -6,9 +6,22 @@ class Scene;
 
 void EmptyUpdateScene(SceneManager* sm, double dt);
 
+// Sponza test scenes
 Scene* SponzaScene1(SceneManager* sm);
 Scene* SponzaScene2(SceneManager* sm);
 Scene* SponzaScene3(SceneManager* sm);
 Scene* SponzaScene4(SceneManager* sm);
+
+// Dragon test scenes
+Scene* DragonScene1(SceneManager* sm);
+Scene* DragonScene2(SceneManager* sm);
+Scene* DragonScene3(SceneManager* sm);
+Scene* DragonScene4(SceneManager* sm);
+
+// Sponza + dragons test scenes
+Scene* SponzaDragonsScene1(SceneManager* sm);
+Scene* SponzaDragonsScene2(SceneManager* sm);
+Scene* SponzaDragonsScene3(SceneManager* sm);
+Scene* SponzaDragonsScene4(SceneManager* sm);
 
 #endif

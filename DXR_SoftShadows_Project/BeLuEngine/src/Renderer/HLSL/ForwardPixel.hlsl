@@ -19,8 +19,7 @@ void PS_main(VS_OUT input)
 	// Init random floats
 	uint frameSeed = cbPerFrame.frameCounter + 200000;
 
-	float invUV = 1 - input.uv.y;
-	uint seed = initRand(frameSeed * input.uv.x, frameSeed * invUV);
+	uint seed = initRand(frameSeed * input.pos.x, frameSeed * input.pos.y);
 	//uint seed = initRand(frameSeed * input.uv.x, frameSeed * input.uv.y);
 
 	// PointLight Test

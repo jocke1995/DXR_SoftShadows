@@ -42,7 +42,23 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     }
     else
     {
-        scene = SponzaScene3(sceneManager);
+        // Sponza test scenes
+        //scene = SponzaScene1(sceneManager);
+        //scene = SponzaScene2(sceneManager);
+        //scene = SponzaScene3(sceneManager);
+        //scene = SponzaScene4(sceneManager);
+        
+        // Dragon test scenes
+        //scene = DragonScene1(sceneManager);
+        //scene = DragonScene2(sceneManager);
+        //scene = DragonScene3(sceneManager);
+        //scene = DragonScene4(sceneManager);
+        
+        // Sponza + dragons test scenes
+        //scene = SponzaDragonsScene1(sceneManager);
+        //scene = SponzaDragonsScene2(sceneManager);
+        //scene = SponzaDragonsScene3(sceneManager);
+        //scene = SponzaDragonsScene4(sceneManager);
     }
 
     // Set scene
@@ -135,6 +151,7 @@ Scene* TestScene(SceneManager* sm)
     AssetLoader* al = AssetLoader::Get();
 
     // Get the models needed
+    Model* dragonModel = al->LoadModel(L"../Vendor/Resources/Models/StanfordDragon/drag.obj");
     Model* sponza = al->LoadModel(L"../Vendor/Resources/Scenes/Sponza/textures_pbr/sponza.obj");
     Model* sphereModel = al->LoadModel(L"../Vendor/Resources/Models/SpherePBR/ball.obj");
 
@@ -183,6 +200,19 @@ Scene* TestScene(SceneManager* sm)
     tc->GetTransform()->SetScale(1.0f);
     tc->GetTransform()->SetPosition(5, 35, 15);
     /* ---------------------- Spheres ---------------------- */
+
+    /* ---------------------- Stanford Dragon ---------------------- */
+    entity = scene->AddEntity("dragon");
+    mc = entity->AddComponent<component::ModelComponent>();
+    tc = entity->AddComponent<component::TransformComponent>();
+
+    mc->SetModel(dragonModel);
+    mc->SetDrawFlag(FLAG_DRAW::DRAW_OPAQUE);
+    tc->GetTransform()->SetScale(80.0f);
+    tc->GetTransform()->SetRotationY(PI / 2);
+    tc->GetTransform()->SetRotationX(-PI / 2);
+    tc->GetTransform()->SetPosition(100.0f, 10.0f, 0.0f);
+    /* ---------------------- Stanford Dragon ---------------------- */
 
     /* ---------------------- PointLight1 ---------------------- */
     entity = scene->AddEntity("pointLight1");
