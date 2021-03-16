@@ -640,7 +640,7 @@ void Renderer::SortObjects()
 	setRenderTasksRenderComponents();
 }
 
-#define DX12TEST(fnc, x) m_DXTimer.Start(cl, x);fnc;m_DXTimer.Stop(cl, x);m_DXTimer.ResolveQueryToCPU(cl, x);
+#define DX12TEST(code, x) m_DXTimer.Start(cl,##x);##code;m_DXTimer.Stop(cl,##x);m_DXTimer.ResolveQueryToCPU(cl,##x);
 
 void Renderer::ExecuteDXR(double dt)
 {
@@ -651,6 +651,9 @@ void Renderer::ExecuteDXR(double dt)
 	
 	unsigned int commandInterfaceIndex = m_FrameCounter % NUM_SWAP_BUFFERS;
 	unsigned int currentLightTemporalBuffer = m_FrameCounter % (NUM_TEMPORAL_BUFFERS + 1);
+
+	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
+	ID3D12DescriptorHeap* dhCBVSRVUAV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetID3D12DescriptorHeap();
 
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 	DX12Task::SetCommandInterfaceIndex(commandInterfaceIndex);
@@ -677,35 +680,21 @@ void Renderer::ExecuteDXR(double dt)
 	m_pTempCommandInterface->Reset(0);
 	auto cl = m_pTempCommandInterface->GetCommandList(0);
 
+	CD3DX12_RESOURCE_BARRIER transition;
+
 #pragma region RayTrace
 	DX12TEST(
-		const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
-	ID3D12Resource1* swapChainResource = swapChainRenderTarget->GetResource()->GetID3D12Resource1();
-	const unsigned int swapChainIndex = swapChainRenderTarget->GetDescriptorHeapIndex();
-
+	
 	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
-
-	ID3D12DescriptorHeap* dhSRVUAVCBV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetID3D12DescriptorHeap();
-	cl->SetDescriptorHeaps(1, &dhSRVUAVCBV);
-
+	cl->SetDescriptorHeaps(1, &dhCBVSRVUAV);
 	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
 	cl->SetComputeRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
 	unsigned int softShadowHeapOffset = m_DhIndexSoftShadowsUAV + 2 * MAX_POINT_LIGHTS * currentLightTemporalBuffer;
 	cl->SetComputeRootDescriptorTable(RS::dtUAV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(softShadowHeapOffset));
-
 	cl->SetComputeRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
 	cl->SetComputeRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
 	cl->SetComputeRootConstantBufferView(RS::CBV0, m_pCbCamera->GetDefaultResource()->GetGPUVirtualAdress());
 	cl->SetComputeRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
-
-	// On the last frame, the raytracing output was used as a copy source, to
-	// copy its contents into the render target. Now we need to transition it to
-	// a UAV so that the shaders can write in it.
-	CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_pOutputResource->GetID3D12Resource1(),
-		D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
-	cl->ResourceBarrier(1, &transition);
 
 	// Setup the raytracing task
 	D3D12_DISPATCH_RAYS_DESC desc = {};
@@ -744,7 +733,6 @@ void Renderer::ExecuteDXR(double dt)
 	desc.Height = m_pWindow->GetScreenHeight();
 	desc.Depth = 1;
 
-
 	// Bind the raytracing pipeline
 	cl->SetPipelineState1(m_pRTStateObject);
 	// Dispatch the rays and write to the raytracing output
@@ -773,7 +761,6 @@ void Renderer::ExecuteDXR(double dt)
 
 	, 0);
 #pragma endregion RayTrace
-	
 
 	// Execute ShadowBufferTask, output to m_LightTemporalResources
 	temporalAccumulation(cl);
@@ -811,6 +798,12 @@ void Renderer::ExecuteDXR(double dt)
 		D3D12_RESOURCE_STATE_PRESENT);	// StateAfter
 	cl->ResourceBarrier(1, &transition);
 
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pOutputResource->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
+	cl->ResourceBarrier(1, &transition);
+
 
 	cl->Close();
 	ID3D12CommandList* cLists[] = { cl };
@@ -818,9 +811,7 @@ void Renderer::ExecuteDXR(double dt)
 	/*------------------- Post draw stuff -------------------*/
 	waitForGPU();
 
-#pragma region TimeMeasurment
 	OutputTestResults(dt);
-#pragma endregion TimeMeasurment
 
 	/*------------------- Present -------------------*/
 	HRESULT hr = dx12SwapChain->Present(0, 0);
@@ -842,6 +833,9 @@ void Renderer::ExecuteInlinePixel(double dt)
 
 	unsigned int commandInterfaceIndex = m_FrameCounter % NUM_SWAP_BUFFERS;
 	unsigned int currentLightTemporalBuffer = m_FrameCounter % (NUM_TEMPORAL_BUFFERS + 1);
+
+	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
+	ID3D12DescriptorHeap* dhCBVSRVUAV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetID3D12DescriptorHeap();
 
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 	DX12Task::SetCommandInterfaceIndex(commandInterfaceIndex);
@@ -868,21 +862,18 @@ void Renderer::ExecuteInlinePixel(double dt)
 	m_pTempCommandInterface->Reset(0);
 	auto cl = m_pTempCommandInterface->GetCommandList(0);
 
+	CD3DX12_RESOURCE_BARRIER transition;
+
 #pragma region InlineRT
-
-	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
-	ID3D12Resource1* swapChainResource = swapChainRenderTarget->GetResource()->GetID3D12Resource1();
-	const unsigned int swapChainIndex = swapChainRenderTarget->GetDescriptorHeapIndex();
-
+	DX12TEST(
 	cl->SetGraphicsRootSignature(m_pRootSignature->GetRootSig());
 
-	DescriptorHeap* descriptorHeap_CBV_UAV_SRV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV];
-	ID3D12DescriptorHeap* d3d12DescriptorHeap = descriptorHeap_CBV_UAV_SRV->GetID3D12DescriptorHeap();
+	ID3D12DescriptorHeap * d3d12DescriptorHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetID3D12DescriptorHeap();
 	cl->SetDescriptorHeaps(1, &d3d12DescriptorHeap);
 
 	cl->SetGraphicsRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
-	cl->SetGraphicsRootDescriptorTable(RS::dtCBV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
-	cl->SetGraphicsRootDescriptorTable(RS::dtSRV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
+	cl->SetGraphicsRootDescriptorTable(RS::dtCBV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
+	cl->SetGraphicsRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
 	unsigned int softShadowHeapOffset = m_DhIndexSoftShadowsUAV + 2 * MAX_POINT_LIGHTS * currentLightTemporalBuffer;
 	cl->SetGraphicsRootDescriptorTable(RS::dtUAV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(softShadowHeapOffset));
 	cl->SetGraphicsRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
@@ -890,36 +881,21 @@ void Renderer::ExecuteInlinePixel(double dt)
 	cl->SetGraphicsRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
 	cl->SetGraphicsRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
 
-	auto transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_pOutputResource->GetID3D12Resource1(),
-		D3D12_RESOURCE_STATE_COPY_SOURCE, // StateBefore
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	   // StateAfter
-	cl->ResourceBarrier(1, &transition);
-
-	DescriptorHeap* renderTargetHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::RTV];
-	DescriptorHeap* depthBufferHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::DSV];
-
-	// RenderTargets
-	D3D12_CPU_DESCRIPTOR_HANDLE cdhSwapChain = renderTargetHeap->GetCPUHeapAt(swapChainIndex);
-	D3D12_CPU_DESCRIPTOR_HANDLE cdhs[] = { cdhSwapChain };
+	DescriptorHeap * depthBufferHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::DSV];
 
 	// Depth
 	D3D12_CPU_DESCRIPTOR_HANDLE dsh = depthBufferHeap->GetCPUHeapAt(m_pMainDepthStencil->GetDSV()->GetDescriptorHeapIndex());
-
 	cl->OMSetRenderTargets(0, nullptr, true, &dsh);
-
-	float clearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
-	//cl->ClearRenderTargetView(cdhSwapChain, clearColor, 0, nullptr);
 
 	const D3D12_VIEWPORT viewPortSwapChain = *swapChainRenderTarget->GetRenderView()->GetViewPort();
 	const D3D12_RECT rectSwapChain = *swapChainRenderTarget->GetRenderView()->GetScissorRect();
 
-	const D3D12_RECT* rect = swapChainRenderTarget->GetRenderView()->GetScissorRect();
+	const D3D12_RECT * rect = swapChainRenderTarget->GetRenderView()->GetScissorRect();
 	cl->RSSetViewports(1, &viewPortSwapChain);
 	cl->RSSetScissorRects(1, &rectSwapChain);
 	cl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	const DirectX::XMMATRIX* viewProjMatTrans = m_pScenePrimaryCamera->GetViewProjectionTranposed();
+	const DirectX::XMMATRIX * viewProjMatTrans = m_pScenePrimaryCamera->GetViewProjectionTranposed();
 
 	// Set temporal buffers written to UAV
 	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
@@ -961,7 +937,10 @@ void Renderer::ExecuteInlinePixel(double dt)
 			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
 	}
 
+,0);
+
 #pragma endregion InlineRT
+	
 
 	// Execute ShadowBufferTask, output to m_LightTemporalResources
 	temporalAccumulation(cl);
@@ -975,11 +954,6 @@ void Renderer::ExecuteInlinePixel(double dt)
 	lightningMergeTask(cl);
 
 
-	// The raytracing output needs to be copied to the actual render target used
-	// for display. For this, we need to transition the raytracing output from a
-	// UAV to a copy source, and the render target buffer to a copy destination.
-	// We can then do the actual copy, before transitioning the render target
-	// buffer into a render target, that will be then used to display the image
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		m_pOutputResource->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // StateBefore
@@ -993,9 +967,11 @@ void Renderer::ExecuteInlinePixel(double dt)
 		D3D12_RESOURCE_STATE_COPY_DEST); // StateAfter
 	cl->ResourceBarrier(1, &transition);
 
+
 	cl->CopyResource(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
-		m_pOutputResource->GetID3D12Resource1());											// Source
+		m_pOutputResource->GetID3D12Resource1());					// Source
+
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
@@ -1003,18 +979,20 @@ void Renderer::ExecuteInlinePixel(double dt)
 		D3D12_RESOURCE_STATE_PRESENT);	// StateAfter
 	cl->ResourceBarrier(1, &transition);
 
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pOutputResource->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
+	cl->ResourceBarrier(1, &transition);
+
+
 	cl->Close();
-
 	ID3D12CommandList* cLists[] = { cl };
-
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, cLists);
-
 	/*------------------- Post draw stuff -------------------*/
 	waitForGPU();
 
-#pragma region TimeMeasurment
 	OutputTestResults(dt);
-#pragma endregion TimeMeasurment
 
 	/*------------------- Present -------------------*/
 	HRESULT hr = dx12SwapChain->Present(0, 0);
@@ -1036,6 +1014,9 @@ void Renderer::ExecuteInlineCompute(double dt)
 
 	unsigned int commandInterfaceIndex = m_FrameCounter % NUM_SWAP_BUFFERS;
 	unsigned int currentLightTemporalBuffer = m_FrameCounter % (NUM_TEMPORAL_BUFFERS + 1);
+
+	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
+	ID3D12DescriptorHeap* dhCBVSRVUAV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetID3D12DescriptorHeap();
 
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 	DX12Task::SetCommandInterfaceIndex(commandInterfaceIndex);
@@ -1062,16 +1043,16 @@ void Renderer::ExecuteInlineCompute(double dt)
 	m_pTempCommandInterface->Reset(0);
 	auto cl = m_pTempCommandInterface->GetCommandList(0);
 
+	CD3DX12_RESOURCE_BARRIER transition;
+
 
 #pragma region InlineRT
 
-	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
+	DX12TEST(
 
-	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
+		cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
 
-	DescriptorHeap* descriptorHeap_CBV_UAV_SRV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV];
-	ID3D12DescriptorHeap* d3d12DescriptorHeap = descriptorHeap_CBV_UAV_SRV->GetID3D12DescriptorHeap();
-	cl->SetDescriptorHeaps(1, &d3d12DescriptorHeap);
+	cl->SetDescriptorHeaps(1, &dhCBVSRVUAV);
 
 	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
 	cl->SetComputeRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
@@ -1084,18 +1065,8 @@ void Renderer::ExecuteInlineCompute(double dt)
 	cl->SetComputeRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
 
 
-	// On the last frame, the raytracing output was used as a copy source, to
-	// copy its contents into the render target. Now we need to transition it to
-	// a UAV so that the shaders can write in it.
-	CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_pOutputResource->GetID3D12Resource1(),
-		D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
-	cl->ResourceBarrier(1, &transition);
-
-
 	// Draw for every Rendercomponent with stencil testing disabled
-	ID3D12PipelineState* pipelineState = m_ComputeTasks[COMPUTE_TASK_TYPE::INLINE_RT]->GetPipelineState(0)->GetPSO();
+	ID3D12PipelineState * pipelineState = m_ComputeTasks[COMPUTE_TASK_TYPE::INLINE_RT]->GetPipelineState(0)->GetPSO();
 	cl->SetPipelineState(pipelineState);
 
 
@@ -1118,6 +1089,8 @@ void Renderer::ExecuteInlineCompute(double dt)
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
 	}
+
+	, 0);
 
 #pragma endregion InlineRT
 
@@ -1162,6 +1135,12 @@ void Renderer::ExecuteInlineCompute(double dt)
 		D3D12_RESOURCE_STATE_PRESENT);	// StateAfter
 	cl->ResourceBarrier(1, &transition);
 
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pOutputResource->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
+	cl->ResourceBarrier(1, &transition);
+
 	cl->Close();
 
 	ID3D12CommandList* cLists[] = { cl };
@@ -1171,9 +1150,7 @@ void Renderer::ExecuteInlineCompute(double dt)
 	/*------------------- Post draw stuff -------------------*/
 	waitForGPU();
 
-#pragma region TimeMeasurment
 	OutputTestResults(dt);
-#pragma endregion TimeMeasurment
 
 	/*------------------- Present -------------------*/
 	HRESULT hr = dx12SwapChain->Present(0, 0);
@@ -1818,7 +1795,7 @@ void Renderer::CreateRaytracingOutputBuffer()
 	resDesc.SampleDesc.Count = 1;
 
 	m_pOutputResource = new Resource(m_pDevice5, &resDesc, nullptr,
-		L"scratchBottomLevel", D3D12_RESOURCE_STATE_COPY_SOURCE);
+		L"OutputResource", D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 }
 
 void Renderer::CreateShaderResourceHeap()
