@@ -116,14 +116,16 @@ public:
 	void SetUseInlineRT(bool b);
 	void SetNumLights(int num);
 	void SetResultsFileName(std::wstring outputName);
+	void OutputTestResults(double dt);
 
 	// Call each frame
 	void Update(double dt);
+	void UpdateLastDT(double dt);
 	void SortObjects();
-	void Execute();
-	void ExecuteDXR();
-	void ExecuteInlinePixel();
-	void ExecuteInlineCompute();
+	void Execute(double dt);
+	void ExecuteDXR(double dt);
+	void ExecuteInlinePixel(double dt);
+	void ExecuteInlineCompute(double dt);
 
 	// Render inits, these functions are called by respective components through SetScene to prepare for drawing
 	void InitModelComponent(component::ModelComponent* component);
@@ -197,7 +199,9 @@ private:
 
 	// ------------------- DXR temp ----------------
 	// Test variables
+	double m_LastCPUDT = 0;
 	std::string m_GPUName = "Unknown";
+	std::string m_DriverVersion = "Unknown";
 	bool m_QuitOnFinish = false;
 	bool m_UseInlineRT = false;
 	int m_NumLights = 1;
@@ -333,6 +337,7 @@ private:
 
 	void setRenderTasksPrimaryCamera();
 	bool createDevice();
+	std::string getDriverVersion();
 	void createCommandQueues();
 	void createSwapChain();
 	void createGBufferRenderTargets();

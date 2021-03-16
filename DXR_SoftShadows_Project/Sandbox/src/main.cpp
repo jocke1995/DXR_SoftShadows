@@ -147,6 +147,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 
        /* ------ Update ------ */
        timer->Update();
+       renderer->UpdateLastDT(timer->GetDeltaTime());
    
        sceneManager->Update(timer->GetDeltaTime());
    
@@ -157,13 +158,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
        switch (mode)
        {
        case 0:
-           renderer->ExecuteDXR();
+           renderer->ExecuteDXR(timer->GetDeltaTime());
            break;
        case 1:
-           renderer->ExecuteInlinePixel();
+           renderer->ExecuteInlinePixel(timer->GetDeltaTime());
            break;
        case 2:
-           renderer->ExecuteInlineCompute();
+           renderer->ExecuteInlineCompute(timer->GetDeltaTime());
            break;
        default:
            Log::Print("Unknown rendering mode!!!!!!!!!!!!!!!!!!!!!!\n");
