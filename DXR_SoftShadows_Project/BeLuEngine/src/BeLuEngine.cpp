@@ -36,7 +36,7 @@ void BeLuEngine::Init(HINSTANCE hInstance, int nCmdShow, ApplicationParameters* 
 	m_pRenderer = &Renderer::GetInstance();
 
 	m_pRenderer->SetQuitOnFinish(m_ApplicationParams.quitOnFinish); // Quits testing after num tests
-	m_pRenderer->SetUseInlineRT(m_ApplicationParams.useInlineRaytracing);
+	m_pRenderer->SetRTType(m_ApplicationParams.RayTracingType);
 	m_pRenderer->SetNumLights(m_ApplicationParams.numLights);
 	m_pRenderer->SetSceneName(m_ApplicationParams.scene);
 

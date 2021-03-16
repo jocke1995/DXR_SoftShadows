@@ -477,9 +477,9 @@ void Renderer::SetQuitOnFinish(bool b)
 	m_QuitOnFinish = b;
 }
 
-void Renderer::SetUseInlineRT(bool b)
+void Renderer::SetRTType(std::wstring wstr)
 {
-	m_UseInlineRT = b;
+	m_RTType = to_string(wstr);
 }
 
 void Renderer::SetNumLights(int num)
@@ -494,7 +494,7 @@ void Renderer::SetSceneName(std::wstring sceneName)
 
 void Renderer::SetResultsFileName()
 {
-	m_OutputName = to_wstring("../" + m_GPUName + "_" + to_string(m_SceneName) + "_" + std::to_string(m_UseInlineRT) + ".csv");
+	m_OutputName = to_wstring("../" + m_GPUName + "_" + to_string(m_SceneName) + "_" + m_RTType + ".csv");
 }
 
 void Renderer::OutputTestResults(double dt)
