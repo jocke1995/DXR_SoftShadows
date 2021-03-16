@@ -122,7 +122,6 @@ public:
 	// Call each frame
 	void Update(double dt);
 	void SortObjects();
-	void Execute(double dt);
 	void ExecuteDXR(double dt);
 	void ExecuteInlinePixel(double dt);
 	void ExecuteInlineCompute(double dt);
