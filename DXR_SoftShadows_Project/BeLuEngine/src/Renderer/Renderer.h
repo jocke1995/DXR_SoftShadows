@@ -115,7 +115,8 @@ public:
 	void SetQuitOnFinish(bool b);
 	void SetUseInlineRT(bool b);
 	void SetNumLights(int num);
-	void SetResultsFileName(std::wstring outputName);
+	void SetSceneName(std::wstring sceneName);
+	void SetResultsFileName();
 	void OutputTestResults(double dt);
 
 	// Call each frame
@@ -206,6 +207,7 @@ private:
 	bool m_UseInlineRT = false;
 	int m_NumLights = 1;
 	std::wstring m_OutputName = L"Results.csv";
+	std::wstring m_SceneName = L"none";
 	D3D12::D3D12Timer m_DXTimer;
 
 
