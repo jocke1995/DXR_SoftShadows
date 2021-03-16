@@ -71,70 +71,71 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
         mode = 2;
     }
 
-    Log::Print("Mode: %d\n", mode);
+    Log::Print("Start Mode: %d\n", mode);
 
-   BL_LOG("Entering Game-Loop ...\n\n");
-   while (!window->ExitWindow())
-   {
-       static bool DXR = true;
+    BL_LOG("Entering Game-Loop ...\n\n");
+    while (!window->ExitWindow())
+    {
+        static bool DXR = true;
 
-       
+        // Check if change mode
+        bool isF1 = input->GetKeyState(SCAN_CODES::F1);
+        bool isF2 = input->GetKeyState(SCAN_CODES::F2);
+        bool isF3 = input->GetKeyState(SCAN_CODES::F3);
 
-       // Check if change mode
-       bool isF1 = input->GetKeyState(SCAN_CODES::F1);
-       bool isF2 = input->GetKeyState(SCAN_CODES::F2);
-       bool isF3 = input->GetKeyState(SCAN_CODES::F3);
+        if (isF1)
+        {
+            if (mode != 0)
+                Log::Print("Mode: RT\n");
+            mode = 0;
+        }
+        if (isF2)
+        {
+            if (mode != 1)
+                Log::Print("Mode: IP\n");
+            mode = 1;
+        }
+        if (isF3)
+        {
+            if (mode != 2)
+                Log::Print("Mode: IC\n");
+            mode = 2;
+        }
 
-       if (isF1)
-       {
-           mode = 0;
-           Log::Print("Mode: RT\n");
-       }
-       if (isF2)
-       {
-           mode = 1;
-           Log::Print("Mode: Inline RT (Pixel shader)\n");
-       }
-       if (isF3)
-       {
-           mode = 2;
-           Log::Print("Mode: Inline RT (Compute shader)\n");
-       }
+        if (window->WasSpacePressed())
+        {
+            Log::Print("CamPos: x: %f, y: %f, z: %f \n", 
+                sceneManager->GetActiveScene()->GetMainCamera()->GetPosition().x,
+                sceneManager->GetActiveScene()->GetMainCamera()->GetPosition().y,
+                sceneManager->GetActiveScene()->GetMainCamera()->GetPosition().z);
+        }
 
-       if (window->WasSpacePressed())
-       {
-           Log::Print("CamPos: x: %f, y: %f, z: %f \n", 
-               sceneManager->GetActiveScene()->GetMainCamera()->GetPosition().x,
-               sceneManager->GetActiveScene()->GetMainCamera()->GetPosition().y,
-               sceneManager->GetActiveScene()->GetMainCamera()->GetPosition().z);
-       }
-
-       /* ------ Update ------ */
-       timer->Update();
-       renderer->UpdateLastDT(timer->GetDeltaTime());
+        /* ------ Update ------ */
+        timer->Update();
+        renderer->UpdateLastDT(timer->GetDeltaTime());
    
-       sceneManager->Update(timer->GetDeltaTime());
+        sceneManager->Update(timer->GetDeltaTime());
    
-       /* ------ Sort ------ */
-       renderer->SortObjects();
+        /* ------ Sort ------ */
+        renderer->SortObjects();
    
-       /* ------ Draw ------ */
-       switch (mode)
-       {
-       case 0:
-           renderer->ExecuteDXR(timer->GetDeltaTime());
-           break;
-       case 1:
-           renderer->ExecuteInlinePixel(timer->GetDeltaTime());
-           break;
-       case 2:
-           renderer->ExecuteInlineCompute(timer->GetDeltaTime());
-           break;
-       default:
-           Log::Print("Unknown rendering mode!!!!!!!!!!!!!!!!!!!!!!\n");
-           break;
-       }
-   }
+        /* ------ Draw ------ */
+        switch (mode)
+        {
+        case 0:
+            renderer->ExecuteDXR(timer->GetDeltaTime());
+            break;
+        case 1:
+            renderer->ExecuteInlinePixel(timer->GetDeltaTime());
+            break;
+        case 2:
+            renderer->ExecuteInlineCompute(timer->GetDeltaTime());
+            break;
+        default:
+            Log::Print("Unknown rendering mode!!!!!!!!!!!!!!!!!!!!!!\n");
+            break;
+        }
+    }
     
     return EXIT_SUCCESS;
 }
