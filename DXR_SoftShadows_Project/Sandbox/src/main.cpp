@@ -38,7 +38,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     Scene* scene;
     if (params.scene == L"test")
     {
-         scene = TestScene(sceneManager);
+         //scene = TestScene(sceneManager);
+         scene = DragonScene4Lights(sceneManager);
     }
     else if(params.scene == L"Sponza")  // Sponza test scenes
     {
@@ -166,6 +167,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
                 sceneManager->GetActiveScene()->GetMainCamera()->GetPosition().x,
                 sceneManager->GetActiveScene()->GetMainCamera()->GetPosition().y,
                 sceneManager->GetActiveScene()->GetMainCamera()->GetPosition().z);
+
+            Log::Print("CamDir: x: %f, y: %f, z: %f \n",
+                sceneManager->GetActiveScene()->GetMainCamera()->GetDirection().x,
+                sceneManager->GetActiveScene()->GetMainCamera()->GetDirection().y,
+                sceneManager->GetActiveScene()->GetMainCamera()->GetDirection().z);
         }
 
         /* ------ Update ------ */

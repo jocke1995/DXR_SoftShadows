@@ -90,11 +90,12 @@ void PerspectiveCamera::updateProjectionMatrix()
 
 void PerspectiveCamera::updateSpecific(double dt)
 {
+#ifndef DIST
 	if (m_IsPrimary == true)
 	{
 		updateCameraMovement(dt);
 	}
-
+#endif
 	m_ViewMatrix = DirectX::XMMatrixLookAtLH(m_EyeVector, DirectX::XMVectorAdd(m_EyeVector, m_DirectionVector), m_UpVector);
 	m_ViewMatrixInverse = DirectX::XMMatrixInverse(nullptr, m_ViewMatrix);
 

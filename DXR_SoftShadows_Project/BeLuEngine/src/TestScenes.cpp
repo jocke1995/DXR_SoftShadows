@@ -45,6 +45,9 @@ Scene* SponzaScene1Light(SceneManager* sm)
     cc = entity->AddComponent<component::CameraComponent>(CAMERA_TYPE::PERSPECTIVE, true);
     ic = entity->AddComponent<component::InputComponent>();
     scene->SetPrimaryCamera(cc->GetCamera());
+
+    cc->GetCamera()->SetPosition(-348.85f, 204.96f, -21.56f);
+    cc->GetCamera()->SetDirection(0.899f, -0.41f, 0.15f);
     /* ---------------------- Player ---------------------- */
 
     /* ---------------------- Sponza ---------------------- */
@@ -103,6 +106,9 @@ Scene* SponzaScene2Lights(SceneManager* sm)
     cc = entity->AddComponent<component::CameraComponent>(CAMERA_TYPE::PERSPECTIVE, true);
     ic = entity->AddComponent<component::InputComponent>();
     scene->SetPrimaryCamera(cc->GetCamera());
+
+    cc->GetCamera()->SetPosition(-348.85f, 204.96f, -21.56f);
+    cc->GetCamera()->SetDirection(0.899f, -0.41f, 0.15f);
     /* ---------------------- Player ---------------------- */
 
     /* ---------------------- Sponza ---------------------- */
@@ -168,6 +174,9 @@ Scene* SponzaScene4Lights(SceneManager* sm)
     cc = entity->AddComponent<component::CameraComponent>(CAMERA_TYPE::PERSPECTIVE, true);
     ic = entity->AddComponent<component::InputComponent>();
     scene->SetPrimaryCamera(cc->GetCamera());
+
+    cc->GetCamera()->SetPosition(-348.85f, 204.96f, -21.56f);
+    cc->GetCamera()->SetDirection(0.899f, -0.41f, 0.15f);
     /* ---------------------- Player ---------------------- */
 
     /* ---------------------- Sponza ---------------------- */
@@ -247,6 +256,9 @@ Scene* SponzaScene8Lights(SceneManager* sm)
     cc = entity->AddComponent<component::CameraComponent>(CAMERA_TYPE::PERSPECTIVE, true);
     ic = entity->AddComponent<component::InputComponent>();
     scene->SetPrimaryCamera(cc->GetCamera());
+
+    cc->GetCamera()->SetPosition(-348.85f, 204.96f, -21.56f);
+    cc->GetCamera()->SetDirection(0.899f, -0.41f, 0.15f);
     /* ---------------------- Player ---------------------- */
 
     /* ---------------------- Sponza ---------------------- */
@@ -343,6 +355,9 @@ Scene* DragonScene1Light(SceneManager* sm)
     cc = entity->AddComponent<component::CameraComponent>(CAMERA_TYPE::PERSPECTIVE, true);
     ic = entity->AddComponent<component::InputComponent>();
     scene->SetPrimaryCamera(cc->GetCamera());
+
+    cc->GetCamera()->SetPosition(-65.33f, 81.0f, 47.32f);
+    cc->GetCamera()->SetDirection(0.62f, -0.68f, -0.39f);
     /* ---------------------- Player ---------------------- */
 
     /* ---------------------- Floor ---------------------- */
@@ -403,6 +418,9 @@ Scene* DragonScene2Lights(SceneManager* sm)
     cc = entity->AddComponent<component::CameraComponent>(CAMERA_TYPE::PERSPECTIVE, true);
     ic = entity->AddComponent<component::InputComponent>();
     scene->SetPrimaryCamera(cc->GetCamera());
+
+    cc->GetCamera()->SetPosition(-65.33f, 81.0f, 47.32f);
+    cc->GetCamera()->SetDirection(0.62f, -0.68f, -0.39f);
     /* ---------------------- Player ---------------------- */
 
     /* ---------------------- Floor ---------------------- */
@@ -470,6 +488,9 @@ Scene* DragonScene4Lights(SceneManager* sm)
     cc = entity->AddComponent<component::CameraComponent>(CAMERA_TYPE::PERSPECTIVE, true);
     ic = entity->AddComponent<component::InputComponent>();
     scene->SetPrimaryCamera(cc->GetCamera());
+
+    cc->GetCamera()->SetPosition(-65.33f, 81.0f, 47.32f);
+    cc->GetCamera()->SetDirection(0.62f, -0.68f, -0.39f);
     /* ---------------------- Player ---------------------- */
 
     /* ---------------------- Floor ---------------------- */
@@ -551,6 +572,9 @@ Scene* DragonScene8Lights(SceneManager* sm)
     cc = entity->AddComponent<component::CameraComponent>(CAMERA_TYPE::PERSPECTIVE, true);
     ic = entity->AddComponent<component::InputComponent>();
     scene->SetPrimaryCamera(cc->GetCamera());
+
+    cc->GetCamera()->SetPosition(-65.33f, 81.0f, 47.32f);
+    cc->GetCamera()->SetDirection(0.62f, -0.68f, -0.39f);
     /* ---------------------- Player ---------------------- */
 
     /* ---------------------- Floor ---------------------- */
@@ -672,6 +696,9 @@ Scene* SponzaDragonsScene1Light(SceneManager* sm)
     cc = entity->AddComponent<component::CameraComponent>(CAMERA_TYPE::PERSPECTIVE, true);
     ic = entity->AddComponent<component::InputComponent>();
     scene->SetPrimaryCamera(cc->GetCamera());
+
+    cc->GetCamera()->SetPosition(-348.85f, 204.96f, -21.56f);
+    cc->GetCamera()->SetDirection(0.899f, -0.41f, 0.15f);
     /* ---------------------- Player ---------------------- */
 
     /* ---------------------- Sponza ---------------------- */
@@ -777,6 +804,9 @@ Scene* SponzaDragonsScene2Lights(SceneManager* sm)
     cc = entity->AddComponent<component::CameraComponent>(CAMERA_TYPE::PERSPECTIVE, true);
     ic = entity->AddComponent<component::InputComponent>();
     scene->SetPrimaryCamera(cc->GetCamera());
+
+    cc->GetCamera()->SetPosition(-348.85f, 204.96f, -21.56f);
+    cc->GetCamera()->SetDirection(0.899f, -0.41f, 0.15f);
     /* ---------------------- Player ---------------------- */
 
     /* ---------------------- Sponza ---------------------- */
@@ -889,6 +919,9 @@ Scene* SponzaDragonsScene4Lights(SceneManager* sm)
     cc = entity->AddComponent<component::CameraComponent>(CAMERA_TYPE::PERSPECTIVE, true);
     ic = entity->AddComponent<component::InputComponent>();
     scene->SetPrimaryCamera(cc->GetCamera());
+
+    cc->GetCamera()->SetPosition(-348.85f, 204.96f, -21.56f);
+    cc->GetCamera()->SetDirection(0.899f, -0.41f, 0.15f);
     /* ---------------------- Player ---------------------- */
 
     /* ---------------------- Sponza ---------------------- */
@@ -1015,6 +1048,9 @@ Scene* SponzaDragonsScene8Lights(SceneManager* sm)
     cc = entity->AddComponent<component::CameraComponent>(CAMERA_TYPE::PERSPECTIVE, true);
     ic = entity->AddComponent<component::InputComponent>();
     scene->SetPrimaryCamera(cc->GetCamera());
+
+    cc->GetCamera()->SetPosition(-348.85f, 204.96f, -21.56f);
+    cc->GetCamera()->SetDirection(0.899f, -0.41f, 0.15f);
     /* ---------------------- Player ---------------------- */
 
     /* ---------------------- Sponza ---------------------- */

@@ -36,6 +36,7 @@ void BaseCamera::SetDirection(float x, float y, float z)
 	m_RightVector = DirectX::XMVector3Cross(m_UpVector, m_DirectionVector);
 
 	m_ViewMatrix = DirectX::XMMatrixLookAtLH(m_EyeVector, DirectX::XMVectorAdd(m_DirectionVector, m_EyeVector), m_UpVector);
+	m_ViewMatrixInverse = DirectX::XMMatrixInverse(nullptr, m_ViewMatrix);
 }
 
 DirectX::XMFLOAT3 BaseCamera::GetPosition() const
