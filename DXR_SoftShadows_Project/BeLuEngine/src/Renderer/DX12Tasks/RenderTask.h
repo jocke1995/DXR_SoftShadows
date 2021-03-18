@@ -29,6 +29,7 @@ struct RenderComponent
 	component::ModelComponent* mc = nullptr;
 	component::TransformComponent* tc = nullptr;
 	std::vector<Resource*> CB_PER_OBJECT_UPLOAD_RESOURCES;
+	std::vector<Resource*> CB_PER_OBJECT_DEFAULT_RESOURCES;
 };
 
 struct RTV_SRV_RESOURCE

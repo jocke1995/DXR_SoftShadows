@@ -1374,7 +1374,13 @@ void Renderer::InitModelComponent(component::ModelComponent* mc)
 					m_pDevice5,
 					sizeof(CB_PER_OBJECT_STRUCT),
 					RESOURCE_TYPE::UPLOAD,
-					L"CB_PER_OBJECT_UPLOAD_RESOURCE_" + std::to_wstring(i) + L"_" + mc->GetModelPath()));	
+					L"CB_PER_OBJECT_UPLOAD_RESOURCE_" + std::to_wstring(i) + L"_" + mc->GetModelPath()));
+
+				rc->CB_PER_OBJECT_DEFAULT_RESOURCES.push_back(new Resource(
+					m_pDevice5,
+					sizeof(CB_PER_OBJECT_STRUCT),
+					RESOURCE_TYPE::DEFAULT,
+					L"CB_PER_OBJECT_DEFAULT_RESOURCE_" + std::to_wstring(i) + L"_" + mc->GetModelPath()));
 			}
 			// Finally store the object in the in renderer so it can be drawn
 			m_RenderComponents.push_back(rc);
@@ -1450,6 +1456,7 @@ void Renderer::UnInitModelComponent(component::ModelComponent* component)
 			for (unsigned int j = 0; j < comp->GetNrOfMeshes(); j++)
 			{
 				delete m_RenderComponents[i]->CB_PER_OBJECT_UPLOAD_RESOURCES.at(j);
+				delete m_RenderComponents[i]->CB_PER_OBJECT_DEFAULT_RESOURCES.at(j);
 			}
 			
 			delete m_RenderComponents[i];

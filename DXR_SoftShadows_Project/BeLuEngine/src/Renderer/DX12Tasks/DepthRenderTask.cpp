@@ -94,9 +94,26 @@ void DepthRenderTask::drawRenderComponent(
 		CB_PER_OBJECT_STRUCT perObject = { *WTransposed, WVPTransposed, *info };
 
 		// Temp, should not SetData here
-		rc->CB_PER_OBJECT_UPLOAD_RESOURCES[i]->SetData(&perObject);
+		Resource* upl = rc->CB_PER_OBJECT_UPLOAD_RESOURCES[i];
+		Resource* def = rc->CB_PER_OBJECT_DEFAULT_RESOURCES[i];
+		upl->SetData(&perObject);
 
-		cl->SetGraphicsRootConstantBufferView(RS::CB_PER_OBJECT_CBV, rc->CB_PER_OBJECT_UPLOAD_RESOURCES[i]->GetGPUVirtualAdress());
+		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			def->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_COMMON,
+			D3D12_RESOURCE_STATE_COPY_DEST));
+
+		// To Defaultheap from Uploadheap
+		cl->CopyResource(
+			def->GetID3D12Resource1(),	// Receiever
+			upl->GetID3D12Resource1());	// Sender
+
+		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			def->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			D3D12_RESOURCE_STATE_COMMON));
+
+		cl->SetGraphicsRootConstantBufferView(RS::CB_PER_OBJECT_CBV, rc->CB_PER_OBJECT_DEFAULT_RESOURCES[i]->GetGPUVirtualAdress());
 
 		cl->IASetIndexBuffer(m->GetIndexBufferView());
 		cl->DrawIndexedInstanced(num_Indices, 1, 0, 0, 0);
