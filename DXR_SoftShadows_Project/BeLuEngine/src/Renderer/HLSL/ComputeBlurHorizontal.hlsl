@@ -16,6 +16,7 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 	unsigned int writeIndex = dhIndices.index1;
 
 	float weights[5] = { 0.227027f, 0.1945946f, 0.1216216f, 0.054054f, 0.016216f };
+
 	/* -------------------- Clamp out of bound samples -------------------- */
 	// left side
 	if (groupThreadID.x < g_BlurRadius)
