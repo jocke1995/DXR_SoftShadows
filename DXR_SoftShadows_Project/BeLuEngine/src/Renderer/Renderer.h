@@ -125,6 +125,7 @@ public:
 	void ExecuteDXR(double dt);
 	void ExecuteInlinePixel(double dt);
 	void ExecuteInlineCompute(double dt);
+	void ExecuteTEST(double dt);
 
 	// Render inits, these functions are called by respective components through SetScene to prepare for drawing
 	void InitModelComponent(component::ModelComponent* component);
@@ -239,6 +240,9 @@ private:
 	void temporalAccumulation(ID3D12GraphicsCommandList5* cl);
 	void spatialAccumulation(ID3D12GraphicsCommandList5* cl);
 	void lightningMergeTask(ID3D12GraphicsCommandList5* cl);
+
+	// TEST
+	void spatialAccumulationTest(ID3D12GraphicsCommandList5* cl, unsigned int currentTemporalIndex);
 
 	ID3D12RootSignature* CreateRayGenSignature();
 	ID3D12RootSignature* CreateHitSignature();

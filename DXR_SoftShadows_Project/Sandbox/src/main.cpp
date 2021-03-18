@@ -133,6 +133,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
         bool isF1 = input->GetKeyState(SCAN_CODES::F1);
         bool isF2 = input->GetKeyState(SCAN_CODES::F2);
         bool isF3 = input->GetKeyState(SCAN_CODES::F3);
+        bool isF4 = input->GetKeyState(SCAN_CODES::F4);
 
         if (isF1)
         {
@@ -140,17 +141,23 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
                 Log::Print("Mode: RT\n");
             mode = 0;
         }
-        if (isF2)
+        else if (isF2)
         {
             if (mode != 1)
                 Log::Print("Mode: IP\n");
             mode = 1;
         }
-        if (isF3)
+        else if (isF3)
         {
             if (mode != 2)
                 Log::Print("Mode: IC\n");
             mode = 2;
+        }
+        else if (isF4)
+        {
+            if (mode != 3)
+                Log::Print("Mode: TEST\n");
+            mode = 3;
         }
 
         if (window->WasSpacePressed())
@@ -180,6 +187,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
             break;
         case 2:
             renderer->ExecuteInlineCompute(timer->GetDeltaTime());
+            break;
+        case 3:
+            renderer->ExecuteTEST(timer->GetDeltaTime());
             break;
         default:
             Log::Print("Unknown rendering mode!!!!!!!!!!!!!!!!!!!!!!\n");

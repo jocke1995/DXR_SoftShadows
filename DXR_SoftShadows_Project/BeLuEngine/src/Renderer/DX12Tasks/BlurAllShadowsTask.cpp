@@ -114,9 +114,7 @@ void BlurAllShadowsTask::Execute()
 		commandList->SetPipelineState(m_PipelineStates[1]->GetPSO());
 		commandList->Dispatch(m_VerticalThreadGroupsX, m_VerticalThreadGroupsY, 1);
 
-		TransResourceState(commandList, const_cast<Resource*>(m_pTargetPingPongResource->GetSRV()->GetResource()),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		
 	}
 	
 

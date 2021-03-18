@@ -769,7 +769,6 @@ void Renderer::ExecuteDXR(double dt)
 	// Execute BlurTasks, output to m_shadowBuffers
 	spatialAccumulation(cl);
 
-
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
 
@@ -1147,6 +1146,192 @@ void Renderer::ExecuteInlineCompute(double dt)
 
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, cLists);
 
+	/*------------------- Post draw stuff -------------------*/
+	waitForGPU();
+
+	OutputTestResults(dt);
+
+	/*------------------- Present -------------------*/
+	HRESULT hr = dx12SwapChain->Present(0, 0);
+
+#ifdef DEBUG
+	if (FAILED(hr))
+	{
+		BL_LOG_CRITICAL("Swapchain Failed to present\n");
+	}
+#endif
+}
+
+void Renderer::ExecuteTEST(double dt)
+{
+	m_FrameCounter = m_FrameCounter + 1;
+
+	IDXGISwapChain4* dx12SwapChain = m_pSwapChain->GetDX12SwapChain();
+	unsigned int backBufferIndex = dx12SwapChain->GetCurrentBackBufferIndex();
+
+	unsigned int commandInterfaceIndex = m_FrameCounter % NUM_SWAP_BUFFERS;
+	unsigned int currentLightTemporalBuffer = m_FrameCounter % (NUM_TEMPORAL_BUFFERS + 1);
+
+	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
+	ID3D12DescriptorHeap* dhCBVSRVUAV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetID3D12DescriptorHeap();
+
+	/* ------------------------------------- COPY DATA ------------------------------------- */
+	DX12Task::SetCommandInterfaceIndex(commandInterfaceIndex);
+
+	// Copy per frame
+	m_CopyTasks[COPY_TASK_TYPE::COPY_PER_FRAME]->Execute();
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
+		1,
+		&m_DXRCpftCommandLists[commandInterfaceIndex]);
+
+	// Depth pre-pass
+	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
+		1,
+		&m_DepthPrePassCommandLists[commandInterfaceIndex]);
+
+	// GBuffer (Normals only atm)
+	m_RenderTasks[RENDER_TASK_TYPE::GBUFFER_PASS]->Execute();
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
+		1,
+		&m_GBufferCommandLists[commandInterfaceIndex]);
+	/* ------------------------------------- COPY DATA ------------------------------------- */
+
+	m_pTempCommandInterface->Reset(0);
+	auto cl = m_pTempCommandInterface->GetCommandList(0);
+
+	CD3DX12_RESOURCE_BARRIER transition;
+
+#pragma region RayTrace
+	DX12TEST(
+
+	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
+	cl->SetDescriptorHeaps(1, &dhCBVSRVUAV);
+	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
+	cl->SetComputeRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
+	unsigned int softShadowHeapOffset = m_DhIndexSoftShadowsUAV + 2 * MAX_POINT_LIGHTS * currentLightTemporalBuffer;
+	cl->SetComputeRootDescriptorTable(RS::dtUAV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(softShadowHeapOffset));
+	cl->SetComputeRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootConstantBufferView(RS::CBV0, m_pCbCamera->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetComputeRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
+
+	// Setup the raytracing task
+	D3D12_DISPATCH_RAYS_DESC desc = {};
+	// The layout of the SBT is as follows: ray generation shader, miss
+	// shaders, hit groups. As described in the CreateShaderBindingTable method,
+	// all SBT entries of a given type have the same size to allow a fixed stride.
+
+	// The ray generation shaders are always at the beginning of the SBT. 
+	uint32_t rayGenerationSectionSizeInBytes = m_SbtHelper.GetRayGenSectionSize();
+	desc.RayGenerationShaderRecord.StartAddress = m_pSbtStorage->GetGPUVirtualAddress();
+	desc.RayGenerationShaderRecord.SizeInBytes = rayGenerationSectionSizeInBytes;
+
+
+	// The miss shaders are in the second SBT section, right after the ray
+	// generation shader. We have one miss shader for the camera rays and one
+	// for the shadow rays, so this section has a size of 2*m_sbtEntrySize. We
+	// also indicate the stride between the two miss shaders, which is the size
+	// of a SBT entry
+	uint32_t missSectionSizeInBytes = m_SbtHelper.GetMissSectionSize();
+	desc.MissShaderTable.StartAddress = m_pSbtStorage->GetGPUVirtualAddress() + rayGenerationSectionSizeInBytes;
+	desc.MissShaderTable.SizeInBytes = missSectionSizeInBytes;
+	desc.MissShaderTable.StrideInBytes = m_SbtHelper.GetMissEntrySize();
+
+
+	// The hit groups section start after the miss shaders.
+	uint32_t hitGroupsSectionSize = m_SbtHelper.GetHitGroupSectionSize();
+	desc.HitGroupTable.StartAddress = m_pSbtStorage->GetGPUVirtualAddress() +
+		rayGenerationSectionSizeInBytes +
+		missSectionSizeInBytes;
+	desc.HitGroupTable.SizeInBytes = hitGroupsSectionSize;
+	desc.HitGroupTable.StrideInBytes = m_SbtHelper.GetHitGroupEntrySize();
+
+
+	// Dimensions of the image to render, identical to a kernel launch dimension
+	desc.Width = m_pWindow->GetScreenWidth();
+	desc.Height = m_pWindow->GetScreenHeight();
+	desc.Depth = 1;
+
+	// Bind the raytracing pipeline
+	cl->SetPipelineState1(m_pRTStateObject);
+	// Dispatch the rays and write to the raytracing output
+
+
+	// Set temporal buffers written to UAV
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
+	{
+		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_LightTemporalResources[i][currentLightTemporalBuffer]->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	}
+
+	//DX12TEST(cl->DispatchRays(&desc), 0);
+	cl->DispatchRays(&desc);
+
+	
+
+	, 0);
+#pragma endregion RayTrace
+
+	// Execute BlurTasks, output to m_LightTemporalResources
+	spatialAccumulationTest(cl, currentLightTemporalBuffer);
+
+	// Set temporal buffers written to back
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
+	{
+		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_LightTemporalResources[i][currentLightTemporalBuffer]->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+	}
+
+	// Execute ShadowBufferTask, output to m_ShadowBuffer
+	temporalAccumulation(cl);
+
+
+	
+
+
+	// Calculate Light and output to m_Output
+	lightningMergeTask(cl);
+
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pOutputResource->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // StateBefore
+		D3D12_RESOURCE_STATE_COPY_SOURCE);	   // StateAfter
+	cl->ResourceBarrier(1, &transition);
+
+
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_PRESENT,	 // StateBefore
+		D3D12_RESOURCE_STATE_COPY_DEST); // StateAfter
+	cl->ResourceBarrier(1, &transition);
+
+
+	cl->CopyResource(
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
+		m_pOutputResource->GetID3D12Resource1());					// Source
+
+
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_COPY_DEST, // StateBefore
+		D3D12_RESOURCE_STATE_PRESENT);	// StateAfter
+	cl->ResourceBarrier(1, &transition);
+
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pOutputResource->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
+	cl->ResourceBarrier(1, &transition);
+
+
+	cl->Close();
+	ID3D12CommandList* cLists[] = { cl };
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, cLists);
 	/*------------------- Post draw stuff -------------------*/
 	waitForGPU();
 
@@ -1739,6 +1924,22 @@ void Renderer::spatialAccumulation(ID3D12GraphicsCommandList5* cl)
 	m_BlurAllShadowsTask->Execute();
 }
 
+void Renderer::spatialAccumulationTest(ID3D12GraphicsCommandList5* cl, unsigned int currentTemporalIndex)
+{
+	// Blur all light output
+	std::vector<PingPongResource*> pingPongsTest;
+
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
+	{
+		pingPongsTest.push_back(m_LightTemporalPingPong[i][currentTemporalIndex]);
+	}
+
+	m_BlurAllShadowsTask->SetPingPongResorcesToBlur(m_Lights[LIGHT_TYPE::POINT_LIGHT].size(), pingPongsTest.data());
+	m_BlurAllShadowsTask->SetBackBufferIndex(0);
+	m_BlurAllShadowsTask->SetCommandInterfaceIndex(0);
+	m_BlurAllShadowsTask->Execute();
+}
+
 void Renderer::lightningMergeTask(ID3D12GraphicsCommandList5* cl)
 {
 	// Reads from m_ShadowBuffers (which are spatiotemporal accumulated)
@@ -1764,15 +1965,6 @@ void Renderer::lightningMergeTask(ID3D12GraphicsCommandList5* cl)
 	cl->SetGraphicsRoot32BitConstants(RS::RC_4, 2, data, 0);
 	
 	m_MergeLightningRenderTask->Execute();
-
-	// Set all shadowBuffers to D3D12_RESOURCE_STATE_UNORDERED_ACCESS for next frame
-	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
-	{
-		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_pShadowBufferResource[i]->GetID3D12Resource1(),
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-	}
 }
 
 
@@ -1932,7 +2124,7 @@ void Renderer::CreateSoftShadowLightResources()
 	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
 	{
 		m_pShadowBufferResource[i] = new Resource(m_pDevice5, &resDesc, nullptr,
-			L"test_resource", D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			L"m_pShadowBufferResource", D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
 		m_pShadowBufferPingPong[i] = new PingPongResource(m_pShadowBufferResource[i], m_pDevice5,
 			m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV],
@@ -1949,11 +2141,12 @@ void Renderer::CreateSoftShadowLightResources()
 		for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
 		{
 			m_LightTemporalResources[i][z] = new Resource(m_pDevice5, &resDesc, nullptr,
-				L"test_resource", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+				L"m_LightTemporalResources", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
 			m_LightTemporalPingPong[i][z] = new PingPongResource(m_LightTemporalResources[i][z], m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], &srvDesc, &uavDesc);
 		}
 	}
+	
 	
 }
 
@@ -2634,7 +2827,7 @@ void Renderer::submitUploadPerSceneData()
 	m_pCbPerSceneData->pointLightRawBufferIndex = m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetSRV()->GetDescriptorHeapIndex();
 	m_pCbPerSceneData->depthBufferIndex = m_pDepthBufferSRV->GetDescriptorHeapIndex();
 	m_pCbPerSceneData->gBufferNormalIndex = m_GBufferNormal.srv->GetDescriptorHeapIndex();
-	m_pCbPerSceneData->spp = 2;
+	m_pCbPerSceneData->spp = 1;
 
 
 	// Submit CB_PER_SCENE to be uploaded to VRAM
