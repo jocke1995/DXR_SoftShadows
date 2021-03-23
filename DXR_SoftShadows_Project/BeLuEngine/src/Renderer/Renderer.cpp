@@ -716,11 +716,6 @@ void Renderer::SortObjects()
 
 void Renderer::ExecuteDXR(double dt)
 {
-	// Wait for UAVs to write
-	D3D12_RESOURCE_BARRIER rBarr = {};
-	rBarr.Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_UAV;
-	rBarr.UAV.pResource = m_pOutputResource->GetID3D12Resource1();
-
 	m_FrameCounter = m_FrameCounter + 1;
 
 	IDXGISwapChain4* dx12SwapChain = m_pSwapChain->GetDX12SwapChain();
@@ -849,6 +844,10 @@ void Renderer::ExecuteDXR(double dt)
 
 
 	// Wait for UAV to get written
+	// Wait for UAVs to write
+	D3D12_RESOURCE_BARRIER rBarr = {};
+	rBarr.Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_UAV;
+	rBarr.UAV.pResource = m_pOutputResource->GetID3D12Resource1();
 	cl->ResourceBarrier(1, &rBarr);
 
 	// TAA
@@ -1034,6 +1033,15 @@ void Renderer::ExecuteInlinePixel(double dt)
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
 
+	// Wait for UAV to get written
+	D3D12_RESOURCE_BARRIER rBarr = {};
+	rBarr.Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_UAV;
+	rBarr.UAV.pResource = m_pOutputResource->GetID3D12Resource1();
+	cl->ResourceBarrier(1, &rBarr);
+
+	// TAA
+	TAATask(cl);
+
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		m_pOutputResource->GetID3D12Resource1(),
@@ -1186,7 +1194,14 @@ void Renderer::ExecuteInlineCompute(double dt)
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
 
+	// Wait for UAV to get written
+	D3D12_RESOURCE_BARRIER rBarr = {};
+	rBarr.Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_UAV;
+	rBarr.UAV.pResource = m_pOutputResource->GetID3D12Resource1();
+	cl->ResourceBarrier(1, &rBarr);
 
+	// TAA
+	TAATask(cl);
 
 	// The raytracing output needs to be copied to the actual render target used
 	// for display. For this, we need to transition the raytracing output from a
@@ -1379,6 +1394,15 @@ void Renderer::ExecuteTEST(double dt)
 
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
+
+	// Wait for UAV to get written
+	D3D12_RESOURCE_BARRIER rBarr = {};
+	rBarr.Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_UAV;
+	rBarr.UAV.pResource = m_pOutputResource->GetID3D12Resource1();
+	cl->ResourceBarrier(1, &rBarr);
+
+	// TAA
+	TAATask(cl);
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		m_pOutputResource->GetID3D12Resource1(),
@@ -2965,7 +2989,7 @@ void Renderer::submitUploadPerSceneData()
 	m_pCbPerSceneData->pointLightRawBufferIndex = m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetSRV()->GetDescriptorHeapIndex();
 	m_pCbPerSceneData->depthBufferIndex = m_pDepthBufferSRV->GetDescriptorHeapIndex();
 	m_pCbPerSceneData->gBufferNormalIndex = m_GBufferNormal.srv->GetDescriptorHeapIndex();
-	m_pCbPerSceneData->spp = 8;
+	m_pCbPerSceneData->spp = 1;
 
 
 	// Submit CB_PER_SCENE to be uploaded to VRAM
