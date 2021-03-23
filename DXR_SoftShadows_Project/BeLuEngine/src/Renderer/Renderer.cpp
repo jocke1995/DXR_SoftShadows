@@ -43,6 +43,7 @@
 #include "DX12Tasks/RenderTask.h"
 #include "DX12Tasks/DepthRenderTask.h"
 #include "DX12Tasks/ShadowBufferRenderTask.h"
+#include "DX12Tasks/TAARenderTask.h"
 #include "DX12Tasks/ForwardRenderTask.h"
 #include "DX12Tasks/GBufferRenderTask.h"
 #include "DX12Tasks/MergeLightningRenderTask.h"
@@ -114,6 +115,9 @@ void Renderer::deleteRenderer()
 	delete m_GBufferNormal.srv;
 	delete m_GBufferNormal.rtv;
 
+	delete m_pTAAPingPong;
+	delete m_pTAAResource;
+
 	for (unsigned int i = 0; i < MAX_POINT_LIGHTS; i++)
 	{
 		delete m_pShadowBufferPingPong[i];
@@ -183,9 +187,12 @@ void Renderer::deleteRenderer()
 	
 	delete m_pOutputResource;
 	
+	
+
 	delete m_ShadowBufferRenderTask;
 	delete m_GaussianBlurAllShadowsTask;
 	delete m_BilateralBlurAllShadowsTask;
+	delete m_TAARenderTask;
 	delete m_MergeLightningRenderTask;
 
 	SAFE_RELEASE(&m_pSbtStorage);
@@ -237,6 +244,8 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	// Create Main DepthBuffer
 	createMainDSV();
 	
+	CreateTAAResource();
+
 	// Create Rootsignature
 	createRootSignature();
 
@@ -402,6 +411,66 @@ void Renderer::createShadowBufferRenderTasks()
 	m_ShadowBufferRenderTask->CreateSlotInfo();
 }
 
+void Renderer::createTAARenderTasks()
+{
+	UINT resolutionWidth = 0;
+	UINT resolutionHeight = 0;
+	m_pSwapChain->GetDX12SwapChain()->GetSourceSize(&resolutionWidth, &resolutionHeight);
+
+	/* Depth Pre-Pass rendering without stencil testing */
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsdTAAPass = {};
+	gpsdTAAPass.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	// RenderTarget
+	gpsdTAAPass.NumRenderTargets = 0;
+	gpsdTAAPass.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
+	// Depthstencil usage
+	gpsdTAAPass.SampleDesc.Count = 1;
+	gpsdTAAPass.SampleMask = UINT_MAX;
+	// Rasterizer behaviour
+	gpsdTAAPass.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	gpsdTAAPass.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+	gpsdTAAPass.RasterizerState.DepthBias = 0;
+	gpsdTAAPass.RasterizerState.DepthBiasClamp = 0.0f;
+	gpsdTAAPass.RasterizerState.SlopeScaledDepthBias = 0.0f;
+	gpsdTAAPass.RasterizerState.FrontCounterClockwise = false;
+	gpsdTAAPass.RasterizerState.ForcedSampleCount = 1;
+
+	// Specify Blend descriptions
+	// copy of defaultRTdesc
+	D3D12_RENDER_TARGET_BLEND_DESC blendTAARTdesc = {
+		false, false,
+		D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
+		D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
+		D3D12_LOGIC_OP_NOOP, D3D12_COLOR_WRITE_ENABLE_ALL };
+	for (unsigned int i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
+		gpsdTAAPass.BlendState.RenderTarget[i] = blendTAARTdesc;
+
+	// Depth descriptor
+
+	// DepthStencil
+	gpsdTAAPass.DepthStencilState = {};
+	gpsdTAAPass.DepthStencilState.DepthEnable = false;
+
+	std::vector<D3D12_GRAPHICS_PIPELINE_STATE_DESC*> gpsdTAAPassVector;
+	gpsdTAAPassVector.push_back(&gpsdTAAPass);
+
+	m_TAARenderTask = new TAARenderTask(
+		m_pDevice5,
+		m_pRootSignature,
+		L"TAAVertex.hlsl", L"TAAPixel.hlsl",
+		&gpsdTAAPassVector,
+		L"TAAPassPSO");
+
+	m_TAARenderTask->SetMainDepthStencil(m_pMainDepthStencil);
+	m_TAARenderTask->SetSwapChain(m_pSwapChain);
+	m_TAARenderTask->SetFullScreenQuadMesh(m_pFullScreenQuad);
+	m_TAARenderTask->SetDescriptorHeaps(m_DescriptorHeaps);
+	m_TAARenderTask->SetCommandInterface(m_pTempCommandInterface);
+	m_TAARenderTask->CreateSlotInfo();
+	m_TAARenderTask->SetTAAPingPongResource(m_pTAAPingPong);
+	m_TAARenderTask->SetCurrFrameUAVIndex(m_DhIndexASOB);
+}
+
 void Renderer::createMergeLightningRenderTasks()
 {
 	UINT resolutionWidth = 0;
@@ -479,6 +548,9 @@ void Renderer::InitDXR()
 	CreateShaderBindingTable();
 	m_DXTimer.Init(m_pDevice5, 1);
 	m_DXTimer.InitGPUFrequency(m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]);
+
+	// Uses m_DhIndexASOB
+	createTAARenderTasks();
 }
 
 void Renderer::UpdateSceneToGPU()
@@ -784,10 +856,8 @@ void Renderer::ExecuteDXR(double dt)
 
 	, 0);
 #pragma endregion RayTrace
-
 	// Execute ShadowBufferTask, output to m_LightTemporalResources
 	temporalAccumulation(cl);
-	
 	
 	// Execute BlurTasks, output to m_shadowBuffers
 	spatialAccumulation(cl);
@@ -795,31 +865,42 @@ void Renderer::ExecuteDXR(double dt)
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
 
+
+	// Wait for UAV to get written
+	// Wait for UAVs to write
+	D3D12_RESOURCE_BARRIER rBarr = {};
+	rBarr.Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_UAV;
+	rBarr.UAV.pResource = m_pOutputResource->GetID3D12Resource1();
+	cl->ResourceBarrier(1, &rBarr);
+
+	// TAA
+	TAATask(cl);
+
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		m_pOutputResource->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // StateBefore
 		D3D12_RESOURCE_STATE_COPY_SOURCE);	   // StateAfter
 	cl->ResourceBarrier(1, &transition);
-
-
+	
+	
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_PRESENT,	 // StateBefore
 		D3D12_RESOURCE_STATE_COPY_DEST); // StateAfter
 	cl->ResourceBarrier(1, &transition);
-
-
+	
+	
 	cl->CopyResource(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),	// Dest
 		m_pOutputResource->GetID3D12Resource1());					// Source
-
-
+	
+	
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		swapChainRenderTarget->GetResource()->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_COPY_DEST, // StateBefore
 		D3D12_RESOURCE_STATE_PRESENT);	// StateAfter
 	cl->ResourceBarrier(1, &transition);
-
+	
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		m_pOutputResource->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_COPY_SOURCE,		// StateBefore
@@ -975,6 +1056,15 @@ void Renderer::ExecuteInlinePixel(double dt)
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
 
+	// Wait for UAV to get written
+	D3D12_RESOURCE_BARRIER rBarr = {};
+	rBarr.Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_UAV;
+	rBarr.UAV.pResource = m_pOutputResource->GetID3D12Resource1();
+	cl->ResourceBarrier(1, &rBarr);
+
+	// TAA
+	TAATask(cl);
+
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		m_pOutputResource->GetID3D12Resource1(),
@@ -1127,7 +1217,14 @@ void Renderer::ExecuteInlineCompute(double dt)
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
 
+	// Wait for UAV to get written
+	D3D12_RESOURCE_BARRIER rBarr = {};
+	rBarr.Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_UAV;
+	rBarr.UAV.pResource = m_pOutputResource->GetID3D12Resource1();
+	cl->ResourceBarrier(1, &rBarr);
 
+	// TAA
+	TAATask(cl);
 
 	// The raytracing output needs to be copied to the actual render target used
 	// for display. For this, we need to transition the raytracing output from a
@@ -1335,6 +1432,15 @@ void Renderer::ExecuteTEST(double dt)
 
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
+
+	// Wait for UAV to get written
+	D3D12_RESOURCE_BARRIER rBarr = {};
+	rBarr.Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_UAV;
+	rBarr.UAV.pResource = m_pOutputResource->GetID3D12Resource1();
+	cl->ResourceBarrier(1, &rBarr);
+
+	// TAA
+	TAATask(cl);
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		m_pOutputResource->GetID3D12Resource1(),
@@ -2029,6 +2135,13 @@ void Renderer::lightningMergeTask(ID3D12GraphicsCommandList5* cl)
 	m_MergeLightningRenderTask->Execute();
 }
 
+void Renderer::TAATask(ID3D12GraphicsCommandList5* cl)
+{
+	m_TAARenderTask->SetBackBufferIndex(0);
+	m_TAARenderTask->SetCommandInterfaceIndex(0);
+	m_TAARenderTask->Execute();
+}
+
 
 
 void Renderer::CreateRaytracingOutputBuffer()
@@ -2210,6 +2323,47 @@ void Renderer::CreateSoftShadowLightResources()
 	}
 	
 	
+}
+
+void Renderer::CreateTAAResource()
+{
+	auto format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+
+	// TAA Buffer
+	D3D12_RESOURCE_DESC resDesc = {};
+	resDesc.DepthOrArraySize = 1;
+	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	// The backbuffer is actually DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, but sRGB
+	// formats cannot be used with UAVs. For accuracy we should convert to sRGB
+	// ourselves in the shader
+	resDesc.Format = format;
+
+	resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+	resDesc.Width = m_pWindow->GetScreenWidth();
+	resDesc.Height = m_pWindow->GetScreenHeight();
+	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	resDesc.MipLevels = 1;
+	resDesc.SampleDesc.Count = 1;
+
+	// Create SRV desc
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+
+	// Create desc
+	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+	uavDesc.Format = format;
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+
+
+	m_pTAAResource = new Resource(m_pDevice5, &resDesc, nullptr,
+		L"m_pTAAResource", D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+	m_pTAAPingPong = new PingPongResource(m_pTAAResource, m_pDevice5,
+		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV],
+		&srvDesc, &uavDesc);
 }
 
 void Renderer::createRawBuffersForLights()

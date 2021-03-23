@@ -51,6 +51,7 @@ struct RenderComponent;
 struct ID3D12Resource1;
 class Shader;
 class ShadowBufferRenderTask;
+class TAARenderTask;
 class MergeLightningRenderTask;
 
 // Copy
@@ -238,13 +239,16 @@ private:
 	void createBilateralBlurTask();
 
 	ShadowBufferRenderTask* m_ShadowBufferRenderTask;
+	TAARenderTask* m_TAARenderTask = nullptr;
 	void createShadowBufferRenderTasks();
+	void createTAARenderTasks();
 	MergeLightningRenderTask* m_MergeLightningRenderTask;
 	void createMergeLightningRenderTasks();
 	
 	void temporalAccumulation(ID3D12GraphicsCommandList5* cl);
 	void spatialAccumulation(ID3D12GraphicsCommandList5* cl);
 	void lightningMergeTask(ID3D12GraphicsCommandList5* cl);
+	void TAATask(ID3D12GraphicsCommandList5* cl);
 
 	// TEST
 	void spatialAccumulationTest(ID3D12GraphicsCommandList5* cl, unsigned int currentTemporalIndex);
@@ -286,6 +290,7 @@ private:
 
 	void CreateShaderBindingTable();
 	void CreateSoftShadowLightResources();
+	void CreateTAAResource();
 
 	nv_helpers_dx12::ShaderBindingTableGenerator m_SbtHelper;
 	ID3D12Resource* m_pSbtStorage;
@@ -298,6 +303,9 @@ private:
 	Resource* m_pShadowBufferResource[MAX_POINT_LIGHTS];
 	PingPongResource* m_LightTemporalPingPong[MAX_POINT_LIGHTS][NUM_TEMPORAL_BUFFERS + 1]; // 1 PingPongResource per light, NUM_BUFFERS PingPongResources for temporal accumilation
 	Resource* m_LightTemporalResources[MAX_POINT_LIGHTS][NUM_TEMPORAL_BUFFERS + 1];
+
+	Resource* m_pTAAResource = nullptr;
+	PingPongResource* m_pTAAPingPong = nullptr;
 
 
 	// Group of components that's needed for rendering:
