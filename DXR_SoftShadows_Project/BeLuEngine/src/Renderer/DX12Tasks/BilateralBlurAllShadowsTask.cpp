@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "GaussianBlurAllShadowsTask.h"
+#include "BilateralBlurAllShadowsTask.h"
 
 #include "../CommandInterface.h"
 #include"../RootSignature.h"
@@ -11,7 +11,7 @@
 #include "../GPUMemory/Resource.h"
 #include "../DescriptorHeap.h"
 
-GaussianBlurAllShadowsTask::GaussianBlurAllShadowsTask(
+BilateralBlurAllShadowsTask::BilateralBlurAllShadowsTask(
 	ID3D12Device5* device,
 	RootSignature* rootSignature,
 	DescriptorHeap* dHeap_CBV_SRV_UAV,
@@ -32,29 +32,29 @@ GaussianBlurAllShadowsTask::GaussianBlurAllShadowsTask(
 	m_VerticalThreadGroupsY = m_HorizontalThreadGroupsX;
 }
 
-GaussianBlurAllShadowsTask::~GaussianBlurAllShadowsTask()
+BilateralBlurAllShadowsTask::~BilateralBlurAllShadowsTask()
 {
 	delete m_pTempPingPongResource;
 	delete m_pTempResource;
 }
 
-void GaussianBlurAllShadowsTask::SetPingPongResorcesToBlur(int num, PingPongResource** targets)
+void BilateralBlurAllShadowsTask::SetPingPongResorcesToBlur(int num, PingPongResource** targets)
 {
 	m_NumPingPongResourcesToBlur = num;
 	m_ppTargetsToBlur = targets;
 }
 
-void GaussianBlurAllShadowsTask::setBlurPingPongResource(PingPongResource* target)
+void BilateralBlurAllShadowsTask::setBlurPingPongResource(PingPongResource* target)
 {
 	m_pTargetPingPongResource = target;
 }
 
-void GaussianBlurAllShadowsTask::SetCommandInterface(CommandInterface* inter)
+void BilateralBlurAllShadowsTask::SetCommandInterface(CommandInterface* inter)
 {
 	m_pCommandInterfaceTemp = inter;
 }
 
-void GaussianBlurAllShadowsTask::Execute()
+void BilateralBlurAllShadowsTask::Execute()
 {
 	ID3D12CommandAllocator* commandAllocator = m_pCommandInterfaceTemp->GetCommandAllocator(m_CommandInterfaceIndex);
 	ID3D12GraphicsCommandList5* commandList = m_pCommandInterfaceTemp->GetCommandList(m_CommandInterfaceIndex);
@@ -121,7 +121,7 @@ void GaussianBlurAllShadowsTask::Execute()
 	//commandList->Close();
 }
 
-void GaussianBlurAllShadowsTask::createTempResource(ID3D12Device5* device, unsigned int width, unsigned int height, DXGI_FORMAT format)
+void BilateralBlurAllShadowsTask::createTempResource(ID3D12Device5* device, unsigned int width, unsigned int height, DXGI_FORMAT format)
 {
 	D3D12_RESOURCE_DESC desc = {};
 	desc.DepthOrArraySize = 1;
@@ -142,7 +142,7 @@ void GaussianBlurAllShadowsTask::createTempResource(ID3D12Device5* device, unsig
 	m_pTempResource = new Resource(device, &desc, nullptr, L"BlurTaskTempDefaultResource", D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 }
 
-void GaussianBlurAllShadowsTask::createTempPingPongResource(ID3D12Device5* device, DescriptorHeap* dHeap, DXGI_FORMAT format)
+void BilateralBlurAllShadowsTask::createTempPingPongResource(ID3D12Device5* device, DescriptorHeap* dHeap, DXGI_FORMAT format)
 {
 	// Create SRV
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};

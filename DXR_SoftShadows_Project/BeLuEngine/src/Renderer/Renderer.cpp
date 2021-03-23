@@ -62,10 +62,6 @@
 #include "../Misc/CSVExporter.h"
 
 
-
-
-
-
 #define SECONDS_TO_MEASURE 5//3*60
 double resultAverage = -1;
 double CPUresultAverage = -1;
@@ -189,6 +185,7 @@ void Renderer::deleteRenderer()
 	
 	delete m_ShadowBufferRenderTask;
 	delete m_GaussianBlurAllShadowsTask;
+	delete m_BilateralBlurAllShadowsTask;
 	delete m_MergeLightningRenderTask;
 
 	SAFE_RELEASE(&m_pSbtStorage);
@@ -286,6 +283,7 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 
 	createShadowBufferRenderTasks();
 	createGaussianBlurTask();
+	createBilateralBlurTask();
 	createMergeLightningRenderTasks();
 
 	initRenderTasks();
@@ -320,6 +318,29 @@ void Renderer::createGaussianBlurTask()
 
 	m_GaussianBlurAllShadowsTask->SetDescriptorHeaps(m_DescriptorHeaps);
 	m_GaussianBlurAllShadowsTask->SetCommandInterface(m_pTempCommandInterface);
+}
+
+void Renderer::createBilateralBlurTask()
+{
+	UINT resolutionWidth = 0;
+	UINT resolutionHeight = 0;
+	m_pSwapChain->GetDX12SwapChain()->GetSourceSize(&resolutionWidth, &resolutionHeight);
+
+	// ComputeTasks
+	std::vector<std::pair<std::wstring, std::wstring>> csNamePSOName;
+	csNamePSOName.push_back(std::make_pair(L"BilateralBlurHorizontal.hlsl", L"BilateralblurHorizontalPSO"));
+	csNamePSOName.push_back(std::make_pair(L"BilateralBlurVertical.hlsl", L"BilateralblurVerticalPSO"));
+
+	m_BilateralBlurAllShadowsTask = new BilateralBlurAllShadowsTask(
+		m_pDevice5, m_pRootSignature,
+		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV],
+		csNamePSOName,
+		COMMAND_INTERFACE_TYPE::DIRECT_TYPE,
+		resolutionWidth, resolutionHeight,
+		FLAG_THREAD::RENDER);
+
+	m_BilateralBlurAllShadowsTask->SetDescriptorHeaps(m_DescriptorHeaps);
+	m_BilateralBlurAllShadowsTask->SetCommandInterface(m_pTempCommandInterface);
 }
 
 void Renderer::createShadowBufferRenderTasks()
