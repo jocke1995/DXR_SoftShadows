@@ -341,6 +341,7 @@ void Renderer::createBilateralBlurTask()
 
 	m_BilateralBlurAllShadowsTask->SetDescriptorHeaps(m_DescriptorHeaps);
 	m_BilateralBlurAllShadowsTask->SetCommandInterface(m_pTempCommandInterface);
+	m_BilateralBlurAllShadowsTask->AddResource("cbPerScene", m_pCbPerScene->GetDefaultResource());
 }
 
 void Renderer::createShadowBufferRenderTasks()
@@ -1312,10 +1313,25 @@ void Renderer::ExecuteTEST(double dt)
 	// Execute ShadowBufferTask, output to m_ShadowBuffer
 	temporalAccumulation(cl);
 
+	// Set temporal buffers written to UAV
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
+	{
+		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_LightTemporalResources[i][currentLightTemporalBuffer]->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	}
 
-	// Blur 
-	spatialAccumulation(cl);
+	BilateralBlur(cl, currentLightTemporalBuffer);
 
+	// Set temporal buffers written to back
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
+	{
+		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_LightTemporalResources[i][currentLightTemporalBuffer]->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+	}
 
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
@@ -1968,6 +1984,22 @@ void Renderer::spatialAccumulationTest(ID3D12GraphicsCommandList5* cl, unsigned 
 	m_GaussianBlurAllShadowsTask->SetBackBufferIndex(0);
 	m_GaussianBlurAllShadowsTask->SetCommandInterfaceIndex(0);
 	m_GaussianBlurAllShadowsTask->Execute();
+}
+
+void Renderer::BilateralBlur(ID3D12GraphicsCommandList5* cl, unsigned int currentTemporalIndex)
+{
+	// Blur all light output
+	std::vector<PingPongResource*> pingPongsTest;
+
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
+	{
+		pingPongsTest.push_back(m_LightTemporalPingPong[i][currentTemporalIndex]);
+	}
+
+	m_BilateralBlurAllShadowsTask->SetPingPongResorcesToBlur(m_Lights[LIGHT_TYPE::POINT_LIGHT].size(), pingPongsTest.data());
+	m_BilateralBlurAllShadowsTask->SetBackBufferIndex(0);
+	m_BilateralBlurAllShadowsTask->SetCommandInterfaceIndex(0);
+	m_BilateralBlurAllShadowsTask->Execute();
 }
 
 void Renderer::lightningMergeTask(ID3D12GraphicsCommandList5* cl)
@@ -2857,7 +2889,7 @@ void Renderer::submitUploadPerSceneData()
 	m_pCbPerSceneData->pointLightRawBufferIndex = m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetSRV()->GetDescriptorHeapIndex();
 	m_pCbPerSceneData->depthBufferIndex = m_pDepthBufferSRV->GetDescriptorHeapIndex();
 	m_pCbPerSceneData->gBufferNormalIndex = m_GBufferNormal.srv->GetDescriptorHeapIndex();
-	m_pCbPerSceneData->spp = 8;
+	m_pCbPerSceneData->spp = 1;
 
 
 	// Submit CB_PER_SCENE to be uploaded to VRAM

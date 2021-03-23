@@ -59,9 +59,6 @@ void BilateralBlurAllShadowsTask::Execute()
 	ID3D12CommandAllocator* commandAllocator = m_pCommandInterfaceTemp->GetCommandAllocator(m_CommandInterfaceIndex);
 	ID3D12GraphicsCommandList5* commandList = m_pCommandInterfaceTemp->GetCommandList(m_CommandInterfaceIndex);
 
-	//commandAllocator->Reset();
-	//commandList->Reset(commandAllocator, NULL);
-
 	commandList->SetComputeRootSignature(m_pRootSig);
 
 	DescriptorHeap* descriptorHeap_CBV_UAV_SRV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV];
@@ -70,6 +67,7 @@ void BilateralBlurAllShadowsTask::Execute()
 
 	commandList->SetComputeRootDescriptorTable(RS::dtUAV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
 	commandList->SetComputeRootDescriptorTable(RS::dtSRV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
+	//commandList->SetComputeRootConstantBufferView(RS::CB_PER_SCENE, m_Resources["cbPerScene"]->GetGPUVirtualAdress());
 
 	// Blurs all texture
 	for (unsigned int i = 0; i < m_NumPingPongResourcesToBlur; i++)

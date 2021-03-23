@@ -249,6 +249,9 @@ private:
 	// TEST
 	void spatialAccumulationTest(ID3D12GraphicsCommandList5* cl, unsigned int currentTemporalIndex);
 
+	// Final Bilateral Blur
+	void BilateralBlur(ID3D12GraphicsCommandList5* cl, unsigned int currentTemporalIndex);
+
 	ID3D12RootSignature* CreateRayGenSignature();
 	ID3D12RootSignature* CreateHitSignature();
 	ID3D12RootSignature* CreateMissSignature();

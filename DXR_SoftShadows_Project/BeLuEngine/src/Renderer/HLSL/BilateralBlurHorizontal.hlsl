@@ -4,14 +4,42 @@ Texture2D<float4> textures[]   : register (t0);
 RWTexture2D<float4> textureToBlur[] : register(u0, space1);
 
 ConstantBuffer<DescriptorHeapIndices> dhIndices : register(b9, space3);
+ConstantBuffer<CB_PER_SCENE_STRUCT> cbPerScene : register(b5, space3);
+ConstantBuffer<DXR_CAMERA> cbCameraMatrices : register(b6, space3);
+
+SamplerState MIN_MAG_MIP_LINEAR__WRAP : register(s5);
 
 static const int g_BlurRadius = 4;
 static const int g_NumThreads = 256;
 groupshared float4 g_SharedMem[g_NumThreads + 2 * g_BlurRadius];
 
+// Calculate world pos from DepthBuffer
+float3 WorldPosFromDepth(float depth, float2 TexCoord)
+{
+	TexCoord.y = 1.0 - TexCoord.y;
+	float4 clipSpacePosition = float4(TexCoord * 2.0 - 1.0, depth, 1.0);
+	float4 viewSpacePosition = mul(cbCameraMatrices.projectionI, clipSpacePosition);
+
+	// Perspective division
+	viewSpacePosition /= viewSpacePosition.w;
+
+	float4 worldSpacePosition = mul(cbCameraMatrices.viewI, viewSpacePosition);
+
+	return worldSpacePosition.xyz;
+}
+
 [numthreads(g_NumThreads, 1, 1)]
 void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : SV_GroupThreadID)
 {
+	// TODO: dont hardcode screensize
+	float2 uv = dispatchThreadID.xy / float2(1280, 720);
+	
+	/* Sample depth and normal from textures */
+	float depth = textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).r;
+	float3 normal = textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).rgb;
+	float3 worldPos = WorldPosFromDepth(depth, uv);
+
+	/* DescriptorHeap indices */
 	unsigned int readIndex = dhIndices.index0;
 	unsigned int writeIndex = dhIndices.index1;
 
