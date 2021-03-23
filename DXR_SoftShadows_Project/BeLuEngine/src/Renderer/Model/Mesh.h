@@ -62,6 +62,7 @@ protected:
 	friend class CopyOnDemandTask;
     friend class ShadowBufferRenderTask;
     friend class MergeLightningRenderTask;
+    friend class TAARenderTask;
 
     std::vector<Vertex> m_Vertices;
     std::vector<unsigned int> m_Indices;
