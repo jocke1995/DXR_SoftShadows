@@ -58,7 +58,7 @@ class CopyTask;
 
 // Compute
 class ComputeTask;
-class BlurAllShadowsTask;
+class GaussianBlurAllShadowsTask;
 
 // DX12 Forward Declarations
 struct ID3D12CommandQueue;
@@ -230,8 +230,8 @@ private:
 	void CreateAccelerationStructures();
 
 	// Blur task
-	BlurAllShadowsTask* m_BlurAllShadowsTask;
-	void createBlurTask();
+	GaussianBlurAllShadowsTask* m_GaussianBlurAllShadowsTask;
+	void createGaussianBlurTask();
 	ShadowBufferRenderTask* m_ShadowBufferRenderTask;
 	void createShadowBufferRenderTasks();
 	MergeLightningRenderTask* m_MergeLightningRenderTask;

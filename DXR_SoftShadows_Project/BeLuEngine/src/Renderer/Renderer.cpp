@@ -53,7 +53,7 @@
 
 // Compute
 #include "DX12Tasks/InlineRTComputeTask.h"
-#include "DX12Tasks/BlurAllShadowsTask.h"
+#include "DX12Tasks/GaussianBlurAllShadowsTask.h"
 
 // Event
 #include "../Events/EventBus.h"
@@ -187,7 +187,7 @@ void Renderer::deleteRenderer()
 	delete m_pOutputResource;
 	
 	delete m_ShadowBufferRenderTask;
-	delete m_BlurAllShadowsTask;
+	delete m_GaussianBlurAllShadowsTask;
 	delete m_MergeLightningRenderTask;
 
 	SAFE_RELEASE(&m_pSbtStorage);
@@ -284,7 +284,7 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	CreateSoftShadowLightResources();
 
 	createShadowBufferRenderTasks();
-	createBlurTask();
+	createGaussianBlurTask();
 	createMergeLightningRenderTasks();
 
 	initRenderTasks();
@@ -298,7 +298,7 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	m_pCbCameraData = new DXR_CAMERA();
 }
 
-void Renderer::createBlurTask()
+void Renderer::createGaussianBlurTask()
 {
 	UINT resolutionWidth = 0;
 	UINT resolutionHeight = 0;
@@ -306,10 +306,10 @@ void Renderer::createBlurTask()
 
 	// ComputeTasks
 	std::vector<std::pair<std::wstring, std::wstring>> csNamePSOName;
-	csNamePSOName.push_back(std::make_pair(L"ComputeBlurHorizontal.hlsl", L"blurHorizontalPSO"));
-	csNamePSOName.push_back(std::make_pair(L"ComputeBlurVertical.hlsl", L"blurVerticalPSO"));
+	csNamePSOName.push_back(std::make_pair(L"GaussianBlurHorizontal.hlsl", L"GaussianblurHorizontalPSO"));
+	csNamePSOName.push_back(std::make_pair(L"GaussianBlurVertical.hlsl", L"GaussianblurVerticalPSO"));
 
-		m_BlurAllShadowsTask = new BlurAllShadowsTask(
+	m_GaussianBlurAllShadowsTask = new GaussianBlurAllShadowsTask(
 			m_pDevice5, m_pRootSignature,
 			m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV],
 			csNamePSOName,
@@ -317,8 +317,8 @@ void Renderer::createBlurTask()
 			resolutionWidth, resolutionHeight,
 			FLAG_THREAD::RENDER);
 
-		m_BlurAllShadowsTask->SetDescriptorHeaps(m_DescriptorHeaps);
-		m_BlurAllShadowsTask->SetCommandInterface(m_pTempCommandInterface);
+	m_GaussianBlurAllShadowsTask->SetDescriptorHeaps(m_DescriptorHeaps);
+	m_GaussianBlurAllShadowsTask->SetCommandInterface(m_pTempCommandInterface);
 }
 
 void Renderer::createShadowBufferRenderTasks()
@@ -1926,10 +1926,10 @@ void Renderer::temporalAccumulation(ID3D12GraphicsCommandList5* cl)
 void Renderer::spatialAccumulation(ID3D12GraphicsCommandList5* cl)
 {
 	// Blur all light output
-	m_BlurAllShadowsTask->SetPingPongResorcesToBlur(m_Lights[LIGHT_TYPE::POINT_LIGHT].size(), m_pShadowBufferPingPong);
-	m_BlurAllShadowsTask->SetBackBufferIndex(0);
-	m_BlurAllShadowsTask->SetCommandInterfaceIndex(0);
-	m_BlurAllShadowsTask->Execute();
+	m_GaussianBlurAllShadowsTask->SetPingPongResorcesToBlur(m_Lights[LIGHT_TYPE::POINT_LIGHT].size(), m_pShadowBufferPingPong);
+	m_GaussianBlurAllShadowsTask->SetBackBufferIndex(0);
+	m_GaussianBlurAllShadowsTask->SetCommandInterfaceIndex(0);
+	m_GaussianBlurAllShadowsTask->Execute();
 }
 
 void Renderer::spatialAccumulationTest(ID3D12GraphicsCommandList5* cl, unsigned int currentTemporalIndex)
@@ -1942,10 +1942,10 @@ void Renderer::spatialAccumulationTest(ID3D12GraphicsCommandList5* cl, unsigned 
 		pingPongsTest.push_back(m_LightTemporalPingPong[i][currentTemporalIndex]);
 	}
 
-	m_BlurAllShadowsTask->SetPingPongResorcesToBlur(m_Lights[LIGHT_TYPE::POINT_LIGHT].size(), pingPongsTest.data());
-	m_BlurAllShadowsTask->SetBackBufferIndex(0);
-	m_BlurAllShadowsTask->SetCommandInterfaceIndex(0);
-	m_BlurAllShadowsTask->Execute();
+	m_GaussianBlurAllShadowsTask->SetPingPongResorcesToBlur(m_Lights[LIGHT_TYPE::POINT_LIGHT].size(), pingPongsTest.data());
+	m_GaussianBlurAllShadowsTask->SetBackBufferIndex(0);
+	m_GaussianBlurAllShadowsTask->SetCommandInterfaceIndex(0);
+	m_GaussianBlurAllShadowsTask->Execute();
 }
 
 void Renderer::lightningMergeTask(ID3D12GraphicsCommandList5* cl)
