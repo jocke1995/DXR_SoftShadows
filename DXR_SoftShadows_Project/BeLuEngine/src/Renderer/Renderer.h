@@ -59,6 +59,7 @@ class CopyTask;
 // Compute
 class ComputeTask;
 class GaussianBlurAllShadowsTask;
+class BilateralBlurAllShadowsTask;
 
 // DX12 Forward Declarations
 struct ID3D12CommandQueue;
@@ -229,9 +230,13 @@ private:
 	void CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>>& instances);
 	void CreateAccelerationStructures();
 
-	// Blur task
+	// Blur tasks
 	GaussianBlurAllShadowsTask* m_GaussianBlurAllShadowsTask;
 	void createGaussianBlurTask();
+
+	BilateralBlurAllShadowsTask* m_BilateralBlurAllShadowsTask;
+	void createBilateralBlurTask();
+
 	ShadowBufferRenderTask* m_ShadowBufferRenderTask;
 	void createShadowBufferRenderTasks();
 	MergeLightningRenderTask* m_MergeLightningRenderTask;

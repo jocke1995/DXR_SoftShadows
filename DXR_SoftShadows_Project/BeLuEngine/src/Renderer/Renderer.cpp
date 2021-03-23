@@ -54,6 +54,7 @@
 // Compute
 #include "DX12Tasks/InlineRTComputeTask.h"
 #include "DX12Tasks/GaussianBlurAllShadowsTask.h"
+#include "DX12Tasks/BilateralBlurAllShadowsTask.h"
 
 // Event
 #include "../Events/EventBus.h"
