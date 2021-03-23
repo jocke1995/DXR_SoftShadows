@@ -245,9 +245,9 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 
 	// Create Main DepthBuffer
 	createMainDSV();
-
-	CreateTAAResource();
 	
+	CreateTAAResource();
+
 	// Create Rootsignature
 	createRootSignature();
 
@@ -293,7 +293,6 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	CreateSoftShadowLightResources();
 
 	createShadowBufferRenderTasks();
-	createTAARenderTasks();
 	createBlurTask();
 	createMergeLightningRenderTasks();
 
@@ -526,6 +525,9 @@ void Renderer::InitDXR()
 	CreateShaderBindingTable();
 	m_DXTimer.Init(m_pDevice5, 1);
 	m_DXTimer.InitGPUFrequency(m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]);
+
+	// Uses m_DhIndexASOB
+	createTAARenderTasks();
 }
 
 void Renderer::UpdateSceneToGPU()
@@ -841,6 +843,7 @@ void Renderer::ExecuteDXR(double dt)
 	
 	// Execute BlurTasks, output to m_shadowBuffers
 	spatialAccumulation(cl);
+
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
 
@@ -2278,7 +2281,7 @@ void Renderer::CreateTAAResource()
 
 
 	m_pTAAResource = new Resource(m_pDevice5, &resDesc, nullptr,
-		L"m_pShadowBufferResource", D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		L"m_pTAAResource", D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
 	m_pTAAPingPong = new PingPongResource(m_pTAAResource, m_pDevice5,
 		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV],

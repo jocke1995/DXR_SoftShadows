@@ -16,7 +16,7 @@ void PS_main(VS_OUT input)
 	float3 currColor = currFrame[0][input.pos.xy];
 	float3 oldColor = TAABuffer[0][input.pos.xy];
 
-	float a = 0.001f;
+	float a = 0.05f;
 	float3 factor = float3(a, a, a); // CurrFrame "weight"
 
 	float3 newColor = lerp(oldColor, currColor, factor);
