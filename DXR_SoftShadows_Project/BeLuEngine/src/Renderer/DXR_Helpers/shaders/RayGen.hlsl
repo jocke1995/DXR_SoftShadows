@@ -1,8 +1,6 @@
 #include "Common.hlsl"
 #include "hlslhelpers.hlsl"
 
-// Raytracing output texture, accessed as a UAV
-
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0, space4);
 
@@ -12,23 +10,24 @@ RWTexture2D<float4> light_uav[] : register(u0, space1);
 
 ConstantBuffer<CB_PER_OBJECT_STRUCT> cbPerObject	  : register(b1, space3);
 ConstantBuffer<CB_PER_FRAME_STRUCT>  cbPerFrame		  : register(b4, space3);
-ConstantBuffer<CB_PER_SCENE_STRUCT> cbPerScene : register(b5, space3);
-ConstantBuffer<DXR_CAMERA>			 cbCameraMatrices : register(b6, space3);
+ConstantBuffer<CB_PER_SCENE_STRUCT>  cbPerScene       : register(b5, space3);
+ConstantBuffer<DXR_CAMERA>           cbCameraMatrices : register(b6, space3);
+
 ByteAddressBuffer rawBufferLights : register(t0, space3);
 
 // Calculate world pos from DepthBuffer
 float3 WorldPosFromDepth(float depth, float2 TexCoord)
 {
     TexCoord.y = 1.0 - TexCoord.y;
-	float4 clipSpacePosition = float4(TexCoord * 2.0 - 1.0, depth, 1.0);
-	float4 viewSpacePosition = mul(cbCameraMatrices.projectionI, clipSpacePosition);
+    float4 clipSpacePosition = float4(TexCoord * 2.0 - 1.0, depth, 1.0);
+    float4 viewSpacePosition = mul(cbCameraMatrices.projectionI, clipSpacePosition);
 
-	// Perspective division
-	viewSpacePosition /= viewSpacePosition.w;
+    // Perspective division
+    viewSpacePosition /= viewSpacePosition.w;
 
-	float4 worldSpacePosition = mul(cbCameraMatrices.viewI, viewSpacePosition);
+    float4 worldSpacePosition = mul(cbCameraMatrices.viewI, viewSpacePosition);
 
-	return worldSpacePosition.xyz;
+    return worldSpacePosition.xyz;
 }
 
 [shader("raygeneration")] 
