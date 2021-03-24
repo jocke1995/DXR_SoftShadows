@@ -31,7 +31,7 @@ float3 WorldPosFromDepth(float depth, float2 TexCoord)
 void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : SV_GroupThreadID)
 {
 	// TODO: dont hardcode screensize
-	float2 uv = dispatchThreadID.xy / float2(1280, 720);
+	float2 uv = dispatchThreadID.xy / screenSize;
 
 	float depth = textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).r;
 	float3 worldPos = WorldPosFromDepth(depth, uv);

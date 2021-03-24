@@ -67,7 +67,7 @@ void BilateralBlurAllShadowsTask::Execute()
 
 	commandList->SetComputeRootDescriptorTable(RS::dtUAV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
 	commandList->SetComputeRootDescriptorTable(RS::dtSRV, descriptorHeap_CBV_UAV_SRV->GetGPUHeapAt(0));
-	//commandList->SetComputeRootConstantBufferView(RS::CB_PER_SCENE, m_Resources["cbPerScene"]->GetGPUVirtualAdress());
+	commandList->SetComputeRootConstantBufferView(RS::CB_PER_SCENE, m_Resources["cbPerScene"]->GetGPUVirtualAdress());
 
 	// Blurs all texture
 	for (unsigned int i = 0; i < m_NumPingPongResourcesToBlur; i++)

@@ -42,7 +42,7 @@ float3 WorldPosFromDepth(float depth, float2 TexCoord)
 
 void PS_main(VS_OUT input)
 {
-    float2 d = input.pos.xy / float2(1280, 720);
+    float2 d = input.pos.xy / screenSize;
 
     float depthSample = textures[CBindices.depthBufferIndice].Sample(point_Wrap, d.xy).r;
     float3 worldPos = WorldPosFromDepth(depthSample, d.xy);

@@ -1,4 +1,5 @@
 #include "../../Headers/GPU_Structs.h"
+#include "../DXR_Helpers/shaders/hlslhelpers.hlsl"
 
 Texture2D<float4> textures[]   : register (t0);
 RWTexture2D<float4> textureToBlur[] : register(u0, space1);
@@ -11,10 +12,21 @@ SamplerState MIN_MAG_MIP_LINEAR__WRAP : register(s5);
 
 static const int g_BlurRadius = 4;
 static const int g_NumThreads = 256;
-// TODO: dont hardcode screensize
-static const float2 screenSize = float2(1280, 720);
 
 groupshared float4 g_SharedMem[g_NumThreads + 2 * g_BlurRadius];
+
+// Calculate view pos from DepthBuffer
+float3 ViewPosFromDepth(float depth, float2 TexCoord)
+{
+	TexCoord.y = 1.0 - TexCoord.y;
+	float4 clipSpacePosition = float4(TexCoord * 2.0 - 1.0, depth, 1.0);
+	float4 viewSpacePosition = mul(cbCameraMatrices.projectionI, clipSpacePosition);
+
+	// Perspective division
+	viewSpacePosition /= viewSpacePosition.w;
+
+	return viewSpacePosition.xyz;
+}
 
 [numthreads(1, g_NumThreads, 1)]
 void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : SV_GroupThreadID)
@@ -24,7 +36,8 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 	
 	/* Sample depth and normal from textures */
 	float depth = textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).r;
-	float3 normal = textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).rgb;
+	float3 normal = normalize(textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).rgb);
+	float depthView = ViewPosFromDepth(depth, uv);
 
 	/* DescriptorHeap indices */
 	unsigned int readIndex = dhIndices.index2;
@@ -70,10 +83,11 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 		// Top side
 		float2 uvTop = (dispatchThreadID.xy - float2(0, i)) / screenSize;
 		float depthTop = textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uvTop, 0).r;
-		float3 normalTop = textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uvTop, 0).rgb;
+		float depthTopView = ViewPosFromDepth(depthTop, uvTop);
+		float3 normalTop = normalize(textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uvTop, 0).rgb);
 
 		int top = groupThreadID.y + g_BlurRadius - i;
-		if (dot(normalTop, normal) >= 0.8f && abs(depthTop - depth) <= 0.2f)	// Skip pixels if the neighbor values differ to much
+		if (dot(normalTop, normal) >= 0.8f)	// Skip pixels if the neighbor values differ to much
 		{
 			blurColor += weights[i] * g_SharedMem[top];
 			totalWeight += weights[i];
@@ -82,10 +96,11 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 		// Bot side
 		float2 uvBot = (dispatchThreadID.xy + float2(0, i)) / screenSize;
 		float depthBot = textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uvBot, 0).r;
-		float3 normalBot = textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uvBot, 0).rgb;
+		float depthBotView = ViewPosFromDepth(depthBot, uvBot);
+		float3 normalBot = normalize(textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uvBot, 0).rgb);
 
 		int bot = groupThreadID.y + g_BlurRadius + i;
-		if (dot(normalBot, normal) >= 0.8f && abs(depthBot - depth) <= 0.2f)	// Skip pixels if the neighbor values differ to much
+		if (dot(normalBot, normal) >= 0.8f)	// Skip pixels if the neighbor values differ to much
 		{
 			blurColor += weights[i] * g_SharedMem[bot];
 			totalWeight += weights[i];

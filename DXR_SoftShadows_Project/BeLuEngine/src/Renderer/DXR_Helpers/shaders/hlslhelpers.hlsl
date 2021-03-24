@@ -1,5 +1,16 @@
 #define PI 3.14159265359
 
+// TODO: dont hardcode, send with cb once per scene (or when stuff changes)
+// This is here for simplicity
+static const float2 screenSize = float2(1280, 720);
+static const double nearZ = 0.1f;
+static const double farZ = 1000.0f;
+
+float linearize_depth(float d, float zNear, float zFar)
+{
+    return zNear * zFar / (zFar + d * (zNear - zFar));
+}
+
 // Generates a seed for a random number generator from 2 inputs plus a backoff
 uint initRand(uint val0, uint val1, uint backoff = 16) {
     uint v0 = val0, v1 = val1, s0 = 0;
