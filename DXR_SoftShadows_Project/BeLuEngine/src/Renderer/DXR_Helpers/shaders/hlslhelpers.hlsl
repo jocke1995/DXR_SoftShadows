@@ -6,9 +6,10 @@ static const float2 screenSize = float2(1280, 720);
 static const double nearZ = 0.1f;
 static const double farZ = 1000.0f;
 
-float linearize_depth(float d, float zNear, float zFar)
+// Based on near & far-plane
+float linearizeDepth(float d)
 {
-    return zNear * zFar / (zFar + d * (zNear - zFar));
+    return nearZ * farZ / (farZ + d * (nearZ - farZ));
 }
 
 // Generates a seed for a random number generator from 2 inputs plus a backoff
