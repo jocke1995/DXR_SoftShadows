@@ -845,36 +845,24 @@ void Renderer::ExecuteDXR(double dt)
 	//DX12TEST(cl->DispatchRays(&desc), 0);
 	cl->DispatchRays(&desc);
 
-	// Set temporal buffers written to back
-	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
-	{
-		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_LightTemporalResources[i][currentLightTemporalBuffer]->GetID3D12Resource1(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-	}
-
 	, 0);
 #pragma endregion RayTrace
-	// Execute ShadowBufferTask, output to m_LightTemporalResources
+
+	// Execute BlurTasks, output to m_LightTemporalResources
+	GaussianSpatialAccumulation(cl, currentLightTemporalBuffer);
+
+	// Execute ShadowBufferTask, output to m_ShadowBuffer
 	temporalAccumulation(cl);
-	
-	// Execute BlurTasks, output to m_shadowBuffers
-	spatialAccumulation(cl);
+
+	BilateralBlur(cl, currentLightTemporalBuffer);
 
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
 
-
-	// Wait for UAV to get written
-	// Wait for UAVs to write
-	D3D12_RESOURCE_BARRIER rBarr = {};
-	rBarr.Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_UAV;
-	rBarr.UAV.pResource = m_pOutputResource->GetID3D12Resource1();
-	cl->ResourceBarrier(1, &rBarr);
-
 	// TAA
 	TAATask(cl);
+
+
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		m_pOutputResource->GetID3D12Resource1(),
@@ -1031,39 +1019,24 @@ void Renderer::ExecuteInlinePixel(double dt)
 		}
 	}
 
-	// Set temporal buffers written to back
-	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
-	{
-		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_LightTemporalResources[i][currentLightTemporalBuffer]->GetID3D12Resource1(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-	}
-
 ,0);
 
 #pragma endregion InlineRT
 	
+	// Execute BlurTasks, output to m_LightTemporalResources
+	GaussianSpatialAccumulation(cl, currentLightTemporalBuffer);
 
-	// Execute ShadowBufferTask, output to m_LightTemporalResources
+	// Execute ShadowBufferTask, output to m_ShadowBuffer
 	temporalAccumulation(cl);
 
-
-	// Execute BlurTasks, output to m_shadowBuffers
-	spatialAccumulation(cl);
-
+	BilateralBlur(cl, currentLightTemporalBuffer);
 
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
 
-	// Wait for UAV to get written
-	D3D12_RESOURCE_BARRIER rBarr = {};
-	rBarr.Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_UAV;
-	rBarr.UAV.pResource = m_pOutputResource->GetID3D12Resource1();
-	cl->ResourceBarrier(1, &rBarr);
-
 	// TAA
 	TAATask(cl);
+
 
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -1193,44 +1166,25 @@ void Renderer::ExecuteInlineCompute(double dt)
 
 	cl->Dispatch(m_IRTNumThreadGroupsX, m_IRTNumThreadGroupsY, 1);
 
-	// Set temporal buffers written to back
-	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
-	{
-		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_LightTemporalResources[i][currentLightTemporalBuffer]->GetID3D12Resource1(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-	}
-
 	, 0);
 
 #pragma endregion InlineRT
 
-	// Execute ShadowBufferTask, output to m_LightTemporalResources
+	// Execute BlurTasks, output to m_LightTemporalResources
+	GaussianSpatialAccumulation(cl, currentLightTemporalBuffer);
+
+	// Execute ShadowBufferTask, output to m_ShadowBuffer
 	temporalAccumulation(cl);
 
-
-	// Execute BlurTasks, output to m_shadowBuffers
-	spatialAccumulation(cl);
-
+	BilateralBlur(cl, currentLightTemporalBuffer);
 
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
 
-	// Wait for UAV to get written
-	D3D12_RESOURCE_BARRIER rBarr = {};
-	rBarr.Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_UAV;
-	rBarr.UAV.pResource = m_pOutputResource->GetID3D12Resource1();
-	cl->ResourceBarrier(1, &rBarr);
-
 	// TAA
 	TAATask(cl);
 
-	// The raytracing output needs to be copied to the actual render target used
-	// for display. For this, we need to transition the raytracing output from a
-	// UAV to a copy source, and the render target buffer to a copy destination.
-	// We can then do the actual copy, before transitioning the render target
-	// buffer into a render target, that will be then used to display the image
+
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		m_pOutputResource->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // StateBefore
@@ -1398,51 +1352,21 @@ void Renderer::ExecuteTEST(double dt)
 	// Execute BlurTasks, output to m_LightTemporalResources
 	GaussianSpatialAccumulation(cl, currentLightTemporalBuffer);
 
-	// Set temporal buffers written to back
-	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
-	{
-		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_LightTemporalResources[i][currentLightTemporalBuffer]->GetID3D12Resource1(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-	}
-
 	// Execute ShadowBufferTask, output to m_ShadowBuffer
 	temporalAccumulation(cl);
 
-	// Set temporal buffers written to UAV
-	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
-	{
-		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_LightTemporalResources[i][currentLightTemporalBuffer]->GetID3D12Resource1(),
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-	}
-
 	BilateralBlur(cl, currentLightTemporalBuffer);
-	//GaussianSpatialAccumulation(cl, currentLightTemporalBuffer);
-
-	// Set temporal buffers written to back
-	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
-	{
-		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_LightTemporalResources[i][currentLightTemporalBuffer]->GetID3D12Resource1(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-	}
 
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
 
-	// Wait for UAV to get written
-	D3D12_RESOURCE_BARRIER rBarr = {};
-	rBarr.Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_UAV;
-	rBarr.UAV.pResource = m_pOutputResource->GetID3D12Resource1();
-	cl->ResourceBarrier(1, &rBarr);
-
 	// TAA
 	TAATask(cl);
 
+
+
+
+	// Copy outputResource to swapchain
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		m_pOutputResource->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // StateBefore
@@ -2091,6 +2015,15 @@ void Renderer::GaussianSpatialAccumulation(ID3D12GraphicsCommandList5* cl, unsig
 	m_GaussianBlurAllShadowsTask->SetBackBufferIndex(0);
 	m_GaussianBlurAllShadowsTask->SetCommandInterfaceIndex(0);
 	m_GaussianBlurAllShadowsTask->Execute();
+
+	// Set temporal buffers written to back
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
+	{
+		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_LightTemporalResources[i][currentTemporalIndex]->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+	}
 }
 
 void Renderer::BilateralBlur(ID3D12GraphicsCommandList5* cl, unsigned int currentTemporalIndex)
@@ -2101,13 +2034,22 @@ void Renderer::BilateralBlur(ID3D12GraphicsCommandList5* cl, unsigned int curren
 	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
 	{
 		pingPongsTest.push_back(m_pShadowBufferPingPong[i]);
-		//pingPongsTest.push_back(m_LightTemporalPingPong[i][currentTemporalIndex]);
 	}
 
 	m_BilateralBlurAllShadowsTask->SetPingPongResorcesToBlur(m_Lights[LIGHT_TYPE::POINT_LIGHT].size(), pingPongsTest.data());
 	m_BilateralBlurAllShadowsTask->SetBackBufferIndex(0);
 	m_BilateralBlurAllShadowsTask->SetCommandInterfaceIndex(0);
 	m_BilateralBlurAllShadowsTask->Execute();
+
+	// Wait for UAVS to get written 
+	D3D12_RESOURCE_BARRIER rBarr = {};
+	rBarr.Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_UAV;
+
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
+	{
+		rBarr.UAV.pResource = m_pShadowBufferResource[i]->GetID3D12Resource1();
+		cl->ResourceBarrier(1, &rBarr);
+	}
 }
 
 void Renderer::lightningMergeTask(ID3D12GraphicsCommandList5* cl)
@@ -2323,8 +2265,6 @@ void Renderer::CreateSoftShadowLightResources()
 			m_LightTemporalPingPong[i][z] = new PingPongResource(m_LightTemporalResources[i][z], m_pDevice5, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV], &srvDesc, &uavDesc);
 		}
 	}
-	
-	
 }
 
 void Renderer::CreateTAAResource()
