@@ -9,6 +9,7 @@ ConstantBuffer<CB_PER_SCENE_STRUCT> cbPerScene : register(b5, space3);
 ConstantBuffer<DXR_CAMERA> cbCameraMatrices : register(b6, space3);
 
 SamplerState MIN_MAG_MIP_LINEAR__WRAP : register(s5);
+SamplerState MIN_MAG_MIP_POINT__WRAP : register(s6);
 
 static const int g_BlurRadius = 4;
 static const int g_NumThreads = 256;
@@ -35,8 +36,8 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 	float2 uv = dispatchThreadID.xy / screenSize;
 	
 	/* Sample depth and normal from textures */
-	float depth = linearizeDepth(textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).r);
-	float3 normal = normalize(textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).rgb);
+	float depth = linearizeDepth(textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_POINT__WRAP, uv, 0).r);
+	float3 normal = normalize(textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_POINT__WRAP, uv, 0).rgb);
 	float depthView = ViewPosFromDepth(depth, uv);
 	
 	/* DescriptorHeap indices */
@@ -83,9 +84,9 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 	{
 		// Left side
 		float2 uvLeft = (dispatchThreadID.xy - float2(i, 0)) / screenSize;
-		float depthLeft = linearizeDepth(textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uvLeft, 0).r);
+		float depthLeft = linearizeDepth(textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_POINT__WRAP, uvLeft, 0).r);
 		float depthLeftView = ViewPosFromDepth(depthLeft, uvLeft);
-		float3 normalLeft = normalize(textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uvLeft, 0).rgb);
+		float3 normalLeft = normalize(textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_POINT__WRAP, uvLeft, 0).rgb);
 
 		int left = groupThreadID.x + g_BlurRadius - i;
 		if (dot(normalLeft, normal) >= 0.8f && abs(depthLeftView - depthView) <= 0.2f)	// Skip pixels if the neighbor values differ to much
@@ -96,9 +97,9 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 
 		// Right side
 		float2 uvRight = (dispatchThreadID.xy + float2(i, 0)) / screenSize;
-		float depthRight = linearizeDepth(textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uvRight, 0).r);
+		float depthRight = linearizeDepth(textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_POINT__WRAP, uvRight, 0).r);
 		float depthRightView = ViewPosFromDepth(depthRight, uvRight);
-		float3 normalRight = normalize(textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uvRight, 0).rgb);
+		float3 normalRight = normalize(textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_POINT__WRAP, uvRight, 0).rgb);
 
 		int right = groupThreadID.x + g_BlurRadius + i;
 		if (dot(normalRight, normal) >= 0.8f && abs(depthRightView - depthView) <= 0.2f)	// Skip pixels if the neighbor values differ to much

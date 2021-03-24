@@ -1420,6 +1420,7 @@ void Renderer::ExecuteTEST(double dt)
 	}
 
 	BilateralBlur(cl, currentLightTemporalBuffer);
+	//GaussianSpatialAccumulation(cl, currentLightTemporalBuffer);
 
 	// Set temporal buffers written to back
 	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
@@ -2099,7 +2100,7 @@ void Renderer::BilateralBlur(ID3D12GraphicsCommandList5* cl, unsigned int curren
 
 	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
 	{
-		pingPongsTest.push_back(m_LightTemporalPingPong[i][currentTemporalIndex]);
+		pingPongsTest.push_back(m_pShadowBufferPingPong[i]);
 	}
 
 	m_BilateralBlurAllShadowsTask->SetPingPongResorcesToBlur(m_Lights[LIGHT_TYPE::POINT_LIGHT].size(), pingPongsTest.data());

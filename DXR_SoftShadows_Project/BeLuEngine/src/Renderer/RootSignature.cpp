@@ -183,7 +183,7 @@ void RootSignature::createRootSignatureStructure()
 	rootParam[RS::RC_4].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 	
 
-	const unsigned int numStaticSamplers = 6;
+	const unsigned int numStaticSamplers = 7;
 	D3D12_ROOT_SIGNATURE_DESC rsDesc;
 	rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 	rsDesc.NumParameters = ARRAYSIZE(rootParam);
@@ -230,6 +230,17 @@ void RootSignature::createRootSignatureStructure()
 	ssd[5].MinLOD = 0;
 	ssd[5].MaxLOD = D3D12_FLOAT32_MAX;
 	ssd[5].MipLODBias = 0.0f;
+
+	ssd[6].ShaderRegister = 6;
+	ssd[6].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+	ssd[6].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	ssd[6].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	ssd[6].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	ssd[6].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	ssd[6].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	ssd[6].MinLOD = 0;
+	ssd[6].MaxLOD = D3D12_FLOAT32_MAX;
+	ssd[6].MipLODBias = 0.0f;
 
 	rsDesc.pStaticSamplers = ssd;
 
