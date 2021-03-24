@@ -250,8 +250,8 @@ private:
 	void lightningMergeTask(ID3D12GraphicsCommandList5* cl);
 	void TAATask(ID3D12GraphicsCommandList5* cl);
 
-	// TEST
-	void spatialAccumulationTest(ID3D12GraphicsCommandList5* cl, unsigned int currentTemporalIndex);
+	// Gaussian blur each light shadowBuffer
+	void GaussianSpatialAccumulation(ID3D12GraphicsCommandList5* cl, unsigned int currentTemporalIndex);
 
 	// Final Bilateral Blur
 	void BilateralBlur(ID3D12GraphicsCommandList5* cl, unsigned int currentTemporalIndex);

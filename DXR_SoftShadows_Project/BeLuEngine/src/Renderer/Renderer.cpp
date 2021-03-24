@@ -1396,7 +1396,7 @@ void Renderer::ExecuteTEST(double dt)
 #pragma endregion RayTrace
 
 	// Execute BlurTasks, output to m_LightTemporalResources
-	spatialAccumulationTest(cl, currentLightTemporalBuffer);
+	GaussianSpatialAccumulation(cl, currentLightTemporalBuffer);
 
 	// Set temporal buffers written to back
 	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
@@ -2076,7 +2076,7 @@ void Renderer::spatialAccumulation(ID3D12GraphicsCommandList5* cl)
 	m_GaussianBlurAllShadowsTask->Execute();
 }
 
-void Renderer::spatialAccumulationTest(ID3D12GraphicsCommandList5* cl, unsigned int currentTemporalIndex)
+void Renderer::GaussianSpatialAccumulation(ID3D12GraphicsCommandList5* cl, unsigned int currentTemporalIndex)
 {
 	// Blur all light output
 	std::vector<PingPongResource*> pingPongsTest;
