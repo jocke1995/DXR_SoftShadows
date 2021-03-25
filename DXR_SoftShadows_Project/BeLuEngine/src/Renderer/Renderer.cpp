@@ -854,7 +854,7 @@ void Renderer::ExecuteDXR(double dt)
 	// Execute ShadowBufferTask, output to m_ShadowBuffer
 	temporalAccumulation(cl);
 
-	BilateralBlur(cl, currentLightTemporalBuffer);
+	BilateralBlur(cl);
 
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
@@ -1029,7 +1029,7 @@ void Renderer::ExecuteInlinePixel(double dt)
 	// Execute ShadowBufferTask, output to m_ShadowBuffer
 	temporalAccumulation(cl);
 
-	BilateralBlur(cl, currentLightTemporalBuffer);
+	BilateralBlur(cl);
 
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
@@ -1176,7 +1176,7 @@ void Renderer::ExecuteInlineCompute(double dt)
 	// Execute ShadowBufferTask, output to m_ShadowBuffer
 	temporalAccumulation(cl);
 
-	BilateralBlur(cl, currentLightTemporalBuffer);
+	BilateralBlur(cl);
 
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
@@ -1355,7 +1355,7 @@ void Renderer::ExecuteTEST(double dt)
 	// Execute ShadowBufferTask, output to m_ShadowBuffer
 	temporalAccumulation(cl);
 
-	BilateralBlur(cl, currentLightTemporalBuffer);
+	BilateralBlur(cl);
 
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
@@ -2026,7 +2026,7 @@ void Renderer::GaussianSpatialAccumulation(ID3D12GraphicsCommandList5* cl, unsig
 	}
 }
 
-void Renderer::BilateralBlur(ID3D12GraphicsCommandList5* cl, unsigned int currentTemporalIndex)
+void Renderer::BilateralBlur(ID3D12GraphicsCommandList5* cl)
 {
 	// Blur all light output
 	std::vector<PingPongResource*> pingPongsTest;
