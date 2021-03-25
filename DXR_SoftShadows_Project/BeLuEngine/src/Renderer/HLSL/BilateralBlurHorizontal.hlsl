@@ -91,7 +91,7 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 		float3 normalLeft = normalize(textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_POINT__WRAP, uvLeft, 0).rgb);
 
 		int left = groupThreadID.x + g_BlurRadius - i;
-		if (abs(depthLeftWorld - depthWorld) <= 10)	// Skip pixels if the neighbor values differ to much
+		if (dot(normalLeft, normal) >= 0.8f && abs(depthLeftWorld - depthWorld) <= 10)	// Skip pixels if the neighbor values differ to much
 		{
 			blurColor += weights[i] * g_SharedMem[left];
 			totalWeight += weights[i];
@@ -104,7 +104,7 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 		float3 normalRight = normalize(textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_POINT__WRAP, uvRight, 0).rgb);
 
 		int right = groupThreadID.x + g_BlurRadius + i;
-		if (abs(depthRightWorld - depthWorld) <= 10)	// Skip pixels if the neighbor values differ to much
+		if (dot(normalRight, normal) >= 0.8f && abs(depthRightWorld - depthWorld) <= 10)	// Skip pixels if the neighbor values differ to much
 		{
 			blurColor += weights[i] * g_SharedMem[right];
 			totalWeight += weights[i];
