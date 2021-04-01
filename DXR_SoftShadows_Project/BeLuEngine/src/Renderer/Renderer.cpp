@@ -63,7 +63,7 @@
 #include "../Misc/CSVExporter.h"
 
 
-#define SECONDS_TO_MEASURE 5//3*60
+#define SECONDS_TO_MEASURE 3*60 // 3 minutes
 double resultAverage0 = -1;
 double resultAverage1 = -1;
 double CPUresultAverage = -1;
@@ -598,10 +598,10 @@ void Renderer::SetResultsFileName()
 void Renderer::OutputTestResults(double dt)
 {
 	static double secondsMeasured = 0;
-	const int framesToSkip = 100;
+	const int framesToSkip = 500;
 
 	// Skip the first frames
-	if (m_FrameCounter <= framesToSkip)//NUM_TEMPORAL_BUFFERS + 1)
+	if (m_FrameCounter <= framesToSkip)
 	{
 		return;
 	}
@@ -3076,9 +3076,9 @@ void Renderer::toggleFullscreen(WindowChange* event)
 	}
 	else
 	{
-		// Earlier it read from options. now just set to 800/600
-		width = 800;
-		height = 600;
+		// Earlier it read from options. now just set
+		width = 400;
+		height = 300;
 	}
 
 	Window* window = const_cast<Window*>(m_pWindow);
