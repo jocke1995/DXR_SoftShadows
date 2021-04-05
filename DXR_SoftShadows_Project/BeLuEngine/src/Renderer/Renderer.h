@@ -206,7 +206,7 @@ private:
 	bool m_QuitOnFinish = false;
 	std::string m_RTType = "Unknown";
 	int m_NumLights = 1;
-	std::wstring m_OutputName = L"Results.csv";
+	std::wstring m_OutputName = L"Results";
 	std::wstring m_SceneName = L"none";
 	D3D12::D3D12Timer m_DXTimer;
 

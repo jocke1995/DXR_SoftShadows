@@ -68,6 +68,7 @@ double resultAverage0 = -1;
 double resultAverage1 = -1;
 double CPUresultAverage = -1;
 CSVExporter csvExporter;
+CSVExporter csvExporter2;
 std::vector<double> frameData0;
 std::vector<double> frameData1;
 std::vector<double> CPUframeData;
@@ -592,7 +593,7 @@ void Renderer::SetSceneName(std::wstring sceneName)
 
 void Renderer::SetResultsFileName()
 {
-	m_OutputName = to_wstring("../" + m_GPUName + "_" + to_string(m_SceneName) + "_" + m_RTType + ".csv");
+	m_OutputName = to_wstring("../" + m_GPUName + "_" + to_string(m_SceneName) + "_" + m_RTType);
 }
 
 void Renderer::OutputTestResults(double dt)
@@ -620,6 +621,9 @@ void Renderer::OutputTestResults(double dt)
 	}
 	else if (secondsMeasured >= SECONDS_TO_MEASURE)
 	{
+		std::wstring outputName = m_OutputName + L".csv";
+		std::wstring outputName2 = m_OutputName + L"_all_frames.csv";
+
 		// Compute average
 		double sum0 = 0;
 		double sum1 = 0;
@@ -636,15 +640,31 @@ void Renderer::OutputTestResults(double dt)
 		CPUresultAverage = CPUsum / CPUframeData.size();
 
 		// Comment if empty file
-		if (csvExporter.IsFileEmpty(m_OutputName))
+		if (csvExporter.IsFileEmpty(outputName))
 		{
 			csvExporter << std::string("#") << "Header data: GPU" << "," << "Driver" << "," << "Time Measured (Seconds)" << "\n";
 			csvExporter << std::string("#") << "Body data: NumLights" << "," << "FramesMeasured" << "," << "DispatchRays Time (ms)" << "," << "DispatchRays Time (ms)++" << "," << "Frame Time (ms)" << "\n";
 			csvExporter << m_GPUName << "," << m_DriverVersion << "," << SECONDS_TO_MEASURE << "\n";
 		}
+
+		// Comment if empty file
+		if (csvExporter2.IsFileEmpty(outputName2))
+		{
+			csvExporter2 << std::string("#") << "Header data: GPU" << "," << "Driver" << "," << "Time Measured (Seconds)" << "\n";
+			csvExporter2 << std::string("#") << "Body data: NumLights" << "," << "FramesMeasured" << "," << "DispatchRays Time (ms)" << "," << "DispatchRays Time (ms)++" << "," << "Frame Time (ms)" << "\n";
+			csvExporter2 << m_GPUName << "," << m_DriverVersion << "," << SECONDS_TO_MEASURE << "\n";
+		}
+
 		csvExporter << m_NumLights << "," << m_FrameCounter - framesToSkip << "," << resultAverage0 << "," << resultAverage1 << "," << CPUresultAverage << "\n";
 
-		csvExporter.Append(m_OutputName);
+		// Fill all frames data
+		for (unsigned int i = 0; i < frameData0.size(); i++)
+		{
+			csvExporter2 << m_NumLights << "," << m_FrameCounter - framesToSkip << "," << frameData0.at(i) << "," << frameData1.at(i) << "," << CPUframeData.at(i) << "\n";
+		}
+		
+		csvExporter.Append(outputName);
+		csvExporter2.Append(outputName2);
 
 		BL_LOG_INFO("Exported.......\n");
 
@@ -656,8 +676,8 @@ void Renderer::OutputTestResults(double dt)
 		}
 		
 		// Results will not be accurate since exporting takes performance
-		// Anyway, set test to start
-		secondsMeasured = 0;
+		// Anyway, set test to start // Currently set to not test again
+		secondsMeasured = -1000000000.0;
 	}
 }
 
