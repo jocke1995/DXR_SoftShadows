@@ -33,7 +33,7 @@ SwapChain::SwapChain(
 	int m_ScreenHeight = mi.rcMonitor.bottom - mi.rcMonitor.top;
 
 	// If the chosen resolution is higher than the screen resolution, set the resolution to the screen resolution
-	if (m_ScreenWidth <= width || m_ScreenHeight <= height)
+	if ((m_ScreenWidth <= width || m_ScreenHeight <= height) && false)
 	{
 		m_CurrentModeDescription.Width = m_ScreenWidth - 1;
 		m_CurrentModeDescription.Height = m_ScreenHeight;
@@ -269,8 +269,8 @@ const void SwapChain::resize(const HWND* hwnd)
 	if (m_WindowMode == static_cast<int>(WINDOW_MODE::WINDOWED))
 	{
 		// Make sure that the window starts at the top left corner
-		int windowWidth = 800;
-		int windowHeight = 600;
+		int windowWidth = 400;
+		int windowHeight = 300;
 
 		HMONITOR hmon = MonitorFromWindow(const_cast<HWND>(*hwnd), MONITOR_DEFAULTTONEAREST);
 		MONITORINFO mi = { sizeof(mi) };

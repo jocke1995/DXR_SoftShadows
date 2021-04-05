@@ -63,11 +63,13 @@
 #include "../Misc/CSVExporter.h"
 
 
-#define SECONDS_TO_MEASURE 5//3*60
-double resultAverage = -1;
+#define SECONDS_TO_MEASURE 3*60 // 3 minutes
+double resultAverage0 = -1;
+double resultAverage1 = -1;
 double CPUresultAverage = -1;
 CSVExporter csvExporter;
-std::vector<double> frameData;
+std::vector<double> frameData0;
+std::vector<double> frameData1;
 std::vector<double> CPUframeData;
 
 Renderer::Renderer()
@@ -281,7 +283,8 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 
 
 	// Temp
-	frameData.reserve(10000);
+	frameData0.reserve(10000);
+	frameData1.reserve(10000);
 	CPUframeData.reserve(10000);
 
 	m_pTempCommandInterface = new CommandInterface(m_pDevice5, COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
@@ -546,7 +549,7 @@ void Renderer::InitDXR()
 	// Create the shader binding table and indicating which shaders
 	// are invoked for each instance in the  AS
 	CreateShaderBindingTable();
-	m_DXTimer.Init(m_pDevice5, 1);
+	m_DXTimer.Init(m_pDevice5, 2);
 	m_DXTimer.InitGPUFrequency(m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]);
 
 	// Uses m_DhIndexASOB
@@ -595,45 +598,51 @@ void Renderer::SetResultsFileName()
 void Renderer::OutputTestResults(double dt)
 {
 	static double secondsMeasured = 0;
-	const int framesToSkip = 100;
+	const int framesToSkip = 500;
 
 	// Skip the first frames
-	if (m_FrameCounter <= framesToSkip)//NUM_TEMPORAL_BUFFERS + 1)
+	if (m_FrameCounter <= framesToSkip)
 	{
 		return;
 	}
 	else if (secondsMeasured < SECONDS_TO_MEASURE)
 	{
-		auto timestamps = m_DXTimer.GetTimestampPair(0);
-		double dtMS = (timestamps.Stop - timestamps.Start) * m_DXTimer.GetGPUFreq();
+		auto timestamps0 = m_DXTimer.GetTimestampPair(0);
+		auto timestamps1 = m_DXTimer.GetTimestampPair(1);
+		double dtMS0 = (timestamps0.Stop - timestamps0.Start) * m_DXTimer.GetGPUFreq();
+		double dtMS1 = (timestamps1.Stop - timestamps1.Start) * m_DXTimer.GetGPUFreq();
 		secondsMeasured += dt;
 
 		// Save frame time
-		frameData.push_back(dtMS);
+		frameData0.push_back(dtMS0);
+		frameData1.push_back(dtMS1);
 		CPUframeData.push_back(dt * 1000);
 	}
 	else if (secondsMeasured >= SECONDS_TO_MEASURE)
 	{
 		// Compute average
-		double sum = 0;
+		double sum0 = 0;
+		double sum1 = 0;
 		double CPUsum = 0;
-		for (unsigned int i = 0; i < frameData.size(); i++)
+		for (unsigned int i = 0; i < frameData0.size(); i++)
 		{
-			sum += frameData.at(i);
+			sum0 += frameData0.at(i);
+			sum1 += frameData1.at(i);
 			CPUsum += CPUframeData.at(i);
 		}
 
-		resultAverage = sum / frameData.size();
+		resultAverage0 = sum0 / frameData0.size();
+		resultAverage1 = sum1 / frameData1.size();
 		CPUresultAverage = CPUsum / CPUframeData.size();
 
 		// Comment if empty file
 		if (csvExporter.IsFileEmpty(m_OutputName))
 		{
 			csvExporter << std::string("#") << "Header data: GPU" << "," << "Driver" << "," << "Time Measured (Seconds)" << "\n";
-			csvExporter << std::string("#") << "Body data: NumLights" << "," << "FramesMeasured" << "," << "DispatchRays Time (ms)" << "," << "Frame Time (ms)" << "\n";
+			csvExporter << std::string("#") << "Body data: NumLights" << "," << "FramesMeasured" << "," << "DispatchRays Time (ms)" << "," << "DispatchRays Time (ms)++" << "," << "Frame Time (ms)" << "\n";
 			csvExporter << m_GPUName << "," << m_DriverVersion << "," << SECONDS_TO_MEASURE << "\n";
 		}
-		csvExporter << m_NumLights << "," << m_FrameCounter - framesToSkip << "," << resultAverage << "," << CPUresultAverage << "\n";
+		csvExporter << m_NumLights << "," << m_FrameCounter - framesToSkip << "," << resultAverage0 << "," << resultAverage1 << "," << CPUresultAverage << "\n";
 
 		csvExporter.Append(m_OutputName);
 
@@ -777,10 +786,12 @@ void Renderer::ExecuteDXR(double dt)
 
 	CD3DX12_RESOURCE_BARRIER transition;
 
+
+	m_DXTimer.Start(cl, 1);
 #pragma region RayTrace
-	DX12TEST(
-	
-	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
+		DX12TEST(
+
+			cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
 	cl->SetDescriptorHeaps(1, &dhCBVSRVUAV);
 	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
 	cl->SetComputeRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
@@ -861,6 +872,9 @@ void Renderer::ExecuteDXR(double dt)
 
 	// TAA
 	TAATask(cl);
+
+	m_DXTimer.Stop(cl, 1); m_DXTimer.ResolveQueryToCPU(cl, 1);
+
 
 
 
@@ -955,6 +969,7 @@ void Renderer::ExecuteInlinePixel(double dt)
 
 	CD3DX12_RESOURCE_BARRIER transition;
 
+	m_DXTimer.Start(cl, 1);
 #pragma region InlineRT
 	DX12TEST(
 	cl->SetGraphicsRootSignature(m_pRootSignature->GetRootSig());
@@ -1036,6 +1051,7 @@ void Renderer::ExecuteInlinePixel(double dt)
 
 	// TAA
 	TAATask(cl);
+	m_DXTimer.Stop(cl, 1); m_DXTimer.ResolveQueryToCPU(cl, 1);
 
 
 
@@ -1130,7 +1146,7 @@ void Renderer::ExecuteInlineCompute(double dt)
 
 	CD3DX12_RESOURCE_BARRIER transition;
 
-
+	m_DXTimer.Start(cl, 1);
 #pragma region InlineRT
 
 	DX12TEST(
@@ -1183,6 +1199,7 @@ void Renderer::ExecuteInlineCompute(double dt)
 
 	// TAA
 	TAATask(cl);
+	m_DXTimer.Stop(cl, 1); m_DXTimer.ResolveQueryToCPU(cl, 1);
 
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -1276,6 +1293,7 @@ void Renderer::ExecuteTEST(double dt)
 
 	CD3DX12_RESOURCE_BARRIER transition;
 
+	m_DXTimer.Start(cl, 1);
 #pragma region RayTrace
 	DX12TEST(
 
@@ -1362,6 +1380,7 @@ void Renderer::ExecuteTEST(double dt)
 
 	// TAA
 	TAATask(cl);
+	m_DXTimer.Stop(cl, 1); m_DXTimer.ResolveQueryToCPU(cl, 1);
 
 
 
@@ -3057,9 +3076,9 @@ void Renderer::toggleFullscreen(WindowChange* event)
 	}
 	else
 	{
-		// Earlier it read from options. now just set to 800/600
-		width = 800;
-		height = 600;
+		// Earlier it read from options. now just set
+		width = 400;
+		height = 300;
 	}
 
 	Window* window = const_cast<Window*>(m_pWindow);
