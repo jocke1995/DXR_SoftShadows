@@ -31,16 +31,10 @@ float3 WorldPosFromDepth(float depth, float2 TexCoord)
 	return worldSpacePosition.xyz;
 }
 
-float NDCDepthToViewDepth(float depth, float2 TexCoord)
+float NDCDepthToViewDepth(float depth)
 {
-	TexCoord.y = 1.0 - TexCoord.y;
-	float4 clipSpacePosition = float4(TexCoord * 2.0 - 1.0, depth, 1.0);
-	float4 viewSpacePosition = mul(cbCameraMatrices.projectionI, clipSpacePosition);
-
-	// Perspective division
-	//viewSpacePosition /= viewSpacePosition.w;
-
-	return viewSpacePosition.w;
+	float z_ndc = 2.0 * depth - 1.0f;
+	return cbCameraMatrices.projection[3][2] / (z_ndc - cbCameraMatrices.projection[2][2]);
 }
 
 [numthreads(g_NumThreads, 1, 1)]
@@ -51,7 +45,7 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 	/* Sample depth and normal from textures */
 	float depth = (textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_POINT__WRAP, uv, 0).r);
 	float3 normal = normalize(textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_POINT__WRAP, uv, 0).rgb);
-	float3 depthView = WorldPosFromDepth(depth, uv);
+	float3 depthView = NDCDepthToViewDepth(depth);
 	
 	/* DescriptorHeap indices */
 	unsigned int readIndex = dhIndices.index0;
@@ -99,7 +93,7 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 		// Left side
 		float2 uvLeft = (dispatchThreadID.xy - float2(i, 0)) / screenSize;
 		float depthLeft = (textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_POINT__WRAP, uvLeft, 0).r);
-		float3 depthLeftView = NDCDepthToViewDepth(depthLeft, uvLeft);
+		float3 depthLeftView = NDCDepthToViewDepth(depthLeft);
 		float3 normalLeft = normalize(textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_POINT__WRAP, uvLeft, 0).rgb);
 
 		int left = groupThreadID.x + g_BlurRadius - i;
@@ -112,7 +106,7 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 		// Right side
 		float2 uvRight = (dispatchThreadID.xy + float2(i, 0)) / screenSize;
 		float depthRight = (textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_POINT__WRAP, uvRight, 0).r);
-		float3 depthRightView = NDCDepthToViewDepth(depthRight, uvRight);
+		float3 depthRightView = NDCDepthToViewDepth(depthRight);
 		float3 normalRight = normalize(textures[cbPerScene.gBufferNormalIndex].SampleLevel(MIN_MAG_MIP_POINT__WRAP, uvRight, 0).rgb);
 
 		int right = groupThreadID.x + g_BlurRadius + i;
