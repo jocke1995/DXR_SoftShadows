@@ -29,7 +29,7 @@ BilateralBlurAllShadowsTask::BilateralBlurAllShadowsTask(
 	m_HorizontalThreadGroupsY = screenHeight;
 
 	m_VerticalThreadGroupsX = screenWidth;
-	m_VerticalThreadGroupsY = m_HorizontalThreadGroupsX;
+	m_VerticalThreadGroupsY = static_cast<unsigned int>(ceilf(static_cast<float>(screenHeight) / m_ThreadsPerGroup));;
 }
 
 BilateralBlurAllShadowsTask::~BilateralBlurAllShadowsTask()
@@ -114,9 +114,6 @@ void BilateralBlurAllShadowsTask::Execute()
 
 		
 	}
-	
-
-	//commandList->Close();
 }
 
 void BilateralBlurAllShadowsTask::createTempResource(ID3D12Device5* device, unsigned int width, unsigned int height, DXGI_FORMAT format)
