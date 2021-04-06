@@ -1,6 +1,9 @@
 #include "stdafx.h"
 #include "Renderer.h"
 
+UINT resolutionWidth = 2560;
+UINT resolutionHeight = 1440;
+
 // Misc
 #include "../Misc/AssetLoader.h"
 #include "../Misc/Window.h"
@@ -36,7 +39,6 @@
 #include "Shader.h"
 
 #include "GPUMemory/GPUMemory.h"
-#include "GPUMemory/Bloom.h"
 #include "GPUMemory/PingPongResource.h"
 
 // Graphics
@@ -312,10 +314,6 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 
 void Renderer::createGaussianBlurTask()
 {
-	UINT resolutionWidth = 0;
-	UINT resolutionHeight = 0;
-	m_pSwapChain->GetDX12SwapChain()->GetSourceSize(&resolutionWidth, &resolutionHeight);
-
 	// ComputeTasks
 	std::vector<std::pair<std::wstring, std::wstring>> csNamePSOName;
 	csNamePSOName.push_back(std::make_pair(L"GaussianBlurHorizontal.hlsl", L"GaussianblurHorizontalPSO"));
@@ -335,10 +333,6 @@ void Renderer::createGaussianBlurTask()
 
 void Renderer::createBilateralBlurTask()
 {
-	UINT resolutionWidth = 0;
-	UINT resolutionHeight = 0;
-	m_pSwapChain->GetDX12SwapChain()->GetSourceSize(&resolutionWidth, &resolutionHeight);
-
 	// ComputeTasks
 	std::vector<std::pair<std::wstring, std::wstring>> csNamePSOName;
 	csNamePSOName.push_back(std::make_pair(L"BilateralBlurHorizontal.hlsl", L"BilateralblurHorizontalPSO"));
@@ -359,10 +353,6 @@ void Renderer::createBilateralBlurTask()
 
 void Renderer::createShadowBufferRenderTasks()
 {
-	UINT resolutionWidth = 0;
-	UINT resolutionHeight = 0;
-	m_pSwapChain->GetDX12SwapChain()->GetSourceSize(&resolutionWidth, &resolutionHeight);
-
 	/* Depth Pre-Pass rendering without stencil testing */
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsdShadowBufferPass = {};
 	gpsdShadowBufferPass.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
@@ -417,10 +407,6 @@ void Renderer::createShadowBufferRenderTasks()
 
 void Renderer::createTAARenderTasks()
 {
-	UINT resolutionWidth = 0;
-	UINT resolutionHeight = 0;
-	m_pSwapChain->GetDX12SwapChain()->GetSourceSize(&resolutionWidth, &resolutionHeight);
-
 	/* Depth Pre-Pass rendering without stencil testing */
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsdTAAPass = {};
 	gpsdTAAPass.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
@@ -477,10 +463,6 @@ void Renderer::createTAARenderTasks()
 
 void Renderer::createMergeLightningRenderTasks()
 {
-	UINT resolutionWidth = 0;
-	UINT resolutionHeight = 0;
-	m_pSwapChain->GetDX12SwapChain()->GetSourceSize(&resolutionWidth, &resolutionHeight);
-
 	/* Depth Pre-Pass rendering without stencil testing */
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsd = {};
 	gpsd.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
@@ -856,8 +838,8 @@ void Renderer::ExecuteDXR(double dt)
 
 
 	// Dimensions of the image to render, identical to a kernel launch dimension
-	desc.Width = m_pWindow->GetScreenWidth();
-	desc.Height = m_pWindow->GetScreenHeight();
+	desc.Width = resolutionWidth;// m_pWindow->GetScreenWidth();
+	desc.Height = resolutionHeight;// m_pWindow->GetScreenHeight();
 	desc.Depth = 1;
 
 	// Bind the raytracing pipeline
@@ -2139,8 +2121,8 @@ void Renderer::CreateRaytracingOutputBuffer()
 	resDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
 
 	resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-	resDesc.Width = m_pWindow->GetScreenWidth();
-	resDesc.Height = m_pWindow->GetScreenHeight();
+	resDesc.Width = resolutionWidth; //m_pWindow->GetScreenWidth();
+	resDesc.Height = resolutionHeight;// m_pWindow->GetScreenHeight();
 	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	resDesc.MipLevels = 1;
 	resDesc.SampleDesc.Count = 1;
@@ -2256,8 +2238,8 @@ void Renderer::CreateSoftShadowLightResources()
 	resDesc.Format = format;
 
 	resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-	resDesc.Width = m_pWindow->GetScreenWidth();
-	resDesc.Height = m_pWindow->GetScreenHeight();
+	resDesc.Width = resolutionWidth; //m_pWindow->GetScreenWidth();
+	resDesc.Height = resolutionHeight;// m_pWindow->GetScreenHeight();
 	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	resDesc.MipLevels = 1;
 	resDesc.SampleDesc.Count = 1;
@@ -2321,8 +2303,8 @@ void Renderer::CreateTAAResource()
 	resDesc.Format = format;
 
 	resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-	resDesc.Width = m_pWindow->GetScreenWidth();
-	resDesc.Height = m_pWindow->GetScreenHeight();
+	resDesc.Width = resolutionWidth; //m_pWindow->GetScreenWidth();
+	resDesc.Height = resolutionHeight;// m_pWindow->GetScreenHeight();
 	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	resDesc.MipLevels = 1;
 	resDesc.SampleDesc.Count = 1;
@@ -2532,8 +2514,8 @@ void Renderer::createCommandQueues()
 
 void Renderer::createSwapChain()
 {
-	unsigned int resolutionWidth = m_pWindow->GetScreenWidth();
-	unsigned int resolutionHeight = m_pWindow->GetScreenHeight();
+	//unsigned int resolutionWidth = m_pWindow->GetScreenWidth();
+	//unsigned int resolutionHeight = m_pWindow->GetScreenHeight();
 
 	m_pSwapChain = new SwapChain(
 		m_pDevice5,
@@ -2572,8 +2554,8 @@ std::string Renderer::getDriverVersion()
 
 void Renderer::createGBufferRenderTargets()
 {
-	unsigned int resolutionWidth = m_pWindow->GetScreenWidth();
-	unsigned int resolutionHeight = m_pWindow->GetScreenHeight();
+	//unsigned int resolutionWidth = m_pWindow->GetScreenWidth();
+	//unsigned int resolutionHeight = m_pWindow->GetScreenHeight();
 
 	DXGI_FORMAT textureFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;// TODO: change to more proper format
 
@@ -2628,15 +2610,6 @@ void Renderer::createMainDSV()
 	dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
 	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
-
-	unsigned int resolutionWidth = 0;
-	unsigned int resolutionHeight = 0;
-	HRESULT hr = m_pSwapChain->GetDX12SwapChain()->GetSourceSize(&resolutionWidth, &resolutionHeight);
-	if (FAILED(hr))
-	{
-		BL_LOG_CRITICAL("Failed to GetSourceSize from DX12SwapChain when creating DSV\n");
-	}
-
 
 	m_pMainDepthStencil = new DepthStencil(
 		m_pDevice5,
@@ -2882,8 +2855,8 @@ void Renderer::initRenderTasks()
 		csNamePSOName,
 		COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
 
-	m_IRTNumThreadGroupsX = static_cast<unsigned int>(ceilf(static_cast<float>(m_pWindow->GetScreenWidth()) / m_ThreadsPerGroup));;
-	m_IRTNumThreadGroupsY = m_pWindow->GetScreenHeight();
+	m_IRTNumThreadGroupsX = static_cast<unsigned int>(ceilf(static_cast<float>(resolutionWidth) / m_ThreadsPerGroup));;
+	m_IRTNumThreadGroupsY = resolutionHeight;// m_pWindow->GetScreenHeight();
 	// CopyTasks
 	CopyTask* copyPerFrameTask = new CopyPerFrameTask(m_pDevice5, COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
 	CopyTask* copyOnDemandTask = new CopyOnDemandTask(m_pDevice5, COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
