@@ -761,7 +761,7 @@ void Renderer::ExecuteDXR(double dt)
 	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
 	ID3D12DescriptorHeap* dhCBVSRVUAV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetID3D12DescriptorHeap();
 
-	/* ------------------------------------- COPY DATA ------------------------------------- */
+	/* ------------------------------------- COPY DATA NOT MEASURED ------------------------------------- */
 	DX12Task::SetCommandInterfaceIndex(commandInterfaceIndex);
 
 	// Copy per frame
@@ -769,9 +769,7 @@ void Renderer::ExecuteDXR(double dt)
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
 		1,
 		&m_DXRCpftCommandLists[commandInterfaceIndex]);
-	
-	
-	/* ------------------------------------- COPY DATA ------------------------------------- */
+	/* ------------------------------------- COPY DATA NOT MEASURED ------------------------------------- */
 
 	m_pTempCommandInterface->Reset(0);
 	auto cl = m_pTempCommandInterface->GetCommandList(0);
@@ -940,7 +938,7 @@ void Renderer::ExecuteInlinePixel(double dt)
 	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
 	ID3D12DescriptorHeap* dhCBVSRVUAV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetID3D12DescriptorHeap();
 
-	/* ------------------------------------- COPY DATA ------------------------------------- */
+	/* ------------------------------------- COPY DATA NOT MEASURED ------------------------------------- */
 	DX12Task::SetCommandInterfaceIndex(commandInterfaceIndex);
 
 	// Copy per frame
@@ -948,7 +946,7 @@ void Renderer::ExecuteInlinePixel(double dt)
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
 		1,
 		&m_DXRCpftCommandLists[commandInterfaceIndex]);
-	/* ------------------------------------- COPY DATA ------------------------------------- */
+	/* ------------------------------------- COPY DATA NOT MEASURED ------------------------------------- */
 
 	m_pTempCommandInterface->Reset(0);
 	auto cl = m_pTempCommandInterface->GetCommandList(0);
@@ -1111,7 +1109,7 @@ void Renderer::ExecuteInlineCompute(double dt)
 	const RenderTargetView* swapChainRenderTarget = m_pSwapChain->GetRTV(backBufferIndex);
 	ID3D12DescriptorHeap* dhCBVSRVUAV = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetID3D12DescriptorHeap();
 
-	/* ------------------------------------- COPY DATA ------------------------------------- */
+	/* ------------------------------------- COPY DATA NOT MEASURED ------------------------------------- */
 	DX12Task::SetCommandInterfaceIndex(commandInterfaceIndex);
 
 	// Copy per frame
@@ -1119,7 +1117,7 @@ void Renderer::ExecuteInlineCompute(double dt)
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
 		1,
 		&m_DXRCpftCommandLists[commandInterfaceIndex]);
-	/* ------------------------------------- COPY DATA ------------------------------------- */
+	/* ------------------------------------- COPY DATA NOT MEASURED ------------------------------------- */
 
 	m_pTempCommandInterface->Reset(0);
 	auto cl = m_pTempCommandInterface->GetCommandList(0);
