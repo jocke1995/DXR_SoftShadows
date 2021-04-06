@@ -31,14 +31,17 @@ GBufferRenderTask::~GBufferRenderTask()
 {
 }
 
+void GBufferRenderTask::SetCommandInterface(CommandInterface* inter)
+{
+	m_pTempCommandInterface = inter;
+}
+
 void GBufferRenderTask::Execute()
 {
-	ID3D12CommandAllocator* commandAllocator = m_pCommandInterface->GetCommandAllocator(m_CommandInterfaceIndex);
-	ID3D12GraphicsCommandList5* commandList = m_pCommandInterface->GetCommandList(m_CommandInterfaceIndex);
+	ID3D12CommandAllocator* commandAllocator = m_pTempCommandInterface->GetCommandAllocator(0);
+	ID3D12GraphicsCommandList5* commandList = m_pTempCommandInterface->GetCommandList(0);
 
 	const RenderTargetView* rtv = m_RenderTargetViews["NormalRTV"];
-
-	m_pCommandInterface->Reset(m_CommandInterfaceIndex);
 
 	commandList->SetGraphicsRootSignature(m_pRootSig);
 	
@@ -98,8 +101,6 @@ void GBufferRenderTask::Execute()
 		rtv->GetResource()->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET,
 		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
-
-	commandList->Close();
 }
 
 void GBufferRenderTask::drawRenderComponent(
@@ -116,6 +117,7 @@ void GBufferRenderTask::drawRenderComponent(
 		Mesh* m = mc->GetMeshAt(i);
 		unsigned int num_Indices = m->GetNumIndices();
 
+		// TODO: change to default
 		cl->SetGraphicsRootConstantBufferView(RS::CB_PER_OBJECT_CBV, rc->CB_PER_OBJECT_UPLOAD_RESOURCES[i]->GetGPUVirtualAdress());
 
 		cl->IASetIndexBuffer(m->GetIndexBufferView());

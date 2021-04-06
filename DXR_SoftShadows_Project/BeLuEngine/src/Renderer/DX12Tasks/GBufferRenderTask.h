@@ -13,6 +13,9 @@ public:
 		const std::wstring& psoName);
 	~GBufferRenderTask();
 
+	// Examesarbete temp:
+	void SetCommandInterface(CommandInterface* inter);
+
 	void Execute() override final;
 
 private:
@@ -20,6 +23,8 @@ private:
 		RenderComponent* rc,
 		const DirectX::XMMATRIX* viewProjTransposed,
 		ID3D12GraphicsCommandList5* cl);
+
+	CommandInterface* m_pTempCommandInterface = nullptr;
 };
 
 #endif

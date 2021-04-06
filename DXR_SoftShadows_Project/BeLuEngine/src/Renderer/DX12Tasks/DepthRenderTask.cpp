@@ -28,11 +28,15 @@ DepthRenderTask::~DepthRenderTask()
 {
 }
 
+void DepthRenderTask::SetCommandInterface(CommandInterface* inter)
+{
+	m_pTempCommandInterface = inter;
+}
+
 void DepthRenderTask::Execute()
 {
-	ID3D12CommandAllocator* commandAllocator = m_pCommandInterface->GetCommandAllocator(m_CommandInterfaceIndex);
-	ID3D12GraphicsCommandList5* commandList = m_pCommandInterface->GetCommandList(m_CommandInterfaceIndex);
-	m_pCommandInterface->Reset(m_CommandInterfaceIndex);
+	ID3D12CommandAllocator* commandAllocator = m_pTempCommandInterface->GetCommandAllocator(0);
+	ID3D12GraphicsCommandList5* commandList = m_pTempCommandInterface->GetCommandList(0);
 
 	commandList->SetGraphicsRootSignature(m_pRootSig);
 
@@ -70,8 +74,6 @@ void DepthRenderTask::Execute()
 	}
 
 	updateMatrices = false;
-
-	commandList->Close();
 }
 
 void DepthRenderTask::drawRenderComponent(

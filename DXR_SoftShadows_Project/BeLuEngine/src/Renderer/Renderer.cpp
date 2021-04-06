@@ -770,21 +770,17 @@ void Renderer::ExecuteDXR(double dt)
 		1,
 		&m_DXRCpftCommandLists[commandInterfaceIndex]);
 	
-	// Depth pre-pass
-	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
-	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
-		1,
-		&m_DepthPrePassCommandLists[commandInterfaceIndex]);
 	
-	// GBuffer (Normals only atm)
-	m_RenderTasks[RENDER_TASK_TYPE::GBUFFER_PASS]->Execute();
-	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
-		1,
-		&m_GBufferCommandLists[commandInterfaceIndex]);
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 
 	m_pTempCommandInterface->Reset(0);
 	auto cl = m_pTempCommandInterface->GetCommandList(0);
+
+	// Depth pre-pass
+	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
+
+	// GBuffer (Normals only atm)
+	m_RenderTasks[RENDER_TASK_TYPE::GBUFFER_PASS]->Execute();
 
 	CD3DX12_RESOURCE_BARRIER transition;
 
@@ -793,7 +789,7 @@ void Renderer::ExecuteDXR(double dt)
 #pragma region RayTrace
 		DX12TEST(
 
-			cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
+	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
 	cl->SetDescriptorHeaps(1, &dhCBVSRVUAV);
 	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
 	cl->SetComputeRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
@@ -952,22 +948,16 @@ void Renderer::ExecuteInlinePixel(double dt)
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
 		1,
 		&m_DXRCpftCommandLists[commandInterfaceIndex]);
-
-	// Depth pre-pass
-	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
-	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
-		1,
-		&m_DepthPrePassCommandLists[commandInterfaceIndex]);
-
-	// GBuffer (Normals only atm)
-	m_RenderTasks[RENDER_TASK_TYPE::GBUFFER_PASS]->Execute();
-	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
-		1,
-		&m_GBufferCommandLists[commandInterfaceIndex]);
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 
 	m_pTempCommandInterface->Reset(0);
 	auto cl = m_pTempCommandInterface->GetCommandList(0);
+
+	// Depth pre-pass
+	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
+
+	// GBuffer (Normals only atm)
+	m_RenderTasks[RENDER_TASK_TYPE::GBUFFER_PASS]->Execute();
 
 	CD3DX12_RESOURCE_BARRIER transition;
 
@@ -1129,22 +1119,16 @@ void Renderer::ExecuteInlineCompute(double dt)
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
 		1,
 		&m_DXRCpftCommandLists[commandInterfaceIndex]);
-
-	// Depth pre-pass
-	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
-	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
-		1,
-		&m_DepthPrePassCommandLists[commandInterfaceIndex]);
-
-	// GBuffer (Normals only atm)
-	m_RenderTasks[RENDER_TASK_TYPE::GBUFFER_PASS]->Execute();
-	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
-		1,
-		&m_GBufferCommandLists[commandInterfaceIndex]);
 	/* ------------------------------------- COPY DATA ------------------------------------- */
 
 	m_pTempCommandInterface->Reset(0);
 	auto cl = m_pTempCommandInterface->GetCommandList(0);
+
+	// Depth pre-pass
+	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
+
+	// GBuffer (Normals only atm)
+	m_RenderTasks[RENDER_TASK_TYPE::GBUFFER_PASS]->Execute();
 
 	CD3DX12_RESOURCE_BARRIER transition;
 
@@ -2727,6 +2711,7 @@ void Renderer::initRenderTasks()
 	DepthPrePassRenderTask->SetMainDepthStencil(m_pMainDepthStencil);
 	DepthPrePassRenderTask->SetSwapChain(m_pSwapChain);
 	DepthPrePassRenderTask->SetDescriptorHeaps(m_DescriptorHeaps);
+	static_cast<DepthRenderTask*>(DepthPrePassRenderTask)->SetCommandInterface(m_pTempCommandInterface);
 
 #pragma endregion DepthPrePass
 
@@ -2782,6 +2767,7 @@ void Renderer::initRenderTasks()
 	gBufferRenderTask->AddRenderTargetView("NormalRTV", m_GBufferNormal.rtv);
 	gBufferRenderTask->SetMainDepthStencil(m_pMainDepthStencil);
 	gBufferRenderTask->SetDescriptorHeaps(m_DescriptorHeaps);
+	static_cast<GBufferRenderTask*>(gBufferRenderTask)->SetCommandInterface(m_pTempCommandInterface);
 #pragma endregion GBufferPass
 
 #pragma region ForwardRendering

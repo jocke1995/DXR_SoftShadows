@@ -13,6 +13,9 @@ public:
 		const std::wstring& psoName);
 	~DepthRenderTask();
 
+	// Examesarbete temp:
+	void SetCommandInterface(CommandInterface* inter);
+
 	void Execute() override final;
 
 private:
@@ -21,6 +24,8 @@ private:
 		const DirectX::XMMATRIX* viewProjTransposed,
 		ID3D12GraphicsCommandList5* cl,
 		bool updateMatrices);
+
+	CommandInterface* m_pTempCommandInterface = nullptr;
 };
 
 #endif
