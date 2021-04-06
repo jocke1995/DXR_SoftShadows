@@ -19,7 +19,8 @@ private:
 	void drawRenderComponent(
 		RenderComponent* rc,
 		const DirectX::XMMATRIX* viewProjTransposed,
-		ID3D12GraphicsCommandList5* cl);
+		ID3D12GraphicsCommandList5* cl,
+		bool updateMatrices);
 };
 
 #endif
