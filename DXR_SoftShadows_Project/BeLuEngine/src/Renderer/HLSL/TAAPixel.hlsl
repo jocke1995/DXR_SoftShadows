@@ -13,16 +13,18 @@ SamplerState point_Wrap	: register (s5);
 
 void PS_main(VS_OUT input)
 {
-	float3 currColor = currFrame[0][input.pos.xy];
-	float3 oldColor = TAABuffer[0][input.pos.xy];
+	float2 correctPos = input.pos.xy - float2(0.5f, 0.5f);
+
+	float3 currColor = currFrame[0][correctPos];
+	float3 oldColor = TAABuffer[0][correctPos];
 
 	float factor = 0.05f; // CurrFrame "weight"
 	float3 newColor = lerp(oldColor, currColor, factor);
 
 	// Write newColor to TAABuffer
 	float4 f = float4(newColor, 1.0);
-	TAABuffer[0][input.pos.xy] = f;
-	currFrame[0][input.pos.xy] = f;
+	TAABuffer[0][correctPos] = f;
+	currFrame[0][correctPos] = f;
 
 	return;
 }
