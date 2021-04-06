@@ -304,6 +304,8 @@ private:
 	PingPongResource* m_LightTemporalPingPong[MAX_POINT_LIGHTS][NUM_TEMPORAL_BUFFERS + 1]; // 1 PingPongResource per light, NUM_BUFFERS PingPongResources for temporal accumilation
 	Resource* m_LightTemporalResources[MAX_POINT_LIGHTS][NUM_TEMPORAL_BUFFERS + 1];
 
+	Resource* m_pTempInlinePixelUploadResource = nullptr;
+
 	Resource* m_pTAAResource = nullptr;
 	PingPongResource* m_pTAAPingPong = nullptr;
 

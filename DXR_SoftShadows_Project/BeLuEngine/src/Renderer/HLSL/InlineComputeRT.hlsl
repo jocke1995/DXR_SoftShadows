@@ -38,7 +38,7 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 
 	// Init random floats
 	uint frameSeed = cbPerFrame.frameCounter + 200000;
-	uint seed = initRand(frameSeed * uv.x, frameSeed * (1 - uv.y));
+	uint seed = initRand(frameSeed * uv.x, frameSeed * uv.y);
 
 	// PointLight Test
 	LightHeader lHeader = rawBufferLights.Load<LightHeader>(0);

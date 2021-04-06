@@ -13,6 +13,7 @@ SamplerState point_Wrap	: register (s5);
 
 void PS_main(VS_OUT input)
 {
+	float2 d = input.pos.xy - float2(0.5f, 0.5f);
 
 	float sum = 0;
 	for (int i = 0; i < NUM_TEMPORAL_BUFFERS + 1; i++)
@@ -21,7 +22,7 @@ void PS_main(VS_OUT input)
 	}
 	sum = sum / (NUM_TEMPORAL_BUFFERS + 1);
 
-	shadowBuffer[1][input.pos.xy] = min(sum, 1.0);
+	shadowBuffer[1][d] = min(sum, 1.0);
 
 	return;
 }

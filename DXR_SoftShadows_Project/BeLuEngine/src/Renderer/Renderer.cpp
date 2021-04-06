@@ -65,7 +65,7 @@ UINT resolutionHeight = 1440;
 #include "../Misc/CSVExporter.h"
 
 
-#define SECONDS_TO_MEASURE 3*60 // 3 minutes
+#define FRAMES_TO_MEASURE 3*60*60 // 3 minutes for 60 fps
 double resultAverage0 = -1;
 double resultAverage1 = -1;
 double CPUresultAverage = -1;
@@ -191,7 +191,7 @@ void Renderer::deleteRenderer()
 	SAFE_RELEASE(&m_pRTStateObjectProps);
 	
 	delete m_pOutputResource;
-	
+	delete m_pTempInlinePixelUploadResource;
 	
 
 	delete m_ShadowBufferRenderTask;
@@ -580,28 +580,29 @@ void Renderer::SetResultsFileName()
 
 void Renderer::OutputTestResults(double dt)
 {
-	static double secondsMeasured = 0;
+	static int framesMeasured = 0;
 	const int framesToSkip = 500;
 
 	// Skip the first frames
 	if (m_FrameCounter <= framesToSkip)
 	{
+		framesMeasured++;
 		return;
 	}
-	else if (secondsMeasured < SECONDS_TO_MEASURE)
+	else if (framesMeasured < FRAMES_TO_MEASURE + framesToSkip)
 	{
 		auto timestamps0 = m_DXTimer.GetTimestampPair(0);
 		auto timestamps1 = m_DXTimer.GetTimestampPair(1);
 		double dtMS0 = (timestamps0.Stop - timestamps0.Start) * m_DXTimer.GetGPUFreq();
 		double dtMS1 = (timestamps1.Stop - timestamps1.Start) * m_DXTimer.GetGPUFreq();
-		secondsMeasured += dt;
+		framesMeasured++;
 
 		// Save frame time
 		frameData0.push_back(dtMS0);
 		frameData1.push_back(dtMS1);
 		CPUframeData.push_back(dt * 1000);
 	}
-	else if (secondsMeasured >= SECONDS_TO_MEASURE)
+	else if (framesMeasured >= FRAMES_TO_MEASURE + framesToSkip)
 	{
 		std::wstring outputName = m_OutputName + L".csv";
 		std::wstring outputName2 = m_OutputName + L"_all_frames.csv";
@@ -624,25 +625,25 @@ void Renderer::OutputTestResults(double dt)
 		// Comment if empty file
 		if (csvExporter.IsFileEmpty(outputName))
 		{
-			csvExporter << std::string("#") << "Header data: GPU" << "," << "Driver" << "," << "Time Measured (Seconds)" << "\n";
+			csvExporter << std::string("#") << "Header data: GPU" << "," << "Driver" << "," << "Frames Measured" << "\n";
 			csvExporter << std::string("#") << "Body data: NumLights" << "," << "FramesMeasured" << "," << "DispatchRays Time (ms)" << "," << "DispatchRays Time (ms)++" << "," << "Frame Time (ms)" << "\n";
-			csvExporter << m_GPUName << "," << m_DriverVersion << "," << SECONDS_TO_MEASURE << "\n";
+			csvExporter << m_GPUName << "," << m_DriverVersion << "," << FRAMES_TO_MEASURE << "\n";
 		}
 
 		// Comment if empty file
 		if (csvExporter2.IsFileEmpty(outputName2))
 		{
-			csvExporter2 << std::string("#") << "Header data: GPU" << "," << "Driver" << "," << "Time Measured (Seconds)" << "\n";
+			csvExporter2 << std::string("#") << "Header data: GPU" << "," << "Driver" << "," << "Frames Measured" << "\n";
 			csvExporter2 << std::string("#") << "Body data: NumLights" << "," << "FramesMeasured" << "," << "DispatchRays Time (ms)" << "," << "DispatchRays Time (ms)++" << "," << "Frame Time (ms)" << "\n";
-			csvExporter2 << m_GPUName << "," << m_DriverVersion << "," << SECONDS_TO_MEASURE << "\n";
+			csvExporter2 << m_GPUName << "," << m_DriverVersion << "," << FRAMES_TO_MEASURE << "\n";
 		}
 
-		csvExporter << m_NumLights << "," << m_FrameCounter - framesToSkip << "," << resultAverage0 << "," << resultAverage1 << "," << CPUresultAverage << "\n";
+		csvExporter << m_NumLights << "," << framesMeasured - framesToSkip << "," << resultAverage0 << "," << resultAverage1 << "," << CPUresultAverage << "\n";
 
 		// Fill all frames data
 		for (unsigned int i = 0; i < frameData0.size(); i++)
 		{
-			csvExporter2 << m_NumLights << "," << m_FrameCounter - framesToSkip << "," << frameData0.at(i) << "," << frameData1.at(i) << "," << CPUframeData.at(i) << "\n";
+			csvExporter2 << m_NumLights << "," << framesMeasured - framesToSkip << "," << frameData0.at(i) << "," << frameData1.at(i) << "," << CPUframeData.at(i) << "\n";
 		}
 		
 		csvExporter.Append(outputName);
@@ -659,7 +660,7 @@ void Renderer::OutputTestResults(double dt)
 		
 		// Results will not be accurate since exporting takes performance
 		// Anyway, set test to start // Currently set to not test again
-		secondsMeasured = -1000000000.0;
+		framesMeasured = -10000000000;
 	}
 }
 
@@ -782,11 +783,8 @@ void Renderer::ExecuteDXR(double dt)
 
 	CD3DX12_RESOURCE_BARRIER transition;
 
-
-	m_DXTimer.Start(cl, 1);
 #pragma region RayTrace
-		DX12TEST(
-
+	m_DXTimer.Start(cl, 0);
 	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
 	cl->SetDescriptorHeaps(1, &dhCBVSRVUAV);
 	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
@@ -852,7 +850,7 @@ void Renderer::ExecuteDXR(double dt)
 	//DX12TEST(cl->DispatchRays(&desc), 0);
 	cl->DispatchRays(&desc);
 
-	, 0);
+	m_DXTimer.Stop(cl, 1); m_DXTimer.ResolveQueryToCPU(cl, 1);
 #pragma endregion RayTrace
 
 	// Execute BlurTasks, output to m_LightTemporalResources
@@ -959,25 +957,25 @@ void Renderer::ExecuteInlinePixel(double dt)
 
 	CD3DX12_RESOURCE_BARRIER transition;
 
-	m_DXTimer.Start(cl, 1);
-#pragma region InlineRT
-	DX12TEST(
+
+#pragma region InlineRTPixel
+	m_DXTimer.Start(cl, 0);
 	cl->SetGraphicsRootSignature(m_pRootSignature->GetRootSig());
 
 	ID3D12DescriptorHeap * d3d12DescriptorHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetID3D12DescriptorHeap();
 	cl->SetDescriptorHeaps(1, &d3d12DescriptorHeap);
 
 	cl->SetGraphicsRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
-	cl->SetGraphicsRootDescriptorTable(RS::dtCBV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
 	cl->SetGraphicsRootDescriptorTable(RS::dtSRV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(0));
 	unsigned int softShadowHeapOffset = m_DhIndexSoftShadowsUAV + 2 * MAX_POINT_LIGHTS * currentLightTemporalBuffer;
 	cl->SetGraphicsRootDescriptorTable(RS::dtUAV, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(softShadowHeapOffset));
-	cl->SetGraphicsRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
-	// Set cbvs
+
 	cl->SetGraphicsRootConstantBufferView(RS::CB_PER_FRAME, m_pCbPerFrame->GetDefaultResource()->GetGPUVirtualAdress());
 	cl->SetGraphicsRootConstantBufferView(RS::CB_PER_SCENE, m_pCbPerScene->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetGraphicsRootConstantBufferView(RS::CBV0, m_pCbCamera->GetDefaultResource()->GetGPUVirtualAdress());
+	cl->SetGraphicsRootShaderResourceView(RS::SRV0, m_LightRawBuffers[LIGHT_TYPE::POINT_LIGHT]->shaderResource->GetUploadResource()->GetGPUVirtualAdress());
 
-	DescriptorHeap * depthBufferHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::DSV];
+	DescriptorHeap* depthBufferHeap = m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::DSV];
 
 	// Depth
 	D3D12_CPU_DESCRIPTOR_HANDLE dsh = depthBufferHeap->GetCPUHeapAt(m_pMainDepthStencil->GetDSV()->GetDescriptorHeapIndex());
@@ -991,7 +989,9 @@ void Renderer::ExecuteInlinePixel(double dt)
 	cl->RSSetScissorRects(1, &rectSwapChain);
 	cl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	const DirectX::XMMATRIX * viewProjMatTrans = m_pScenePrimaryCamera->GetViewProjectionTranposed();
+	// Draw for every Rendercomponent with stencil testing disabled
+	ID3D12PipelineState* pipelineState = m_RenderTasks[RENDER_TASK_TYPE::FORWARD_RENDER]->GetPipelineState(0)->GetPSO();
+	cl->SetPipelineState(pipelineState);
 
 	// Set temporal buffers written to UAV
 	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
@@ -1002,31 +1002,34 @@ void Renderer::ExecuteInlinePixel(double dt)
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 	}
 
-	// Draw for every Rendercomponent with stencil testing disabled
-	ID3D12PipelineState* pipelineState = m_RenderTasks[RENDER_TASK_TYPE::FORWARD_RENDER]->GetPipelineState(0)->GetPSO();
-	cl->SetPipelineState(pipelineState);
-	for (int i = 0; i < m_RenderComponents.size(); i++)
-	{
-		RenderComponent* rc = m_RenderComponents.at(i);
-		component::ModelComponent* mc = rc->mc;
-		component::TransformComponent* tc = rc->tc;
+	// Create a CB_PER_OBJECT struct
+	SlotInfo slotInfo = {};
+	slotInfo.vertexDataIndex = m_pFullScreenQuad->m_pVertexBufferSRV->GetDescriptorHeapIndex();
 
-		// Draw for every m_pMesh the meshComponent has
-		for (unsigned int j = 0; j < mc->GetNrOfMeshes(); j++)
-		{
-			Mesh* m = mc->GetMeshAt(j);
-			unsigned int num_Indices = m->GetNumIndices();
+	float4x4 mat = {};
+	CB_PER_OBJECT_STRUCT perObject = { mat, mat, slotInfo };
 
-			cl->SetGraphicsRootConstantBufferView(RS::CB_PER_OBJECT_CBV, rc->CB_PER_OBJECT_UPLOAD_RESOURCES[j]->GetGPUVirtualAdress());
+	// Temp, should not SetData here
+	m_pTempInlinePixelUploadResource->SetData(&perObject);
+	cl->SetGraphicsRootConstantBufferView(RS::CB_PER_OBJECT_CBV, m_pTempInlinePixelUploadResource->GetGPUVirtualAdress());
 
-			cl->IASetIndexBuffer(m->GetIndexBufferView());
-			cl->DrawIndexedInstanced(num_Indices, 1, 0, 0, 0);
-		}
-	}
+	cl->IASetIndexBuffer(m_pFullScreenQuad->GetIndexBufferView());
 
-,0);
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pMainDepthStencil->GetDefaultResource()->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_DEPTH_WRITE,		// StateBefore
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);	// StateAfter
 
-#pragma endregion InlineRT
+	cl->DrawIndexedInstanced(6, 1, 0, 0, 0); // Draw fullscreenquad
+
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pMainDepthStencil->GetDefaultResource()->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,		// StateBefore
+		D3D12_RESOURCE_STATE_DEPTH_WRITE);	// StateAfter
+
+	m_DXTimer.Stop(cl, 0); m_DXTimer.ResolveQueryToCPU(cl, 0);
+
+#pragma endregion InlineRTPixel
 	
 	// Execute BlurTasks, output to m_LightTemporalResources
 	GaussianSpatialAccumulation(cl, currentLightTemporalBuffer);
@@ -1131,9 +1134,9 @@ void Renderer::ExecuteInlineCompute(double dt)
 	CD3DX12_RESOURCE_BARRIER transition;
 
 	m_DXTimer.Start(cl, 1);
-#pragma region InlineRT
+#pragma region InlineRTCompute
 
-	DX12TEST(
+	m_DXTimer.Start(cl, 0);
 
 	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
 
@@ -1166,9 +1169,9 @@ void Renderer::ExecuteInlineCompute(double dt)
 
 	cl->Dispatch(m_IRTNumThreadGroupsX, m_IRTNumThreadGroupsY, 1);
 
-	, 0);
+	m_DXTimer.Stop(cl, 1); m_DXTimer.ResolveQueryToCPU(cl, 1);
 
-#pragma endregion InlineRT
+#pragma endregion InlineRTCompute
 
 	// Execute BlurTasks, output to m_LightTemporalResources
 	GaussianSpatialAccumulation(cl, currentLightTemporalBuffer);
@@ -2815,6 +2818,12 @@ void Renderer::initRenderTasks()
 		L"ForwardVertex.hlsl", L"ForwardPixel.hlsl",
 		&gpsdForwardRenderVector,
 		L"ForwardRenderingPSO");
+
+	m_pTempInlinePixelUploadResource = new Resource(
+		m_pDevice5,
+		sizeof(CB_PER_OBJECT_STRUCT),
+		RESOURCE_TYPE::UPLOAD,
+		L"CB_PER_OBJECT_UPLOAD_RESOURCE_tempPixelInline");
 
 	forwardRenderTask->AddResource("cbPerFrame", m_pCbPerFrame->GetDefaultResource());
 	forwardRenderTask->AddResource("cbPerScene", m_pCbPerScene->GetDefaultResource());
