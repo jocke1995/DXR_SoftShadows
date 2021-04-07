@@ -286,9 +286,9 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 
 
 	// Temp
-	frameData0.reserve(10000);
-	frameData1.reserve(10000);
-	CPUframeData.reserve(10000);
+	frameData0.reserve(FRAMES_TO_MEASURE*2);
+	frameData1.reserve(FRAMES_TO_MEASURE*2);
+	CPUframeData.reserve(FRAMES_TO_MEASURE*2);
 
 	m_pTempCommandInterface = new CommandInterface(m_pDevice5, COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
 	m_pTempCommandInterface->Reset(0);
@@ -775,6 +775,8 @@ void Renderer::ExecuteDXR(double dt)
 	m_pTempCommandInterface->Reset(0);
 	auto cl = m_pTempCommandInterface->GetCommandList(0);
 
+	m_DXTimer.Start(cl, 1);
+
 	// Depth pre-pass
 	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
 
@@ -850,7 +852,7 @@ void Renderer::ExecuteDXR(double dt)
 	//DX12TEST(cl->DispatchRays(&desc), 0);
 	cl->DispatchRays(&desc);
 
-	m_DXTimer.Stop(cl, 1); m_DXTimer.ResolveQueryToCPU(cl, 1);
+	m_DXTimer.Stop(cl, 0); m_DXTimer.ResolveQueryToCPU(cl, 0);
 #pragma endregion RayTrace
 
 	// Execute BlurTasks, output to m_LightTemporalResources
@@ -948,6 +950,8 @@ void Renderer::ExecuteInlinePixel(double dt)
 
 	m_pTempCommandInterface->Reset(0);
 	auto cl = m_pTempCommandInterface->GetCommandList(0);
+
+	m_DXTimer.Start(cl, 1);
 
 	// Depth pre-pass
 	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
@@ -1125,6 +1129,8 @@ void Renderer::ExecuteInlineCompute(double dt)
 	m_pTempCommandInterface->Reset(0);
 	auto cl = m_pTempCommandInterface->GetCommandList(0);
 
+	m_DXTimer.Start(cl, 1);
+
 	// Depth pre-pass
 	m_RenderTasks[RENDER_TASK_TYPE::DEPTH_PRE_PASS]->Execute();
 
@@ -1133,9 +1139,8 @@ void Renderer::ExecuteInlineCompute(double dt)
 
 	CD3DX12_RESOURCE_BARRIER transition;
 
-	m_DXTimer.Start(cl, 1);
+	
 #pragma region InlineRTCompute
-
 	m_DXTimer.Start(cl, 0);
 
 	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
@@ -1169,7 +1174,7 @@ void Renderer::ExecuteInlineCompute(double dt)
 
 	cl->Dispatch(m_IRTNumThreadGroupsX, m_IRTNumThreadGroupsY, 1);
 
-	m_DXTimer.Stop(cl, 1); m_DXTimer.ResolveQueryToCPU(cl, 1);
+	m_DXTimer.Stop(cl, 0); m_DXTimer.ResolveQueryToCPU(cl, 0);
 
 #pragma endregion InlineRTCompute
 
