@@ -290,6 +290,9 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 	frameData1.reserve(FRAMES_TO_MEASURE*2);
 	CPUframeData.reserve(FRAMES_TO_MEASURE*2);
 
+	// Pushback dummy value for first frame
+	CPUframeData.push_back(-1);
+
 	m_pTempCommandInterface = new CommandInterface(m_pDevice5, COMMAND_INTERFACE_TYPE::DIRECT_TYPE);
 	m_pTempCommandInterface->Reset(0);
 
@@ -580,8 +583,13 @@ void Renderer::SetResultsFileName()
 
 void Renderer::OutputTestResults(double dt)
 {
+
+	// !!!!NOTE THAT CPU FRAME TIME IS 1 FRAME BEHIND!!!!
+
 	static int framesMeasured = 0;
 	const int framesToSkip = 500;
+
+	const int totalFramesToMeasure = FRAMES_TO_MEASURE + framesToSkip + 1; // +1 since we skip the first frames´ value
 
 	// Skip the first frames
 	if (m_FrameCounter <= framesToSkip)
@@ -589,7 +597,7 @@ void Renderer::OutputTestResults(double dt)
 		framesMeasured++;
 		return;
 	}
-	else if (framesMeasured < FRAMES_TO_MEASURE + framesToSkip)
+	else if (framesMeasured < totalFramesToMeasure)
 	{
 		auto timestamps0 = m_DXTimer.GetTimestampPair(0);
 		auto timestamps1 = m_DXTimer.GetTimestampPair(1);
@@ -602,7 +610,7 @@ void Renderer::OutputTestResults(double dt)
 		frameData1.push_back(dtMS1);
 		CPUframeData.push_back(dt * 1000);
 	}
-	else if (framesMeasured >= FRAMES_TO_MEASURE + framesToSkip)
+	else if (framesMeasured >= totalFramesToMeasure)
 	{
 		std::wstring outputName = m_OutputName + L".csv";
 		std::wstring outputName2 = m_OutputName + L"_all_frames.csv";
@@ -613,6 +621,10 @@ void Renderer::OutputTestResults(double dt)
 		double CPUsum = 0;
 		for (unsigned int i = 0; i < frameData0.size(); i++)
 		{
+			// Skip first frame since cpuframedata has a dummy value
+			if (i == 0)
+				continue;
+
 			sum0 += frameData0.at(i);
 			sum1 += frameData1.at(i);
 			CPUsum += CPUframeData.at(i);
@@ -638,12 +650,14 @@ void Renderer::OutputTestResults(double dt)
 			csvExporter2 << m_GPUName << "," << m_DriverVersion << "," << FRAMES_TO_MEASURE << "\n";
 		}
 
-		csvExporter << m_NumLights << "," << framesMeasured - framesToSkip << "," << resultAverage0 << "," << resultAverage1 << "," << CPUresultAverage << "\n";
+		csvExporter << m_NumLights << "," << framesMeasured - 1 - framesToSkip << "," << resultAverage0 << "," << resultAverage1 << "," << CPUresultAverage << "\n";
 
 		// Fill all frames data
 		for (unsigned int i = 0; i < frameData0.size(); i++)
 		{
-			csvExporter2 << m_NumLights << "," << framesMeasured - framesToSkip << "," << frameData0.at(i) << "," << frameData1.at(i) << "," << CPUframeData.at(i) << "\n";
+			if (i == 0)
+				continue;
+			csvExporter2 << m_NumLights << "," << framesMeasured - 1 - framesToSkip << "," << frameData0.at(i) << "," << frameData1.at(i) << "," << CPUframeData.at(i) << "\n";
 		}
 		
 		csvExporter.Append(outputName);
