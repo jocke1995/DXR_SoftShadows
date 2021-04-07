@@ -65,7 +65,7 @@ UINT resolutionHeight = 1440;
 #include "../Misc/CSVExporter.h"
 
 
-#define FRAMES_TO_MEASURE 3*60*60 // 3 minutes for 60 fps
+#define FRAMES_TO_MEASURE 1*60*60 // 
 double resultAverage0 = -1;
 double resultAverage1 = -1;
 double CPUresultAverage = -1;
@@ -2091,8 +2091,6 @@ void Renderer::TAATask(ID3D12GraphicsCommandList5* cl)
 	m_TAARenderTask->SetCommandInterfaceIndex(0);
 	m_TAARenderTask->Execute();
 }
-
-
 
 void Renderer::CreateRaytracingOutputBuffer()
 {
