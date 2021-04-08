@@ -57,7 +57,7 @@ UINT resolutionHeight = 1440;
 // Compute
 #include "DX12Tasks/InlineRTComputeTask.h"
 #include "DX12Tasks/GaussianBlurAllShadowsTask.h"
-#include "DX12Tasks/BilateralBlurAllShadowsTask.h"
+#include "DX12Tasks/FinalBlurAllShadowsTask.h"
 
 // Event
 #include "../Events/EventBus.h"
@@ -196,7 +196,7 @@ void Renderer::deleteRenderer()
 
 	delete m_ShadowBufferRenderTask;
 	delete m_GaussianBlurAllShadowsTask;
-	delete m_BilateralBlurAllShadowsTask;
+	delete m_FinalBlurAllShadowsTask;
 	delete m_TAARenderTask;
 	delete m_MergeLightningRenderTask;
 
@@ -301,7 +301,7 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 
 	createShadowBufferRenderTasks();
 	createGaussianBlurTask();
-	createBilateralBlurTask();
+	createFinalBlurTask();
 	createMergeLightningRenderTasks();
 
 	initRenderTasks();
@@ -334,14 +334,14 @@ void Renderer::createGaussianBlurTask()
 	m_GaussianBlurAllShadowsTask->SetCommandInterface(m_pTempCommandInterface);
 }
 
-void Renderer::createBilateralBlurTask()
+void Renderer::createFinalBlurTask()
 {
 	// ComputeTasks
 	std::vector<std::pair<std::wstring, std::wstring>> csNamePSOName;
-	csNamePSOName.push_back(std::make_pair(L"BilateralBlurHorizontal.hlsl", L"BilateralblurHorizontalPSO"));
-	csNamePSOName.push_back(std::make_pair(L"BilateralBlurVertical.hlsl", L"BilateralblurVerticalPSO"));
+	csNamePSOName.push_back(std::make_pair(L"FinalBlurHorizontal.hlsl", L"FinalblurHorizontalPSO"));
+	csNamePSOName.push_back(std::make_pair(L"FinalBlurVertical.hlsl"  , L"FinalblurVerticalPSO"));
 
-	m_BilateralBlurAllShadowsTask = new BilateralBlurAllShadowsTask(
+	m_FinalBlurAllShadowsTask = new FinalBlurAllShadowsTask(
 		m_pDevice5, m_pRootSignature,
 		m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV],
 		csNamePSOName,
@@ -349,9 +349,9 @@ void Renderer::createBilateralBlurTask()
 		resolutionWidth, resolutionHeight,
 		FLAG_THREAD::RENDER);
 
-	m_BilateralBlurAllShadowsTask->SetDescriptorHeaps(m_DescriptorHeaps);
-	m_BilateralBlurAllShadowsTask->SetCommandInterface(m_pTempCommandInterface);
-	m_BilateralBlurAllShadowsTask->AddResource("cbPerScene", m_pCbPerScene->GetDefaultResource());
+	m_FinalBlurAllShadowsTask->SetDescriptorHeaps(m_DescriptorHeaps);
+	m_FinalBlurAllShadowsTask->SetCommandInterface(m_pTempCommandInterface);
+	m_FinalBlurAllShadowsTask->AddResource("cbPerScene", m_pCbPerScene->GetDefaultResource());
 }
 
 void Renderer::createShadowBufferRenderTasks()
@@ -875,7 +875,7 @@ void Renderer::ExecuteDXR(double dt)
 	// Execute ShadowBufferTask, output to m_ShadowBuffer
 	temporalAccumulation(cl);
 
-	BilateralBlur(cl);
+	FinalBlur(cl);
 
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
@@ -1055,7 +1055,7 @@ void Renderer::ExecuteInlinePixel(double dt)
 	// Execute ShadowBufferTask, output to m_ShadowBuffer
 	temporalAccumulation(cl);
 
-	BilateralBlur(cl);
+	FinalBlur(cl);
 
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
@@ -1198,7 +1198,7 @@ void Renderer::ExecuteInlineCompute(double dt)
 	// Execute ShadowBufferTask, output to m_ShadowBuffer
 	temporalAccumulation(cl);
 
-	BilateralBlur(cl);
+	FinalBlur(cl);
 
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
@@ -1379,7 +1379,7 @@ void Renderer::ExecuteTEST(double dt)
 	// Execute ShadowBufferTask, output to m_ShadowBuffer
 	temporalAccumulation(cl);
 
-	BilateralBlur(cl);
+	FinalBlur(cl);
 
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
@@ -2051,7 +2051,7 @@ void Renderer::GaussianSpatialAccumulation(ID3D12GraphicsCommandList5* cl, unsig
 	}
 }
 
-void Renderer::BilateralBlur(ID3D12GraphicsCommandList5* cl)
+void Renderer::FinalBlur(ID3D12GraphicsCommandList5* cl)
 {
 	// Blur all light output
 	std::vector<PingPongResource*> pingPongsTest;
@@ -2061,10 +2061,10 @@ void Renderer::BilateralBlur(ID3D12GraphicsCommandList5* cl)
 		pingPongsTest.push_back(m_pShadowBufferPingPong[i]);
 	}
 
-	m_BilateralBlurAllShadowsTask->SetPingPongResorcesToBlur(m_Lights[LIGHT_TYPE::POINT_LIGHT].size(), pingPongsTest.data());
-	m_BilateralBlurAllShadowsTask->SetBackBufferIndex(0);
-	m_BilateralBlurAllShadowsTask->SetCommandInterfaceIndex(0);
-	m_BilateralBlurAllShadowsTask->Execute();
+	m_FinalBlurAllShadowsTask->SetPingPongResorcesToBlur(m_Lights[LIGHT_TYPE::POINT_LIGHT].size(), pingPongsTest.data());
+	m_FinalBlurAllShadowsTask->SetBackBufferIndex(0);
+	m_FinalBlurAllShadowsTask->SetCommandInterfaceIndex(0);
+	m_FinalBlurAllShadowsTask->Execute();
 
 	// Wait for UAVS to get written 
 	D3D12_RESOURCE_BARRIER rBarr = {};

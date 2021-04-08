@@ -1,5 +1,5 @@
-#ifndef BILATERALBLURALLSHADOWSTASK_H
-#define BILATERALBLURALLSHADOWSTASK_H
+#ifndef FINALBLURALLSHADOWSTASK_H
+#define FINALBLURALLSHADOWSTASK_H
 
 #include "ComputeTask.h"
 class ShaderResourceView;
@@ -7,10 +7,10 @@ class PingPongResource;
 class ID3D12Resource;
 class DescriptorHeap;
 
-class BilateralBlurAllShadowsTask : public ComputeTask
+class FinalBlurAllShadowsTask : public ComputeTask
 {
 public:
-	BilateralBlurAllShadowsTask(
+	FinalBlurAllShadowsTask(
 		ID3D12Device5* device,
 		RootSignature* rootSignature,
 		DescriptorHeap* dHeap_CBV_SRV_UAV,
@@ -19,7 +19,7 @@ public:
 		unsigned int screenWidth, unsigned int screenHeight,
 		unsigned int FLAG_THREAD
 	);
-	virtual ~BilateralBlurAllShadowsTask();
+	virtual ~FinalBlurAllShadowsTask();
 
 	void SetPingPongResorcesToBlur(int num, PingPongResource** targets);
 
