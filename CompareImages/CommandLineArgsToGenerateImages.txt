@@ -1,0 +1,4 @@
+magick compare -metric MSE F1.png F2.png F3.png diff.png
+Result: 0
+magick compare -metric PSNR F1.png F2.png F3.png diff.png
+Result: inf
