@@ -65,7 +65,7 @@ UINT resolutionHeight = 1440;
 #include "../Misc/CSVExporter.h"
 
 
-#define FRAMES_TO_MEASURE 1*60*60 // 
+#define FRAMES_TO_MEASURE 60*60 // 1*60*60
 double resultAverage0 = -1;
 double resultAverage1 = -1;
 double CPUresultAverage = -1;
@@ -578,11 +578,13 @@ void Renderer::SetSceneName(std::wstring sceneName)
 
 void Renderer::SetResultsFileName()
 {
-	m_OutputName = to_wstring("../" + m_GPUName + "_" + to_string(m_SceneName) + "_" + m_RTType);
+	// Not used
+	m_OutputName = to_wstring("../" + m_GPUName + "_" + m_RTType + "_" + to_string(m_SceneName));
 }
 
 void Renderer::OutputTestResults(double dt)
 {
+	m_GPUName = "RTX TEST2";
 
 	// !!!!NOTE THAT CPU FRAME TIME IS 1 FRAME BEHIND!!!!
 
@@ -612,8 +614,9 @@ void Renderer::OutputTestResults(double dt)
 	}
 	else if (framesMeasured >= totalFramesToMeasure)
 	{
-		std::wstring outputName = m_OutputName + L".csv";
-		std::wstring outputName2 = m_OutputName + L"_all_frames.csv";
+		std::wstring name = to_wstring("../" + to_string(m_SceneName) + "_" + std::to_string(m_NumLights) + "_" + std::to_string(FRAMES_TO_MEASURE) + "_" + m_RTType);
+		std::wstring outputName = name + L".csv";
+		std::wstring outputName2 = name + L"_" + to_wstring(m_GPUName) + L"_" + to_wstring(m_DriverVersion) + L".csv";
 
 		// Compute average
 		double sum0 = 0;
@@ -630,34 +633,31 @@ void Renderer::OutputTestResults(double dt)
 			CPUsum += CPUframeData.at(i);
 		}
 
-		resultAverage0 = sum0 / frameData0.size();
-		resultAverage1 = sum1 / frameData1.size();
-		CPUresultAverage = CPUsum / CPUframeData.size();
+		resultAverage0 = sum0 / FRAMES_TO_MEASURE;
+		resultAverage1 = sum1 / FRAMES_TO_MEASURE;
+		CPUresultAverage = CPUsum / FRAMES_TO_MEASURE;
 
-		// Comment if empty file
+		// Header
 		if (csvExporter.IsFileEmpty(outputName))
 		{
-			csvExporter << std::string("#") << "Header data: GPU" << "," << "Driver" << "," << "Frames Measured" << "\n";
-			csvExporter << std::string("#") << "Body data: NumLights" << "," << "FramesMeasured" << "," << "DispatchRays Time (ms)" << "," << "DispatchRays Time (ms)++" << "," << "Frame Time (ms)" << "\n";
-			csvExporter << m_GPUName << "," << m_DriverVersion << "," << FRAMES_TO_MEASURE << "\n";
+			csvExporter << std::string("GPU Name") << "," << "Driver version" << "," << "DispatchRays Time (ms)" << "," << "DispatchRays Time (ms)++" << "," << "Frame Time (ms)" << "\n";
 		}
 
-		// Comment if empty file
+		csvExporter << m_GPUName << "," << m_DriverVersion << "," << resultAverage0 << "," << resultAverage1 << "," << CPUresultAverage << "\n";
+
+
+		// Header
 		if (csvExporter2.IsFileEmpty(outputName2))
 		{
-			csvExporter2 << std::string("#") << "Header data: GPU" << "," << "Driver" << "," << "Frames Measured" << "\n";
-			csvExporter2 << std::string("#") << "Body data: NumLights" << "," << "FramesMeasured" << "," << "DispatchRays Time (ms)" << "," << "DispatchRays Time (ms)++" << "," << "Frame Time (ms)" << "\n";
-			csvExporter2 << m_GPUName << "," << m_DriverVersion << "," << FRAMES_TO_MEASURE << "\n";
+			csvExporter2 << std::string("DispatchRays Time (ms)") << "," << "DispatchRays Time (ms)++" << "," << "Frame Time (ms)" << "\n";
 		}
-
-		csvExporter << m_NumLights << "," << framesMeasured - 1 - framesToSkip << "," << resultAverage0 << "," << resultAverage1 << "," << CPUresultAverage << "\n";
 
 		// Fill all frames data
 		for (unsigned int i = 0; i < frameData0.size(); i++)
 		{
 			if (i == 0)
 				continue;
-			csvExporter2 << m_NumLights << "," << framesMeasured - 1 - framesToSkip << "," << frameData0.at(i) << "," << frameData1.at(i) << "," << CPUframeData.at(i) << "\n";
+			csvExporter2 << frameData0.at(i) << "," << frameData1.at(i) << "," << CPUframeData.at(i) << "\n";
 		}
 		
 		csvExporter.Append(outputName);
