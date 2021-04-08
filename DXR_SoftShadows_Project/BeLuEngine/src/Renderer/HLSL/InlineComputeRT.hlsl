@@ -37,7 +37,8 @@ void CS_main(uint3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : 
 	float3 worldPos = WorldPosFromDepth(depth, uv);
 
 	// Init random floats
-	uint frameSeed = cbPerFrame.frameCounter + 200000;
+	//uint frameSeed = cbPerFrame.frameCounter + 200000;
+	uint frameSeed = 200000;
 	uint seed = initRand(frameSeed * uv.x, frameSeed * uv.y);
 
 	// PointLight Test
