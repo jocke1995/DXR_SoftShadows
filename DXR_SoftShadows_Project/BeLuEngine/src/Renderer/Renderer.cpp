@@ -584,8 +584,6 @@ void Renderer::SetResultsFileName()
 
 void Renderer::OutputTestResults(double dt)
 {
-	m_GPUName = "RTX TEST2";
-
 	// !!!!NOTE THAT CPU FRAME TIME IS 1 FRAME BEHIND!!!!
 
 	static int framesMeasured = 0;
