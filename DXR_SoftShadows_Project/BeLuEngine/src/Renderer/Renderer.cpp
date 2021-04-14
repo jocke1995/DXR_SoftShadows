@@ -861,15 +861,16 @@ void Renderer::ExecuteDXR(double dt)
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 	}
 
-	//DX12TEST(cl->DispatchRays(&desc), 0);
 	cl->DispatchRays(&desc);
-
-	m_DXTimer.Stop(cl, 0); m_DXTimer.ResolveQueryToCPU(cl, 0);
+	
+	m_DXTimer.Stop(cl, 0);
 #pragma endregion RayTrace
 
+	
 	// Execute BlurTasks, output to m_LightTemporalResources
 	GaussianSpatialAccumulation(cl, currentLightTemporalBuffer);
 
+	
 	// Execute ShadowBufferTask, output to m_ShadowBuffer
 	temporalAccumulation(cl);
 
@@ -877,11 +878,10 @@ void Renderer::ExecuteDXR(double dt)
 
 	// Calculate Light and output to m_Output
 	lightningMergeTask(cl);
-
 	// TAA
 	TAATask(cl);
 
-	m_DXTimer.Stop(cl, 1); m_DXTimer.ResolveQueryToCPU(cl, 1);
+	m_DXTimer.Stop(cl, 1);
 
 
 
@@ -917,6 +917,8 @@ void Renderer::ExecuteDXR(double dt)
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
 	cl->ResourceBarrier(1, &transition);
 
+	m_DXTimer.ResolveQueryToCPU(cl, 0);
+	m_DXTimer.ResolveQueryToCPU(cl, 1);
 
 	cl->Close();
 	ID3D12CommandList* cLists[] = { cl };
@@ -1043,7 +1045,7 @@ void Renderer::ExecuteInlinePixel(double dt)
 		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,		// StateBefore
 		D3D12_RESOURCE_STATE_DEPTH_WRITE);	// StateAfter
 
-	m_DXTimer.Stop(cl, 0); m_DXTimer.ResolveQueryToCPU(cl, 0);
+	m_DXTimer.Stop(cl, 0);
 
 #pragma endregion InlineRTPixel
 	
@@ -1060,7 +1062,7 @@ void Renderer::ExecuteInlinePixel(double dt)
 
 	// TAA
 	TAATask(cl);
-	m_DXTimer.Stop(cl, 1); m_DXTimer.ResolveQueryToCPU(cl, 1);
+	m_DXTimer.Stop(cl, 1);
 
 
 
@@ -1095,6 +1097,8 @@ void Renderer::ExecuteInlinePixel(double dt)
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
 	cl->ResourceBarrier(1, &transition);
 
+	m_DXTimer.ResolveQueryToCPU(cl, 0);
+	m_DXTimer.ResolveQueryToCPU(cl, 1);
 
 	cl->Close();
 	ID3D12CommandList* cLists[] = { cl };
@@ -1186,7 +1190,7 @@ void Renderer::ExecuteInlineCompute(double dt)
 
 	cl->Dispatch(m_IRTNumThreadGroupsX, m_IRTNumThreadGroupsY, 1);
 
-	m_DXTimer.Stop(cl, 0); m_DXTimer.ResolveQueryToCPU(cl, 0);
+	m_DXTimer.Stop(cl, 0);
 
 #pragma endregion InlineRTCompute
 
@@ -1203,7 +1207,7 @@ void Renderer::ExecuteInlineCompute(double dt)
 
 	// TAA
 	TAATask(cl);
-	m_DXTimer.Stop(cl, 1); m_DXTimer.ResolveQueryToCPU(cl, 1);
+	m_DXTimer.Stop(cl, 1);
 
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -1235,10 +1239,12 @@ void Renderer::ExecuteInlineCompute(double dt)
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
 	cl->ResourceBarrier(1, &transition);
 
+
+	m_DXTimer.ResolveQueryToCPU(cl, 0);
+	m_DXTimer.ResolveQueryToCPU(cl, 1);
+
 	cl->Close();
-
 	ID3D12CommandList* cLists[] = { cl };
-
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(1, cLists);
 
 	/*------------------- Post draw stuff -------------------*/
