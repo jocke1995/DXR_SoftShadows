@@ -53,6 +53,8 @@ int TestSandbox(wchar_t* args)
     CloseHandle(pi.hThread);
 
     Printl("Testing Complete!!!");
+
+    Sleep(8000);
 }
 
 int main(int argc, char* argv[])

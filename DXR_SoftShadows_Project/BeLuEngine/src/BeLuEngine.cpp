@@ -24,7 +24,7 @@ void BeLuEngine::Init(HINSTANCE hInstance, int nCmdShow, ApplicationParameters* 
 	m_ApplicationParams = *params;
 
 	// Window values
-	bool windowedFullscreen = false;
+	bool windowedFullscreen = true;
 	int windowWidth = SCREENWIDTH;
 	int windowHeight = SCREENHEIGHT;
 

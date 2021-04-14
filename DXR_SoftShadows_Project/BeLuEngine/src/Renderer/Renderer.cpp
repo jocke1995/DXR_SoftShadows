@@ -631,9 +631,9 @@ void Renderer::OutputTestResults(double dt)
 			CPUsum += CPUframeData.at(i);
 		}
 
-		resultAverage0 = sum0 / FRAMES_TO_MEASURE;
-		resultAverage1 = sum1 / FRAMES_TO_MEASURE;
-		CPUresultAverage = CPUsum / FRAMES_TO_MEASURE;
+		resultAverage0 = sum0 / (double)FRAMES_TO_MEASURE;
+		resultAverage1 = sum1 / (double)FRAMES_TO_MEASURE;
+		CPUresultAverage = CPUsum / (double)FRAMES_TO_MEASURE;
 
 		// Header
 		if (csvExporter.IsFileEmpty(outputName))
