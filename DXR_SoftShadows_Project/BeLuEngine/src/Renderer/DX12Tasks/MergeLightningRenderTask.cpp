@@ -91,22 +91,38 @@ void MergeLightningRenderTask::Execute()
 
 	commandList->IASetIndexBuffer(m_pFullScreenQuadMesh->GetIndexBufferView());
 
+	Resource* GBufferNormalResource = const_cast<Resource*>(m_Resources["GBufferNormal"]);
 
-
+	// Depth
 	auto transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		m_pDepthStencil->GetDefaultResource()->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_DEPTH_WRITE,		// StateBefore
 		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);	// StateAfter
+	commandList->ResourceBarrier(1, &transition);
 
-
+	// Normal
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		GBufferNormalResource->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,		// StateBefore
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);	// StateAfter
+	commandList->ResourceBarrier(1, &transition);
 
 	commandList->DrawIndexedInstanced(m_NumIndices, 1, 0, 0, 0);
 
-
+	// Depth
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		m_pDepthStencil->GetDefaultResource()->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,		// StateBefore
 		D3D12_RESOURCE_STATE_DEPTH_WRITE);	// StateAfter
+	commandList->ResourceBarrier(1, &transition);
+
+	// Normal
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		GBufferNormalResource->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,		// StateBefore
+		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);	// StateAfter
+	commandList->ResourceBarrier(1, &transition);
+
 }
 
 void MergeLightningRenderTask::SetHeapOffsets(unsigned int shadowBufferOffset)

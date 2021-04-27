@@ -507,7 +507,7 @@ void Renderer::createMergeLightningRenderTasks()
 		m_pRootSignature,
 		L"MergeLightningVertex.hlsl", L"MergeLightningPixel.hlsl",
 		&gpsdVector,
-		L"ShadowBufferPassPSO");
+		L"MergePassPSO");
 
 	m_MergeLightningRenderTask->SetMainDepthStencil(m_pMainDepthStencil);
 	m_MergeLightningRenderTask->SetSwapChain(m_pSwapChain);
@@ -515,6 +515,8 @@ void Renderer::createMergeLightningRenderTasks()
 	m_MergeLightningRenderTask->SetDescriptorHeaps(m_DescriptorHeaps);
 	m_MergeLightningRenderTask->SetCommandInterface(m_pTempCommandInterface);
 	m_MergeLightningRenderTask->CreateSlotInfo();
+
+	m_MergeLightningRenderTask->AddResource("GBufferNormal", m_GBufferNormal.resource);
 }
 
 void Renderer::InitDXR()
@@ -2379,7 +2381,7 @@ bool Renderer::createDevice()
 		if (SUCCEEDED(f(IID_PPV_ARGS(&debugController))))
 		{
 			debugController->EnableDebugLayer();
-			debugController->SetEnableGPUBasedValidation(false);
+			debugController->SetEnableGPUBasedValidation(true);
 		}
 
 		IDXGIInfoQueue* dxgiInfoQueue = nullptr;
