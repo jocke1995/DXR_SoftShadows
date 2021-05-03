@@ -2107,7 +2107,27 @@ void Renderer::lightningMergeTask(ID3D12GraphicsCommandList5* cl)
 
 	cl->SetGraphicsRoot32BitConstants(RS::RC_4, 2, data, 0);
 	
+	
+
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
+	{
+		auto transition = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_pShadowBufferResource[i]->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,		// StateBefore
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);	// StateAfter
+		cl->ResourceBarrier(1, &transition);
+	}
+
 	m_MergeLightningRenderTask->Execute();
+
+	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
+	{
+		auto transition = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_pShadowBufferResource[i]->GetID3D12Resource1(),
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,		// StateBefore
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);	// StateAfter
+		cl->ResourceBarrier(1, &transition);
+	}
 }
 
 void Renderer::TAATask(ID3D12GraphicsCommandList5* cl)
@@ -2381,7 +2401,7 @@ bool Renderer::createDevice()
 		if (SUCCEEDED(f(IID_PPV_ARGS(&debugController))))
 		{
 			debugController->EnableDebugLayer();
-			debugController->SetEnableGPUBasedValidation(true);
+			debugController->SetEnableGPUBasedValidation(false);
 		}
 
 		IDXGIInfoQueue* dxgiInfoQueue = nullptr;
