@@ -201,6 +201,7 @@ void TopLevelASGenerator::Generate(
   // If this in an update operation we need to provide the source buffer
   D3D12_GPU_VIRTUAL_ADDRESS pSourceAS = updateOnly ? previousResult->GetGPUVirtualAddress() : 0;
 
+  m_flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
   D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS flags = m_flags;
   // The stored flags represent whether the AS has been built for updates or
   // not. If yes and an update is requested, the builder is told to only update

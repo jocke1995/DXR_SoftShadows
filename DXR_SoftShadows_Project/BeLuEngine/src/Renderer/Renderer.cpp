@@ -65,7 +65,7 @@ UINT resolutionHeight = 1440;
 #include "../Misc/CSVExporter.h"
 
 
-#define FRAMES_TO_MEASURE 60*60 // 1*60*60
+#define FRAMES_TO_MEASURE 100 // 1*60*60
 double resultAverage0 = -1;
 double resultAverage1 = -1;
 double CPUresultAverage = -1;
@@ -779,12 +779,14 @@ void Renderer::ExecuteDXR(double dt)
 	/* ------------------------------------- COPY DATA NOT MEASURED ------------------------------------- */
 	DX12Task::SetCommandInterfaceIndex(commandInterfaceIndex);
 
+
 	// Copy per frame
 	m_CopyTasks[COPY_TASK_TYPE::COPY_PER_FRAME]->Execute();
 	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->ExecuteCommandLists(
 		1,
 		&m_DXRCpftCommandLists[commandInterfaceIndex]);
 	/* ------------------------------------- COPY DATA NOT MEASURED ------------------------------------- */
+	
 
 	m_pTempCommandInterface->Reset(0);
 	auto cl = m_pTempCommandInterface->GetCommandList(0);
@@ -799,8 +801,9 @@ void Renderer::ExecuteDXR(double dt)
 
 	CD3DX12_RESOURCE_BARRIER transition;
 
+
 #pragma region RayTrace
-	m_DXTimer.Start(cl, 0);
+
 	cl->SetComputeRootSignature(m_pRootSignature->GetRootSig());
 	cl->SetDescriptorHeaps(1, &dhCBVSRVUAV);
 	cl->SetComputeRootDescriptorTable(RS::dtRaytracing, m_DescriptorHeaps[DESCRIPTOR_HEAP_TYPE::CBV_UAV_SRV]->GetGPUHeapAt(m_DhIndexASOB));
@@ -853,7 +856,7 @@ void Renderer::ExecuteDXR(double dt)
 	cl->SetPipelineState1(m_pRTStateObject);
 	// Dispatch the rays and write to the raytracing output
 
-
+	
 	// Set temporal buffers written to UAV
 	for (unsigned int i = 0; i < m_Lights[LIGHT_TYPE::POINT_LIGHT].size(); i++)
 	{
@@ -863,9 +866,10 @@ void Renderer::ExecuteDXR(double dt)
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 	}
 
+	m_DXTimer.Start(cl, 0);
 	cl->DispatchRays(&desc);
-	
 	m_DXTimer.Stop(cl, 0);
+	
 #pragma endregion RayTrace
 
 	
@@ -1668,8 +1672,8 @@ void Renderer::submitModelToGPU(Model* model)
 		Mesh* mesh = model->GetMeshAt(i);
 
 		// DXR
-		bLmodel->vertexBuffers.push_back(std::make_pair(mesh->GetDefaultResourceVertices()->GetID3D12Resource1(), mesh->GetNumVertices()));
-		bLmodel->indexBuffers.push_back(std::make_pair(mesh->GetDefaultResourceIndices()->GetID3D12Resource1(), mesh->GetNumIndices()));
+		bLmodel->vertexBuffers.push_back(std::make_pair(mesh->GetDefaultResourceVertices()->GetID3D12Resource1(), 3));
+		bLmodel->indexBuffers.push_back(std::make_pair(mesh->GetDefaultResourceIndices()->GetID3D12Resource1(), 3));
 
 		// Submit Mesh
 		submitMeshToCodt(mesh);
@@ -1805,7 +1809,7 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 	{
 		m_TopLevelAsGenerator.AddInstance(
 			instances[i].first,
-			instances[i].second, 
+			instances[i].second,
 			static_cast<unsigned int>(i),
 			static_cast<unsigned int>(0));	// One hitgroup for each instance
 	}
@@ -1819,7 +1823,7 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 	UINT64 scratchSize, resultSize, instanceDescsSize;
 
 	// Prebuild
-	m_TopLevelAsGenerator.ComputeASBufferSizes(m_pDevice5, true, &scratchSize, &resultSize, &instanceDescsSize);
+	m_TopLevelAsGenerator.ComputeASBufferSizes(m_pDevice5, false, &scratchSize, &resultSize, &instanceDescsSize);
 
 	// Create the scratch and result buffers. Since the build is all done on GPU,
 	// those can be allocated on the default heap

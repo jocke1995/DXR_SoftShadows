@@ -51,10 +51,13 @@ void RayGen()
     uint seed = initRand(frameSeed * uv.x, frameSeed * uv.y);
 
     // PointLight Test
+
+    
     LightHeader lHeader = rawBufferLights.Load<LightHeader>(0);
-    for (int i = 0; i < lHeader.numLights; i++)
+    PointLight pl = rawBufferLights.Load<PointLight>(sizeof(LightHeader) + 0 * sizeof(PointLight));
+    for (int i = 0; i < 4; i++)
     {
-        PointLight pl = rawBufferLights.Load<PointLight>(sizeof(LightHeader) + i * sizeof(PointLight));
+        
         float3 lightPos = pl.position.xyz;
         float3 lightColor = pl.baseLight.color;
 
@@ -63,24 +66,23 @@ void RayGen()
 
         // Maybe have this attribute inside pointlight?
         float lightRadius = 1.0; // To low radius => coneAngle not accurate enough
-    
+
         float3 perpL = normalize(cross(lightDir, float3(0.f, 1.0f, 0.f)));
         // Handle case where L = up -> perpL should then be (1,0,0)
         if (all(perpL == 0.0f))
         {
             perpL.x = 1.0;
         }
-    
+
         // Use perpL to get a vector from worldPosition to the edge of the light sphere
         float3 toLightEdge = normalize((lightPos + perpL * lightRadius) - worldPos);
-    
+
         // Angle between L and toLightEdge. Used as the cone angle when sampling shadow rays
         float coneAngle = acos(dot(lightDir, toLightEdge)) * 2;
-    
-        
-    
+
+
+
         float sumFactor = 0;
- 
         for (int j = 0; j < cbPerScene.spp; j++)
         {
             float factor = 0;
@@ -113,6 +115,6 @@ void RayGen()
 
         sumFactor /= cbPerScene.spp;
         // i * 2 + 1 - PingPongResource has (0)SRV (1)UAV.
-        light_uav[i * 2 + 1][DispatchRaysIndex().xy] = min(sumFactor, 1.0);
+        light_uav[1][DispatchRaysIndex().xy] = min(sumFactor, 1.0);
     }
 }
