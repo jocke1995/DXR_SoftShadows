@@ -1672,8 +1672,8 @@ void Renderer::submitModelToGPU(Model* model)
 		Mesh* mesh = model->GetMeshAt(i);
 
 		// DXR
-		bLmodel->vertexBuffers.push_back(std::make_pair(mesh->GetDefaultResourceVertices()->GetID3D12Resource1(), 3));
-		bLmodel->indexBuffers.push_back(std::make_pair(mesh->GetDefaultResourceIndices()->GetID3D12Resource1(), 3));
+		bLmodel->vertexBuffers.push_back(std::make_pair(mesh->GetDefaultResourceVertices()->GetID3D12Resource1(), mesh->GetNumVertices()));
+		bLmodel->indexBuffers.push_back(std::make_pair(mesh->GetDefaultResourceIndices()->GetID3D12Resource1(), mesh->GetNumIndices()));
 
 		// Submit Mesh
 		submitMeshToCodt(mesh);
