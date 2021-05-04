@@ -222,7 +222,7 @@ namespace nv_helpers_dx12
         D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc;
         buildDesc.Inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
         buildDesc.Inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-        buildDesc.Inputs.NumDescs = static_cast<UINT>(1);
+        buildDesc.Inputs.NumDescs = static_cast<UINT>(m_vertexBuffers.size());
         buildDesc.Inputs.pGeometryDescs = m_vertexBuffers.data();
         buildDesc.DestAccelerationStructureData = { resultBuffer->GetGPUVirtualAddress()};
         buildDesc.ScratchAccelerationStructureData = { scratchBuffer->GetGPUVirtualAddress()};
