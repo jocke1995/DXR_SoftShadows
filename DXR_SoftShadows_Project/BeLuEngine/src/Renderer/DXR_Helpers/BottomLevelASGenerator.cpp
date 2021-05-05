@@ -180,33 +180,11 @@ namespace nv_helpers_dx12
             *commandList, // Command list on which the build will be enqueued
         ID3D12Resource *scratchBuffer, // Scratch buffer used by the builder to
                                        // store temporary data
-        ID3D12Resource
-            *resultBuffer, // Result buffer storing the acceleration structure
-        bool updateOnly,   // If true, simply refit the existing
-                           // acceleration structure
-        ID3D12Resource *previousResult) // Optional previous acceleration
-                                        // structure, used if an iterative update
-                                        // is requested
+        ID3D12Resource *resultBuffer, // Result buffer storing the acceleration structure
+        D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC* pRtAsPostbuildInfo)
     {
 
         D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS flags = m_flags;
-        // The stored flags represent whether the AS has been built for updates or
-        // not. If yes and an update is requested, the builder is told to only update
-        // the AS instead of fully rebuilding it
-        if (flags == D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE && updateOnly)
-        {
-            flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE;
-        }
-
-        // Sanity checks
-        if (m_flags != D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE && updateOnly) 
-        {
-            throw std::logic_error("Cannot update a bottom-level AS not originally built for updates");
-        }
-        if (updateOnly && previousResult == nullptr)
-        {
-            throw std::logic_error("Bottom-level hierarchy update requires the previous hierarchy");
-        }
 
         if (m_resultSizeInBytes == 0 || m_scratchSizeInBytes == 0)
         {
@@ -224,11 +202,11 @@ namespace nv_helpers_dx12
         buildDesc.Inputs.pGeometryDescs = m_vertexBuffers.data();
         buildDesc.DestAccelerationStructureData = { resultBuffer->GetGPUVirtualAddress()};
         buildDesc.ScratchAccelerationStructureData = { scratchBuffer->GetGPUVirtualAddress()};
-        buildDesc.SourceAccelerationStructureData = previousResult ? previousResult->GetGPUVirtualAddress() : 0;
+        buildDesc.SourceAccelerationStructureData = 0;
         buildDesc.Inputs.Flags = flags;
 
         // Build the AS
-        commandList->BuildRaytracingAccelerationStructure(&buildDesc, 0, nullptr);
+        commandList->BuildRaytracingAccelerationStructure(&buildDesc, 1, pRtAsPostbuildInfo);
 
         // Wait for the builder to complete by setting a barrier on the resulting
         // buffer. This is particularly important as the construction of the top-level

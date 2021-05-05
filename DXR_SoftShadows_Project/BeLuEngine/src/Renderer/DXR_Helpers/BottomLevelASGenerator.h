@@ -149,9 +149,7 @@ public:
       ID3D12Resource* scratchBuffer, /// Scratch buffer used by the builder to
                                      /// store temporary data
       ID3D12Resource* resultBuffer,  /// Result buffer storing the acceleration structure
-      bool updateOnly = false,       /// If true, simply refit the existing acceleration structure
-      ID3D12Resource* previousResult = nullptr /// Optional previous acceleration structure, used
-                                               /// if an iterative update is requested
+      D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC* pRtAsPostbuildInfo
   );
 
 private:
