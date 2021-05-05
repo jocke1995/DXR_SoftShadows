@@ -125,11 +125,7 @@ public:
                                          /// store temporary data
       ID3D12Resource* resultBuffer,      /// Result buffer storing the acceleration structure
       ID3D12Resource* descriptorsBuffer, /// Auxiliary result buffer containing the instance
-                                         /// descriptors, has to be in upload heap
-      bool updateOnly = false, /// If true, simply refit the existing acceleration structure
-      ID3D12Resource* previousResult = nullptr /// Optional previous acceleration structure, used
-                                               /// if an iterative update is requested
-  );
+      D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC* pRtAsPostbuildInfo);
 
 private:
   /// Helper struct storing the instance data

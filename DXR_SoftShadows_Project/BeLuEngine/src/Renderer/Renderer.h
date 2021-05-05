@@ -144,6 +144,13 @@ public:
 
 	void OnResetScene();
 
+	// Temp for getting size of AccelerationStructures
+	unsigned int m_TopLevelSizeInBytes = 0;
+	unsigned int m_TotalBottomLevelSizeInBytes = 0;
+	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC m_pRTPostBuildDesc = {};
+	ID3D12Resource1* m_pReadBackResource = nullptr;
+	Resource* m_pPostBuildDefaultResource = nullptr;
+
 private:
 	friend class BeLuEngine;
 	friend class SceneManager;

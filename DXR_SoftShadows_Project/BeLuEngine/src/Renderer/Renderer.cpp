@@ -192,6 +192,9 @@ void Renderer::deleteRenderer()
 	
 	delete m_pOutputResource;
 	delete m_pTempInlinePixelUploadResource;
+
+	SAFE_RELEASE(&m_pReadBackResource);
+	delete m_pPostBuildDefaultResource;
 	
 
 	delete m_ShadowBufferRenderTask;
@@ -231,6 +234,55 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 
 	m_pDevice5->SetStablePowerState(true);
 
+#pragma region PostBuildAcellerationStructureStuff
+
+	/* READBACK- HEAP*/
+	D3D12_RESOURCE_DESC resouceDesc;
+	ZeroMemory(&resouceDesc, sizeof(resouceDesc));
+	resouceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+	resouceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+	resouceDesc.Width = sizeof(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC);	// sizeof(UINT64)
+	resouceDesc.Height = 1;
+	resouceDesc.DepthOrArraySize = 1;
+	resouceDesc.MipLevels = 1;
+	resouceDesc.Format = DXGI_FORMAT_UNKNOWN;
+	resouceDesc.SampleDesc.Count = 1;
+	resouceDesc.SampleDesc.Quality = 0;
+	resouceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+	resouceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+	D3D12_HEAP_PROPERTIES heapProp = {};
+	heapProp.Type = D3D12_HEAP_TYPE_READBACK;
+	heapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	heapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	heapProp.CreationNodeMask = 1;
+	heapProp.VisibleNodeMask = 1;
+	
+	HRESULT hr = E_FAIL;
+	if (SUCCEEDED(hr = m_pDevice5->CreateCommittedResource(
+		&heapProp,
+		D3D12_HEAP_FLAG_NONE,
+		&resouceDesc,
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
+		IID_PPV_ARGS(&m_pReadBackResource))
+	))
+	{
+		m_pReadBackResource->SetName(L"m_pReadBackResource");
+	}
+	/* READBACK- HEAP*/
+
+	/* DEFAULT- HEAP*/
+	m_pPostBuildDefaultResource = new Resource(
+		m_pDevice5,
+		sizeof(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC),
+		RESOURCE_TYPE::DEFAULT,
+		L"PostBuildDefaultHeap",
+		D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+		D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	/* DEFAULT- HEAP*/
+
+#pragma endregion PostBuildAcellerationStructureStuff
 	// Create CommandQueues (copy, compute and direct)
 	createCommandQueues();
 
@@ -1838,25 +1890,26 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
 		D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
 
-	// The buffer describing the instances: ID, shader binding information,
-	// matrices ... Those will be copied into the buffer by the helper through
-	// mapping, so the buffer has to be allocated on the upload heap.
-
-	// Result
+	// instanceDesc
 	m_TopLevelASBuffers.instanceDesc = new Resource(
 		m_pDevice5, instanceDescsSize,
 		RESOURCE_TYPE::UPLOAD, L"instanceDescTopLevel",
 		D3D12_RESOURCE_FLAG_NONE,
 		D3D12_RESOURCE_STATE_GENERIC_READ);
 
-	// After all the buffers are allocated, or if only an update is required, we
-	// can build the acceleration structure. Note that in the case of the update
-	// we also pass the existing AS as the 'previous' AS, so that it can be
-	// refitted in place.m_pTempCommandInterface
+	// Setup readback Heap for postBuild Info
+	m_pRTPostBuildDesc = {};
+
+	m_pRTPostBuildDesc.InfoType = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TYPE::D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE;
+	m_pRTPostBuildDesc.DestBuffer = m_pPostBuildDefaultResource->GetID3D12Resource1()->GetGPUVirtualAddress();
+
+	// Build AS
 	m_TopLevelAsGenerator.Generate(m_pTempCommandInterface->GetCommandList(0),
 		m_TopLevelASBuffers.scratch->GetID3D12Resource1(),
 		m_TopLevelASBuffers.result->GetID3D12Resource1(),
-		m_TopLevelASBuffers.instanceDesc->GetID3D12Resource1());
+		m_TopLevelASBuffers.instanceDesc->GetID3D12Resource1(),
+		&m_pRTPostBuildDesc);
+
 }
 
 void Renderer::CreateAccelerationStructures()
@@ -1869,6 +1922,13 @@ void Renderer::CreateAccelerationStructures()
 
 	CreateTopLevelAS(m_instances);
 
+	m_pTempCommandInterface->GetCommandList(0)->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pPostBuildDefaultResource->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,	// StateBefore
+		D3D12_RESOURCE_STATE_COPY_SOURCE));		// StateAfter
+
+	m_pTempCommandInterface->GetCommandList(0)->CopyResource(m_pReadBackResource, m_pPostBuildDefaultResource->GetID3D12Resource1());
+
 	// Flush the command list and wait for it to finish
 	m_pTempCommandInterface->GetCommandList(0)->Close();
 	ID3D12CommandList* ppCommandLists[] = { m_pTempCommandInterface->GetCommandList(0) };
@@ -1876,9 +1936,23 @@ void Renderer::CreateAccelerationStructures()
 
 	// Wait if the CPU is to far ahead of the gpu
 	waitForGPU();
-	//m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->Signal(m_pFenceFrame, m_FenceFrameValue);
-	//waitForFrame(0);
-	//m_FenceFrameValue++;
+	
+	// Resolve data from readback Heap
+	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC size = {};
+
+	{
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC* mapMem = nullptr;
+		D3D12_RANGE readRange{ 0, sizeof(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC) };
+		D3D12_RANGE writeRange{ 0, 0 };
+		if (SUCCEEDED(m_pReadBackResource->Map(0, &readRange, (void**)&mapMem)))
+		{
+			size = *mapMem;
+			m_pReadBackResource->Unmap(0, &writeRange);
+		}
+	}
+
+	m_TopLevelSizeInBytes += size.CurrentSizeInBytes;
+
 }
 
 ID3D12RootSignature* Renderer::CreateRayGenSignature()

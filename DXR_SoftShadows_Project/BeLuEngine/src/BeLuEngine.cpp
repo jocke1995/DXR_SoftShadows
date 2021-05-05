@@ -1,8 +1,8 @@
 #include "stdafx.h"
 #include "BeLuEngine.h"
 
-#define SCREENWIDTH 2560
-#define SCREENHEIGHT 1440
+#define SCREENWIDTH 1280
+#define SCREENHEIGHT 720
 
 
 BeLuEngine::BeLuEngine()
