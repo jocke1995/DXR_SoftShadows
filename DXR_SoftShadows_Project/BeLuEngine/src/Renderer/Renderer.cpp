@@ -2074,6 +2074,13 @@ void Renderer::CreateAccelerationStructures()
 #pragma endregion TopLevelSizeInBytes
 	
 
+	std::cout << std::endl;
+	std::cout << std::endl;
+
+	UINT64 queueFreq = 0;
+	m_CommandQueues[COMMAND_INTERFACE_TYPE::DIRECT_TYPE]->GetTimestampFrequency(&queueFreq);
+	std::cout << "GetTimestampFrequency(): " << queueFreq << " Hz" << std::endl;
+	std::cout << "GetTimestampFrequency(): " << queueFreq / 1000 / 1000 << " MHz" << std::endl;
 }
 
 ID3D12RootSignature* Renderer::CreateRayGenSignature()
