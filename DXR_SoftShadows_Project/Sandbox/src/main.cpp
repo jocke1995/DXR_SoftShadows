@@ -43,8 +43,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     //params.scene = L"Sponza";
     if (params.scene == L"test")
     {
-         scene = DragonScene1Light(sceneManager);
-         //scene = SponzaDragonsScene8Lights(sceneManager);
+         //scene = DragonScene1Light(sceneManager);
+         scene = SponzaDragonsScene8Lights(sceneManager);
     }
     else if(params.scene == L"Sponza")  // Sponza test scenes
     {

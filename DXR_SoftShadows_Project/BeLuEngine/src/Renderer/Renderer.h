@@ -145,11 +145,14 @@ public:
 	void OnResetScene();
 
 	// Temp for getting size of AccelerationStructures
-	unsigned int m_TopLevelSizeInBytes = 0;
 	unsigned int m_TotalBottomLevelSizeInBytes = 0;
 	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC m_pRTPostBuildDesc = {};
 	ID3D12Resource1* m_pReadBackResource = nullptr;
-	Resource* m_pPostBuildDefaultResource = nullptr;
+	//ID3D12Resource1* m_pBottomLevel1ReadBackResource = nullptr;
+	//ID3D12Resource1* m_pBottomLevel2ReadBackResource = nullptr;
+	Resource* m_pPostBuild1DefaultResource = nullptr;
+	Resource* m_pPostBuild2DefaultResource = nullptr;
+	Resource* m_pPostBuild3DefaultResource = nullptr;
 
 private:
 	friend class BeLuEngine;
@@ -158,6 +161,8 @@ private:
 
 	// For control of safe release of DirectX resources
 	void deleteRenderer();
+
+	ID3D12Resource1* createReadBackBuffer(std::wstring name);
 
 	// SubmitToCodt functions
 	void submitToCodt(std::tuple<Resource*, Resource*, const void*>* Upload_Default_Data);

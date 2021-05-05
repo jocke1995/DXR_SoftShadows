@@ -195,7 +195,9 @@ void Renderer::deleteRenderer()
 	delete m_pTempInlinePixelUploadResource;
 
 	SAFE_RELEASE(&m_pReadBackResource);
-	delete m_pPostBuildDefaultResource;
+	delete m_pPostBuild1DefaultResource;
+	delete m_pPostBuild2DefaultResource;
+	delete m_pPostBuild3DefaultResource;
 	
 
 	delete m_ShadowBufferRenderTask;
@@ -219,6 +221,48 @@ void Renderer::deleteRenderer()
 	m_TopLevelASBuffers.release();
 }
 
+ID3D12Resource1* Renderer::createReadBackBuffer(std::wstring name)
+{
+	ID3D12Resource1* readBackBuffer = nullptr;
+
+	/* READBACK- HEAP*/
+	D3D12_RESOURCE_DESC resouceDesc;
+	ZeroMemory(&resouceDesc, sizeof(resouceDesc));
+	resouceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+	resouceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+	resouceDesc.Width = sizeof(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC) * 3; // Hardcoded for testing purpose
+	resouceDesc.Height = 1;
+	resouceDesc.DepthOrArraySize = 1;
+	resouceDesc.MipLevels = 1;
+	resouceDesc.Format = DXGI_FORMAT_UNKNOWN;
+	resouceDesc.SampleDesc.Count = 1;
+	resouceDesc.SampleDesc.Quality = 0;
+	resouceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+	resouceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+	D3D12_HEAP_PROPERTIES heapProp = {};
+	heapProp.Type = D3D12_HEAP_TYPE_READBACK;
+	heapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	heapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	heapProp.CreationNodeMask = 1;
+	heapProp.VisibleNodeMask = 1;
+
+	HRESULT hr = E_FAIL;
+	if (SUCCEEDED(hr = m_pDevice5->CreateCommittedResource(
+		&heapProp,
+		D3D12_HEAP_FLAG_NONE,
+		&resouceDesc,
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
+		IID_PPV_ARGS(&readBackBuffer))
+	))
+	{
+		readBackBuffer->SetName(name.c_str());
+	}
+	
+	return readBackBuffer;
+}
+
 void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* threadPool)
 {
 	m_pThreadPool = threadPool;
@@ -237,51 +281,37 @@ void Renderer::InitD3D12(Window *window, HINSTANCE hInstance, ThreadPool* thread
 
 #pragma region PostBuildAcellerationStructureStuff
 
-	/* READBACK- HEAP*/
-	D3D12_RESOURCE_DESC resouceDesc;
-	ZeroMemory(&resouceDesc, sizeof(resouceDesc));
-	resouceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	resouceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-	resouceDesc.Width = sizeof(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC);	// sizeof(UINT64)
-	resouceDesc.Height = 1;
-	resouceDesc.DepthOrArraySize = 1;
-	resouceDesc.MipLevels = 1;
-	resouceDesc.Format = DXGI_FORMAT_UNKNOWN;
-	resouceDesc.SampleDesc.Count = 1;
-	resouceDesc.SampleDesc.Quality = 0;
-	resouceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-	resouceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-	D3D12_HEAP_PROPERTIES heapProp = {};
-	heapProp.Type = D3D12_HEAP_TYPE_READBACK;
-	heapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-	heapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-	heapProp.CreationNodeMask = 1;
-	heapProp.VisibleNodeMask = 1;
+	m_pReadBackResource = createReadBackBuffer(L"TopLevelReadBackResource");
 	
-	HRESULT hr = E_FAIL;
-	if (SUCCEEDED(hr = m_pDevice5->CreateCommittedResource(
-		&heapProp,
-		D3D12_HEAP_FLAG_NONE,
-		&resouceDesc,
-		D3D12_RESOURCE_STATE_COPY_DEST,
-		nullptr,
-		IID_PPV_ARGS(&m_pReadBackResource))
-	))
-	{
-		m_pReadBackResource->SetName(L"m_pReadBackResource");
-	}
-	/* READBACK- HEAP*/
-
-	/* DEFAULT- HEAP*/
-	m_pPostBuildDefaultResource = new Resource(
+	/* DEFAULT- HEAP1*/
+	m_pPostBuild1DefaultResource = new Resource(
 		m_pDevice5,
 		sizeof(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC),
 		RESOURCE_TYPE::DEFAULT,
 		L"PostBuildDefaultHeap",
 		D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
 		D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-	/* DEFAULT- HEAP*/
+	/* DEFAULT- HEAP1*/
+
+	/* DEFAULT- HEAP2*/
+	m_pPostBuild2DefaultResource = new Resource(
+		m_pDevice5,
+		sizeof(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC),
+		RESOURCE_TYPE::DEFAULT,
+		L"PostBuildDefaultHeap",
+		D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+		D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	/* DEFAULT- HEAP2*/
+
+	/* DEFAULT- HEAP3*/
+	m_pPostBuild3DefaultResource = new Resource(
+		m_pDevice5,
+		sizeof(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC),
+		RESOURCE_TYPE::DEFAULT,
+		L"PostBuildDefaultHeap",
+		D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+		D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	/* DEFAULT- HEAP3*/
 
 #pragma endregion PostBuildAcellerationStructureStuff
 	// Create CommandQueues (copy, compute and direct)
@@ -1828,8 +1858,12 @@ void Renderer::CreateBottomLevelAS(BLModel** blModel)
 	// buffers. It size is also dependent on the scene complexity.
 	UINT64 resultSizeInBytes = 0;
 
+	// Setup readback Heap for postBuild Info
+	static unsigned int i = 0;
+
 	m_BottomLevelASGenerator.ComputeASBufferSizes(m_pDevice5, false, &scratchSizeInBytes,
 		&resultSizeInBytes);
+	std::cout << "Prebuild BottomLevelAS" << i << " size: " << resultSizeInBytes << std::endl;
 
 	// Scratch
 	(*blModel)->ASbuffer = new AccelerationStructureBuffers();
@@ -1845,11 +1879,25 @@ void Renderer::CreateBottomLevelAS(BLModel** blModel)
 		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
 		D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
 	
-	// Build the acceleration structure. Note that this call integrates a barrier
-	// on the generated AS, so that it can be used to compute a top-level AS right
-	// after this method.
+	// Setup readback Heap for postBuild Info
+	m_pRTPostBuildDesc = {};
+	m_pRTPostBuildDesc.InfoType = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TYPE::D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE;
+	m_pRTPostBuildDesc.DestBuffer = m_pPostBuild1DefaultResource->GetID3D12Resource1()->GetGPUVirtualAddress();
+
+	m_pRTPostBuildDesc = {};
+	m_pRTPostBuildDesc.InfoType = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TYPE::D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE;
+	if (i == 0)
+		m_pRTPostBuildDesc.DestBuffer = m_pPostBuild1DefaultResource->GetID3D12Resource1()->GetGPUVirtualAddress();
+	else if(i == 1)
+		m_pRTPostBuildDesc.DestBuffer = m_pPostBuild2DefaultResource->GetID3D12Resource1()->GetGPUVirtualAddress();
+
+	i++;
+
 	m_BottomLevelASGenerator.Generate(m_pTempCommandInterface->GetCommandList(0), (*blModel)->ASbuffer->scratch->GetID3D12Resource1(),
-		(*blModel)->ASbuffer->result->GetID3D12Resource1(), false, nullptr);
+		(*blModel)->ASbuffer->result->GetID3D12Resource1(), &m_pRTPostBuildDesc);
+
+
+	// copyResource and stuff
 }
 
 void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>>& instances)
@@ -1874,6 +1922,7 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 	// Prebuild
 	m_TopLevelAsGenerator.ComputeASBufferSizes(m_pDevice5, true, &scratchSize, &resultSize, &instanceDescsSize);
 
+	std::cout << "Prebuild TopLevelAS size:" << resultSize << std::endl;
 	// Create the scratch and result buffers. Since the build is all done on GPU,
 	// those can be allocated on the default heap
 
@@ -1900,9 +1949,8 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX:
 
 	// Setup readback Heap for postBuild Info
 	m_pRTPostBuildDesc = {};
-
 	m_pRTPostBuildDesc.InfoType = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_TYPE::D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE;
-	m_pRTPostBuildDesc.DestBuffer = m_pPostBuildDefaultResource->GetID3D12Resource1()->GetGPUVirtualAddress();
+	m_pRTPostBuildDesc.DestBuffer = m_pPostBuild3DefaultResource->GetID3D12Resource1()->GetGPUVirtualAddress();
 
 	// Build AS
 	m_TopLevelAsGenerator.Generate(m_pTempCommandInterface->GetCommandList(0),
@@ -1923,12 +1971,41 @@ void Renderer::CreateAccelerationStructures()
 
 	CreateTopLevelAS(m_instances);
 
+#pragma region BottomLevel1SizeInBytes
 	m_pTempCommandInterface->GetCommandList(0)->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		m_pPostBuildDefaultResource->GetID3D12Resource1(),
+		m_pPostBuild1DefaultResource->GetID3D12Resource1(),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,	// StateBefore
 		D3D12_RESOURCE_STATE_COPY_SOURCE));		// StateAfter
 
-	m_pTempCommandInterface->GetCommandList(0)->CopyResource(m_pReadBackResource, m_pPostBuildDefaultResource->GetID3D12Resource1());
+	m_pTempCommandInterface->GetCommandList(0)->CopyBufferRegion(
+		m_pReadBackResource, 0,
+		m_pPostBuild1DefaultResource->GetID3D12Resource1(), 0,
+		sizeof(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC));
+#pragma endregion BottomLevel1SizeInBytes
+
+#pragma region BottomLevel2SizeInBytes
+	m_pTempCommandInterface->GetCommandList(0)->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pPostBuild2DefaultResource->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,	// StateBefore
+		D3D12_RESOURCE_STATE_COPY_SOURCE));		// StateAfter
+
+	m_pTempCommandInterface->GetCommandList(0)->CopyBufferRegion(
+		m_pReadBackResource, 8,
+		m_pPostBuild2DefaultResource->GetID3D12Resource1(), 0,
+		sizeof(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC));
+#pragma endregion BottomLevel2SizeInBytes
+
+#pragma region TopLevelSizeInBytes
+	m_pTempCommandInterface->GetCommandList(0)->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		m_pPostBuild3DefaultResource->GetID3D12Resource1(),
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,	// StateBefore
+		D3D12_RESOURCE_STATE_COPY_SOURCE));		// StateAfter
+
+	m_pTempCommandInterface->GetCommandList(0)->CopyBufferRegion(
+		m_pReadBackResource, 16,
+		m_pPostBuild3DefaultResource->GetID3D12Resource1(), 0,
+		sizeof(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC));
+#pragma endregion TopLevelSizeInBytes
 
 	// Flush the command list and wait for it to finish
 	m_pTempCommandInterface->GetCommandList(0)->Close();
@@ -1939,21 +2016,63 @@ void Renderer::CreateAccelerationStructures()
 	waitForGPU();
 	
 	// Resolve data from readback Heap
-	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC size = {};
+	std::cout << std::endl;
+	std::cout << std::endl;
 
+	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC size = {};
+#pragma region BottomLevel1SizeInBytes
 	{
 		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC* mapMem = nullptr;
-		D3D12_RANGE readRange{ 0, sizeof(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC) };
+
+		D3D12_RANGE readRange{ 0, 8 };
 		D3D12_RANGE writeRange{ 0, 0 };
 		if (SUCCEEDED(m_pReadBackResource->Map(0, &readRange, (void**)&mapMem)))
 		{
+			mapMem += 0;
 			size = *mapMem;
 			m_pReadBackResource->Unmap(0, &writeRange);
 		}
 	}
 
-	m_TopLevelSizeInBytes += size.CurrentSizeInBytes;
-	std::cout << "TopLevel SizeinBytes: " << m_TopLevelSizeInBytes << std::endl;
+	m_TotalBottomLevelSizeInBytes += size.CurrentSizeInBytes;
+	std::cout << "Postbuild BottomLevelAS0 size: " << size.CurrentSizeInBytes << std::endl;
+#pragma endregion BottomLevel1SizeInBytes
+
+#pragma region BottomLevel2SizeInBytes
+	{
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC* mapMem = nullptr;
+
+		D3D12_RANGE readRange{ 0, 8 };
+		D3D12_RANGE writeRange{ 0, 0 };
+		if (SUCCEEDED(m_pReadBackResource->Map(0, &readRange, (void**)&mapMem)))
+		{
+			mapMem += 1;
+			size = *mapMem;
+			m_pReadBackResource->Unmap(0, &writeRange);
+		}
+	}
+
+	m_TotalBottomLevelSizeInBytes += size.CurrentSizeInBytes;
+	std::cout << "Postbuild BottomLevelAS1 size : " << size.CurrentSizeInBytes << std::endl;
+#pragma endregion BottomLevel2SizeInBytes
+
+#pragma region TopLevelSizeInBytes
+	{
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE_DESC* mapMem = nullptr;
+
+		D3D12_RANGE readRange{ 0, 8 };
+		D3D12_RANGE writeRange{ 0, 0 };
+		if (SUCCEEDED(m_pReadBackResource->Map(0, &readRange, (void**)&mapMem)))
+		{
+			mapMem += 2;
+			size = *mapMem;
+			m_pReadBackResource->Unmap(0, &writeRange);
+		}
+	}
+
+	std::cout << "Postbuild TopLevelAS size : " << size.CurrentSizeInBytes << std::endl;
+#pragma endregion TopLevelSizeInBytes
+	
 
 }
 
