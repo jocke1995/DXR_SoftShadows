@@ -3,6 +3,7 @@
 
 #include <ios>
 
+
 Scene* TestScene(SceneManager* sm);
 
 void TestUpdateScene(SceneManager* sm, double dt);
@@ -12,6 +13,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 #ifdef DEBUG
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
+
+    AllocConsole();
+    freopen("CONOUT$", "w+", stdout);
 
     /* ------ Command line arguments  ------ */
     ApplicationParameters params;
@@ -40,7 +44,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     if (params.scene == L"test")
     {
          scene = DragonScene1Light(sceneManager);
-         //scene = SponzaScene2Lights(sceneManager);
+         //scene = SponzaDragonsScene8Lights(sceneManager);
     }
     else if(params.scene == L"Sponza")  // Sponza test scenes
     {

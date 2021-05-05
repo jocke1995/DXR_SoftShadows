@@ -7,6 +7,7 @@ UINT resolutionHeight = 1440;
 // Misc
 #include "../Misc/AssetLoader.h"
 #include "../Misc/Window.h"
+#include <iostream>
 
 // ECS
 #include "../ECS/Scene.h"
@@ -1952,6 +1953,7 @@ void Renderer::CreateAccelerationStructures()
 	}
 
 	m_TopLevelSizeInBytes += size.CurrentSizeInBytes;
+	std::cout << "TopLevel SizeinBytes: " << m_TopLevelSizeInBytes << std::endl;
 
 }
 
