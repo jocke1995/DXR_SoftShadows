@@ -9,7 +9,7 @@
 #include "RenderTarget.h"
 
 // Descriptor -Wrappers
-#include "View.h"
+#include "Descriptor.h"
 #include "ConstantBufferView.h"
 #include "ShaderResourceView.h"
 #include "UnorderedAccessView.h"

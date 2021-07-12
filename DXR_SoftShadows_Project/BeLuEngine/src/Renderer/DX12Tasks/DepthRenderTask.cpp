@@ -28,11 +28,15 @@ DepthRenderTask::~DepthRenderTask()
 {
 }
 
+void DepthRenderTask::SetCommandInterface(CommandInterface* inter)
+{
+	m_pTempCommandInterface = inter;
+}
+
 void DepthRenderTask::Execute()
 {
-	ID3D12CommandAllocator* commandAllocator = m_pCommandInterface->GetCommandAllocator(m_CommandInterfaceIndex);
-	ID3D12GraphicsCommandList5* commandList = m_pCommandInterface->GetCommandList(m_CommandInterfaceIndex);
-	m_pCommandInterface->Reset(m_CommandInterfaceIndex);
+	ID3D12CommandAllocator* commandAllocator = m_pTempCommandInterface->GetCommandAllocator(0);
+	ID3D12GraphicsCommandList5* commandList = m_pTempCommandInterface->GetCommandList(0);
 
 	commandList->SetGraphicsRootSignature(m_pRootSig);
 
@@ -62,19 +66,21 @@ void DepthRenderTask::Execute()
 	commandList->ClearDepthStencilView(dsh, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 	commandList->OMSetRenderTargets(0, nullptr, false, &dsh);
 
+	static bool updateMatrices = true;
 	// Draw for every Rendercomponent
 	for (int i = 0; i < m_RenderComponents->size(); i++)
 	{
-		drawRenderComponent(m_RenderComponents->at(i), viewProjMatTrans, commandList);
+		drawRenderComponent(m_RenderComponents->at(i), viewProjMatTrans, commandList, updateMatrices);
 	}
 
-	commandList->Close();
+	updateMatrices = false;
 }
 
 void DepthRenderTask::drawRenderComponent(
 	RenderComponent* rc,
 	const DirectX::XMMATRIX* viewProjTransposed,
-	ID3D12GraphicsCommandList5* cl)
+	ID3D12GraphicsCommandList5* cl,
+	bool updateMatrices)
 {
 	component::ModelComponent	 * mc = rc->mc;
 	component::TransformComponent* tc = rc->tc;
@@ -93,7 +99,34 @@ void DepthRenderTask::drawRenderComponent(
 		// Create a CB_PER_OBJECT struct
 		CB_PER_OBJECT_STRUCT perObject = { *WTransposed, WVPTransposed, *info };
 
-		cl->SetGraphicsRoot32BitConstants(RS::CB_PER_OBJECT_CONSTANTS, sizeof(CB_PER_OBJECT_STRUCT) / sizeof(UINT), &perObject, 0);
+#ifdef DIST
+		// Temp, should not SetData here, Only does it here because it doesn't matter for the master thesis
+		if (updateMatrices == true)
+		{
+#endif
+			Resource* upl = rc->CB_PER_OBJECT_UPLOAD_RESOURCES[i];
+			Resource* def = rc->CB_PER_OBJECT_DEFAULT_RESOURCES[i];
+			upl->SetData(&perObject);
+
+			cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+				def->GetID3D12Resource1(),
+				D3D12_RESOURCE_STATE_COMMON,
+				D3D12_RESOURCE_STATE_COPY_DEST));
+
+			// To Defaultheap from Uploadheap
+			cl->CopyResource(
+				def->GetID3D12Resource1(),	// Receiever
+				upl->GetID3D12Resource1());	// Sender
+
+			cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+				def->GetID3D12Resource1(),
+				D3D12_RESOURCE_STATE_COPY_DEST,
+				D3D12_RESOURCE_STATE_COMMON));
+#ifdef DIST
+		}
+#endif
+
+		cl->SetGraphicsRootConstantBufferView(RS::CB_PER_OBJECT_CBV, rc->CB_PER_OBJECT_DEFAULT_RESOURCES[i]->GetGPUVirtualAdress());
 
 		cl->IASetIndexBuffer(m->GetIndexBufferView());
 		cl->DrawIndexedInstanced(num_Indices, 1, 0, 0, 0);

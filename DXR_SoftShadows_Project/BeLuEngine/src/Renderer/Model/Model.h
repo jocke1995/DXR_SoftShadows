@@ -4,6 +4,7 @@
 class Mesh;
 class Material;
 class Resource;
+class ShaderResource;
 class ShaderResourceView;
 class DescriptorHeap;
 struct SlotInfo;
@@ -17,7 +18,9 @@ class Model
 public:
     Model(const std::wstring* path,
         std::vector<Mesh*>* meshes,
-        std::vector<Material*>* materials);
+        std::vector<Material*>* materials,
+        ID3D12Device5* device,
+        DescriptorHeap* dHeap);
     virtual ~Model();
 
     bool operator == (const Model& other);
@@ -37,6 +40,11 @@ public:
     // SlotInfo
     const SlotInfo* GetSlotInfoAt(unsigned int index) const;
 
+    // DXR
+    void SetBottomLevelResult(ID3D12Resource1* blResult);
+    ID3D12Resource1* GetBottomLevelResultP() const;
+    ShaderResource* GetByteAdressInfoDXR() const;
+
 protected:
     friend class Renderer;
     friend class AssetLoader;
@@ -48,7 +56,13 @@ protected:
 
     std::vector<Mesh*> m_Meshes;
     std::vector<Material*> m_Materials;
-    std::vector<SlotInfo> m_SlotInfos; 
+    std::vector<SlotInfo> m_SlotInfos;
+
+    // DXR
+    ID3D12Resource1* m_pBottomLevelResult = nullptr;
+    ShaderResource* m_SlotInfoByteAdressBuffer;
+
+    unsigned int m_DXRStartDHIndex = 0;
 };
 
 #endif

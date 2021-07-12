@@ -9,7 +9,7 @@ ConstantBufferView::ConstantBufferView(
 	DescriptorHeap* descriptorHeap_CBV_UAV_SRV,
 	D3D12_CONSTANT_BUFFER_VIEW_DESC* cbvDesc,
 	Resource* resource)
-	:View(descriptorHeap_CBV_UAV_SRV, resource)
+	:Descriptor(descriptorHeap_CBV_UAV_SRV, resource)
 {
 	createConstantBufferView(device, descriptorHeap_CBV_UAV_SRV, cbvDesc);
 }

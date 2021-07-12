@@ -57,7 +57,7 @@ void CommandInterface::createCommandInterfaces(ID3D12Device5* device, COMMAND_IN
 
 		if (FAILED(hr))
 		{
-			Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to Create CommandAllocator\n");
+			BL_LOG_CRITICAL("Failed to Create CommandAllocator\n");
 		}
 
 		hr = device->CreateCommandList(0,
@@ -68,7 +68,7 @@ void CommandInterface::createCommandInterfaces(ID3D12Device5* device, COMMAND_IN
 
 		if (FAILED(hr))
 		{
-			Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to Create CommandList\n");
+			BL_LOG_CRITICAL("Failed to Create CommandList\n");
 		}
 
 		m_pCommandLists[i]->Close();

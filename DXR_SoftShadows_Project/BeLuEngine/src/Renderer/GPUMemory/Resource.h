@@ -8,6 +8,8 @@ enum RESOURCE_TYPE
     NUM_RESOURCE_TYPES
 };
 
+struct ID3D12Device;
+
 class Resource
 {
 public:
@@ -17,7 +19,8 @@ public:
         unsigned long long entrySize,
         RESOURCE_TYPE type,
         std::wstring name = L"RESOURCE_NONAME",
-        D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE);
+        D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE,
+        D3D12_RESOURCE_STATES startState = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON);
 
     // Use for textures
     Resource(
@@ -41,6 +44,7 @@ public:
 
     // Only to be used if the resource is of type: UPLOAD
     void SetData(const void* data, unsigned int subResourceIndex = 0) const;
+    void SetDataAppend(const std::vector<std::pair<const void*, unsigned int>>& dataVec, unsigned int subResourceIndex = 0) const;
 protected:
     inline static unsigned int s_IdCounter = 0;
     unsigned int m_Id = 0;

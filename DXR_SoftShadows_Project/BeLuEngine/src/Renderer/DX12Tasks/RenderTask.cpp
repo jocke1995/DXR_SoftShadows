@@ -43,6 +43,11 @@ void RenderTask::AddRenderTargetView(std::string name, const RenderTargetView* r
 	m_RenderTargetViews[name] = renderTargetView;
 }
 
+void RenderTask::AddShaderResourceView(std::string name, const ShaderResourceView* shaderResourceView)
+{
+	m_ShaderResourceViews[name] = shaderResourceView;
+}
+
 void RenderTask::SetRenderComponents(std::vector<RenderComponent*> *renderComponents)
 {
 	m_RenderComponents = renderComponents;

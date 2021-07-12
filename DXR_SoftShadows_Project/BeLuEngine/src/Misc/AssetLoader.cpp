@@ -134,12 +134,12 @@ Model* AssetLoader::LoadModel(const std::wstring& path)
 	const std::string filePath(path.begin(), path.end());
 
 	Assimp::Importer importer;
-	importer.SetPropertyBool(AI_CONFIG_IMPORT_FBX_PRESERVE_PIVOTS, true);
+	//importer.SetPropertyBool(AI_CONFIG_IMPORT_FBX_PRESERVE_PIVOTS, true);
 	const aiScene* assimpScene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_GenUVCoords | aiProcess_CalcTangentSpace | aiProcess_ConvertToLeftHanded | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_OptimizeGraph);
 
 	if (assimpScene == nullptr)
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to load model with path: \'%S\'\n", path.c_str());
+		BL_LOG_CRITICAL("Failed to load model with path: \'%S\'\n", path.c_str());
 		return nullptr;
 	}
 
@@ -152,7 +152,7 @@ Model* AssetLoader::LoadModel(const std::wstring& path)
 	m_LoadedModels[path].first = false;
 
 	processModel(assimpScene, &meshes, &materials, path);
-	m_LoadedModels[path].second = new Model(&path, &meshes, &materials);
+	m_LoadedModels[path].second = new Model(&path, &meshes, &materials, m_pDevice, m_pDescriptorHeap_CBV_UAV_SRV);
 
 	return m_LoadedModels[path].second;
 }
@@ -186,7 +186,7 @@ Texture* AssetLoader::LoadTexture2D(const std::wstring& path)
 	return texture;
 }
 
-Shader* AssetLoader::loadShader(const std::wstring& fileName, ShaderType type)
+Shader* AssetLoader::loadShader(const std::wstring& fileName, SHADER_TYPE type)
 {
 	// Check if the shader already exists
 	if (m_LoadedShaders.count(fileName) != 0)
@@ -250,7 +250,7 @@ void AssetLoader::processMeshData(const aiScene* assimpScene, const aiMesh* assi
 		}
 		else
 		{
-			Log::PrintSeverity(Log::Severity::CRITICAL, "Mesh has no positions\n");
+			BL_LOG_CRITICAL("Mesh has no positions\n");
 		}
 
 		// Get Normals
@@ -262,7 +262,7 @@ void AssetLoader::processMeshData(const aiScene* assimpScene, const aiMesh* assi
 		}
 		else
 		{
-			Log::PrintSeverity(Log::Severity::CRITICAL, "Mesh has no normals\n");
+			BL_LOG_CRITICAL("Mesh has no normals\n");
 		}
 
 		// Get tangents
@@ -274,7 +274,7 @@ void AssetLoader::processMeshData(const aiScene* assimpScene, const aiMesh* assi
 		}
 		else
 		{
-			Log::PrintSeverity(Log::Severity::CRITICAL, "Mesh has no tangents\n");
+			//BL_LOG_CRITICAL("Mesh has no tangents\n");
 		}
 
 		// Get texture coordinates if there are any
@@ -285,7 +285,7 @@ void AssetLoader::processMeshData(const aiScene* assimpScene, const aiMesh* assi
 		}
 		else
 		{
-			Log::PrintSeverity(Log::Severity::CRITICAL, "Mesh has no textureCoords\n");
+			//BL_LOG_CRITICAL("Mesh has no textureCoords\n");
 		}
 
 		vertices->push_back(vTemp);
@@ -424,7 +424,7 @@ Texture* AssetLoader::processTexture(aiMaterial* mat, TEXTURE2D_TYPE texture_typ
 		{
 			std::string tempString = std::string(filePathWithoutTexture.begin(), filePathWithoutTexture.end());
 			// No texture, warn and apply default Texture
-			Log::PrintSeverity(Log::Severity::WARNING, "Applying default texture: " + warningMessageTextureType +
+			BL_LOG_WARNING("Applying default texture: " + warningMessageTextureType +
 				" on mesh with path: \'%s\'\n", tempString.c_str());
 		}
 

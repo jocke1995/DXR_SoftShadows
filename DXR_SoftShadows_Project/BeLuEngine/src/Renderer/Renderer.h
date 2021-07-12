@@ -5,6 +5,11 @@
 class ThreadPool;
 class Window;
 
+#include "DXR_Helpers/DXRHelperrr.h"
+#include "D3D12Timer.h"
+#include "DX12Tasks/CopyTask.h"
+#include "DX12Tasks/RenderTask.h"
+
 // Renderer Engine
 class RootSignature;
 class SwapChain;
@@ -16,22 +21,21 @@ class Mesh;
 class Texture;
 class Model;
 class Resource;
+class CommandInterface;
 
 // GPU Resources
 class ConstantBuffer;
 class ShaderResource;
 class UnorderedAccess;
 class DepthStencil;
+class RenderTarget;
 class Resource;
+class ShaderResourceView;
+class PingPongResource;
 
 // Enums
 enum COMMAND_INTERFACE_TYPE;
 enum class DESCRIPTOR_HEAP_TYPE;
-
-// techniques
-class ShadowInfo;
-class MousePicker;
-class Bloom;
 
 // ECS
 class Scene;
@@ -44,12 +48,19 @@ class OutliningRenderTask;
 class BaseCamera;
 class Material;
 struct RenderComponent;
+struct ID3D12Resource1;
+class Shader;
+class ShadowBufferRenderTask;
+class TAARenderTask;
+class MergeLightningRenderTask;
 
 // Copy
 class CopyTask;
 
 // Compute
 class ComputeTask;
+class GaussianBlurAllShadowsTask;
+class FinalBlurAllShadowsTask;
 
 // DX12 Forward Declarations
 struct ID3D12CommandQueue;
@@ -73,6 +84,19 @@ namespace component
 struct WindowChange;
 struct WindowSettingChange;
 
+struct BLModel
+{
+	AccelerationStructureBuffers* ASbuffer;
+	std::vector<std::pair<ID3D12Resource1*, uint32_t>> vertexBuffers;
+	std::vector<std::pair<ID3D12Resource1*, uint32_t>> indexBuffers;
+};
+
+struct PointLightRawBufferData
+{
+	LightHeader header;
+	std::vector<PointLight> pls;
+};
+
 class Renderer
 {
 public:
@@ -86,11 +110,24 @@ public:
 
 	// Call once
 	void InitD3D12(Window* window, HINSTANCE hInstance, ThreadPool* threadPool);
+	void InitDXR();
+
+	void UpdateSceneToGPU();
+
+	void SetQuitOnFinish(bool b);
+	void SetRTType(std::wstring wstr);
+	void SetNumLights(int num);
+	void SetSceneName(std::wstring sceneName);
+	void SetResultsFileName();
+	void OutputTestResults(double dt);
 
 	// Call each frame
 	void Update(double dt);
 	void SortObjects();
-	void Execute();
+	void ExecuteDXR(double dt);
+	void ExecuteInlinePixel(double dt);
+	void ExecuteInlineCompute(double dt);
+	void ExecuteTEST(double dt);
 
 	// Render inits, these functions are called by respective components through SetScene to prepare for drawing
 	void InitModelComponent(component::ModelComponent* component);
@@ -123,6 +160,7 @@ private:
 
 	//SubmitToCpft functions
 	void submitToCpft(std::tuple<Resource*, Resource*, const void*>* Upload_Default_Data);
+	void submitToCpftAppend(ShaderResource_ContinousMemory* shaderResource_contMem);
 	void clearSpecificCpft(Resource* upload);
 
 	DescriptorHeap* getCBVSRVUAVdHeap() const;
@@ -146,19 +184,13 @@ private:
 	// RenderTargets
 	// Swapchain (inheriting from 'RenderTarget')
 	SwapChain* m_pSwapChain = nullptr;
-	
-	// Bloom (includes rtv, uav and srv)
-	Bloom* m_pBloomResources = nullptr;
 
 	// Depthbuffer
 	DepthStencil* m_pMainDepthStencil = nullptr;
+	ShaderResourceView* m_pDepthBufferSRV = nullptr;
 
 	// Rootsignature
 	RootSignature* m_pRootSignature = nullptr;
-
-	// Picking
-	MousePicker* m_pMousePicker = nullptr;
-	Entity* m_pPickedEntity = nullptr;
 
 	// Tasks
 	std::vector<ComputeTask*> m_ComputeTasks;
@@ -167,11 +199,128 @@ private:
 
 	Mesh* m_pFullScreenQuad = nullptr;
 
+	// ------------------- DXR temp ----------------
+	// Test variables
+	std::string m_GPUName = "Unknown";
+	std::string m_DriverVersion = "Unknown";
+	bool m_QuitOnFinish = false;
+	std::string m_RTType = "Unknown";
+	int m_NumLights = 1;
+	std::wstring m_OutputName = L"Results";
+	std::wstring m_SceneName = L"none";
+	D3D12::D3D12Timer m_DXTimer;
+
+
+
+	CommandInterface* m_pTempCommandInterface = nullptr;
+
+	// AS
+	AccelerationStructureBuffers m_TopLevelASBuffers;
+
+	// Generators
+	nv_helpers_dx12::BottomLevelASGenerator m_BottomLevelASGenerator = {};
+	nv_helpers_dx12::TopLevelASGenerator	m_TopLevelAsGenerator = {};
+
+	// All bottomLevel models
+	std::vector<BLModel*> m_BottomLevelModels;
+
+	// Objects
+	std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>> m_instances;
+
+	void CreateBottomLevelAS(BLModel** blModel);
+	void CreateTopLevelAS(std::vector<std::pair<ID3D12Resource1*, DirectX::XMMATRIX>>& instances);
+	void CreateAccelerationStructures();
+
+	// Blur tasks
+	GaussianBlurAllShadowsTask* m_GaussianBlurAllShadowsTask;
+	void createGaussianBlurTask();
+
+	FinalBlurAllShadowsTask* m_FinalBlurAllShadowsTask;
+	void createFinalBlurTask();
+
+	ShadowBufferRenderTask* m_ShadowBufferRenderTask;
+	TAARenderTask* m_TAARenderTask = nullptr;
+	void createShadowBufferRenderTasks();
+	void createTAARenderTasks();
+	MergeLightningRenderTask* m_MergeLightningRenderTask;
+	void createMergeLightningRenderTasks();
+	
+	void temporalAccumulation(ID3D12GraphicsCommandList5* cl);
+	void spatialAccumulation(ID3D12GraphicsCommandList5* cl);
+	void lightningMergeTask(ID3D12GraphicsCommandList5* cl);
+	void TAATask(ID3D12GraphicsCommandList5* cl);
+
+	// Gaussian blur each light shadowBuffer
+	void GaussianSpatialAccumulation(ID3D12GraphicsCommandList5* cl, unsigned int currentTemporalIndex);
+
+	// Final Blur
+	void FinalBlur(ID3D12GraphicsCommandList5* cl);
+
+	ID3D12RootSignature* CreateRayGenSignature();
+	ID3D12RootSignature* CreateHitSignature();
+	ID3D12RootSignature* CreateMissSignature();
+	ID3D12RootSignature* CreateShadowSignature();
+
+	void CreateRaytracingPipeline();
+
+	Shader* m_pRayGenShader = nullptr;
+	Shader* m_pHitShader = nullptr;
+	Shader* m_pMissShader = nullptr;
+	Shader* m_pShadowShader = nullptr;
+
+	ID3D12RootSignature* m_pRayGenSignature = nullptr;
+	ID3D12RootSignature* m_pHitSignature = nullptr;
+	ID3D12RootSignature* m_pMissSignature = nullptr;
+	ID3D12RootSignature* m_pShadowSignature = nullptr;
+
+
+	// Ray tracing pipeline state
+	ID3D12StateObject* m_pRTStateObject = nullptr;
+	ID3D12StateObjectProperties* m_pRTStateObjectProps = nullptr;
+
+	// #DXR Resources
+	void CreateRaytracingOutputBuffer();
+	void CreateShaderResourceHeap();
+	Resource* m_pOutputResource = nullptr;
+
+	// DescriptorHeapIndexStart for the AS and outputBuffer
+	unsigned int m_DhIndexASOB = 0;
+	unsigned int m_DhIndexSoftShadowsUAV = 0;
+	unsigned int m_DhIndexSoftShadowsBuffer = 0;
+
+	void CreateShaderBindingTable();
+	void CreateSoftShadowLightResources();
+	void CreateTAAResource();
+
+	nv_helpers_dx12::ShaderBindingTableGenerator m_SbtHelper;
+	ID3D12Resource* m_pSbtStorage;
+
+	// Camera
+	DXR_CAMERA* m_pCbCameraData = nullptr;
+	ConstantBuffer* m_pCbCamera = nullptr;
+	// ------------------- DXR temp ----------------
+	PingPongResource* m_pShadowBufferPingPong[MAX_POINT_LIGHTS];
+	Resource* m_pShadowBufferResource[MAX_POINT_LIGHTS];
+	PingPongResource* m_LightTemporalPingPong[MAX_POINT_LIGHTS][NUM_TEMPORAL_BUFFERS + 1]; // 1 PingPongResource per light, NUM_BUFFERS PingPongResources for temporal accumilation
+	Resource* m_LightTemporalResources[MAX_POINT_LIGHTS][NUM_TEMPORAL_BUFFERS + 1];
+
+	Resource* m_pTempInlinePixelUploadResource = nullptr;
+
+	Resource* m_pTAAResource = nullptr;
+	PingPongResource* m_pTAAPingPong = nullptr;
+
+
 	// Group of components that's needed for rendering:
 	std::vector<RenderComponent*> m_RenderComponents;
 
 	ViewPool* m_pViewPool = nullptr;
-	std::map<LIGHT_TYPE, std::vector<std::tuple<Light*, ConstantBuffer*, ShadowInfo*>>> m_Lights;
+
+	std::map<LIGHT_TYPE, std::vector<Light*>> m_Lights;
+
+	// ShaderResource will be interpreted as a raw buffer. With a header including common information, and then the lights following.
+	std::map<LIGHT_TYPE, ShaderResource_ContinousMemory*> m_LightRawBuffers;
+	PointLightRawBufferData plRawBufferData = {};
+	void createRawBuffersForLights();
 
 	// Current scene to be drawn
 	Scene* m_pCurrActiveScene = nullptr;
@@ -184,7 +333,21 @@ private:
 
 	// Commandlists holders
 	std::vector<ID3D12CommandList*> m_DirectCommandLists[NUM_SWAP_BUFFERS];
-	
+
+	ID3D12CommandList* m_DXRCpftCommandLists[NUM_SWAP_BUFFERS];
+	ID3D12CommandList* m_DXRCodtCommandLists[NUM_SWAP_BUFFERS];
+	ID3D12CommandList* m_DepthPrePassCommandLists[NUM_SWAP_BUFFERS];
+	ID3D12CommandList* m_GBufferCommandLists[NUM_SWAP_BUFFERS];
+	ID3D12CommandList* m_ComputeIRTCommandLists[NUM_SWAP_BUFFERS];
+
+	// G-Buffer renderTargets
+	RTV_SRV_RESOURCE m_GBufferNormal = {};
+
+	/* INLINE RT COMPUTETASK data */
+	unsigned int m_IRTNumThreadGroupsX = 0;
+	unsigned int m_IRTNumThreadGroupsY = 0;
+	const unsigned int m_ThreadsPerGroup = 256;
+
 	// DescriptorHeaps
 	std::map<DESCRIPTOR_HEAP_TYPE, DescriptorHeap*> m_DescriptorHeaps = {};
 
@@ -195,8 +358,10 @@ private:
 
 	void setRenderTasksPrimaryCamera();
 	bool createDevice();
+	std::string getDriverVersion();
 	void createCommandQueues();
 	void createSwapChain();
+	void createGBufferRenderTargets();
 	void createMainDSV();
 	void createRootSignature();
 	void createFullScreenQuad();
@@ -219,5 +384,4 @@ private:
 
 	SwapChain* getSwapChain() const;
 };
-
 #endif

@@ -1,6 +1,10 @@
 #include "stdafx.h"
 #include "BeLuEngine.h"
 
+#define SCREENWIDTH 2560
+#define SCREENHEIGHT 1440
+
+
 BeLuEngine::BeLuEngine()
 {
 	
@@ -21,8 +25,8 @@ void BeLuEngine::Init(HINSTANCE hInstance, int nCmdShow, ApplicationParameters* 
 
 	// Window values
 	bool windowedFullscreen = false;
-	int windowWidth = 1280;
-	int windowHeight = 720;
+	int windowWidth = SCREENWIDTH;
+	int windowHeight = SCREENHEIGHT;
 
 	// Misc
 	m_pWindow = new Window(hInstance, nCmdShow, windowedFullscreen, windowWidth, windowHeight);
@@ -30,6 +34,12 @@ void BeLuEngine::Init(HINSTANCE hInstance, int nCmdShow, ApplicationParameters* 
 
 	// Sub-engines
 	m_pRenderer = &Renderer::GetInstance();
+
+	m_pRenderer->SetQuitOnFinish(m_ApplicationParams.quitOnFinish); // Quits testing after num tests
+	m_pRenderer->SetRTType(m_ApplicationParams.RayTracingType);
+	m_pRenderer->SetNumLights(m_ApplicationParams.numLights);
+	m_pRenderer->SetSceneName(m_ApplicationParams.scene);
+
 	m_pRenderer->InitD3D12(m_pWindow, hInstance, m_pThreadPool);
 
 	// ECS

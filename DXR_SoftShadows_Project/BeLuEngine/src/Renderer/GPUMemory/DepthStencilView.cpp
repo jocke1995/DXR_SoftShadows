@@ -9,7 +9,7 @@ DepthStencilView::DepthStencilView(
 	DescriptorHeap* descriptorHeap_DSV,
 	D3D12_DEPTH_STENCIL_VIEW_DESC* dsvDesc,
 	Resource* resource)
-	:View(descriptorHeap_DSV, resource)
+	:Descriptor(descriptorHeap_DSV, resource)
 {
 	m_DXGIFormat = dsvDesc->Format;
 	createDepthStencilView(device, descriptorHeap_DSV, dsvDesc);

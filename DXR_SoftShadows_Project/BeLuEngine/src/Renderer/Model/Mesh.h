@@ -49,7 +49,8 @@ public:
     const D3D12_INDEX_BUFFER_VIEW* GetIndexBufferView() const;
 
     const std::wstring& GetPath() const;
-	ShaderResourceView* const GetSRV() const;
+	ShaderResourceView* const GetVBSRV() const;
+    ShaderResourceView* const GetIBSRV() const;
 
 protected:
     friend class MergeRenderTask;
@@ -59,6 +60,9 @@ protected:
     friend class SceneManager;
 	friend class Model;
 	friend class CopyOnDemandTask;
+    friend class ShadowBufferRenderTask;
+    friend class MergeLightningRenderTask;
+    friend class TAARenderTask;
 
     std::vector<Vertex> m_Vertices;
     std::vector<unsigned int> m_Indices;
@@ -69,7 +73,9 @@ protected:
     Resource* m_pDefaultResourceVertices = nullptr;
     Resource* m_pDefaultResourceIndices = nullptr;
 
-    ShaderResourceView* m_pSRV = nullptr;
+    ShaderResourceView* m_pVertexBufferSRV = nullptr;
+    ShaderResourceView* m_pIndexBufferSRV = nullptr;
+
     D3D12_INDEX_BUFFER_VIEW* m_pIndexBufferView = nullptr;
 
     unsigned int m_Id = 0;

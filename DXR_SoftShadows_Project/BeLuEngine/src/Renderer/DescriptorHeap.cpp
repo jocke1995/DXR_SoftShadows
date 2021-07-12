@@ -28,7 +28,7 @@ DescriptorHeap::DescriptorHeap(ID3D12Device5* device, DESCRIPTOR_HEAP_TYPE type)
 	HRESULT hr = device->CreateDescriptorHeap(&m_Desc, IID_PPV_ARGS(&m_pDescriptorHeap));
 	if (hr != S_OK)
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to create DescriptorHeap\n");
+		BL_LOG_CRITICAL("Failed to create DescriptorHeap\n");
 	}
 
 	SetCPUGPUHeapStart();
@@ -42,7 +42,11 @@ DescriptorHeap::~DescriptorHeap()
 void DescriptorHeap::SetCPUGPUHeapStart()
 {
 	m_CPUHeapStart = m_pDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-	m_GPUHeapStart = m_pDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
+
+	if (m_Desc.Flags & D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE)
+	{
+		m_GPUHeapStart = m_pDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
+	}
 }
 
 void DescriptorHeap::IncrementDescriptorHeapIndex()

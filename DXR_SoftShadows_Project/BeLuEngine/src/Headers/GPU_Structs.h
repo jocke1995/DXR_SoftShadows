@@ -3,8 +3,10 @@
 
 // Light defines
 #define MAX_DIR_LIGHTS   10
-#define MAX_POINT_LIGHTS 20
+#define MAX_POINT_LIGHTS 10
 #define MAX_SPOT_LIGHTS  10
+
+#define NUM_TEMPORAL_BUFFERS 3
 
 // This struct can be used to send specific indices as a root constant to the GPU.
 // Example usage is when the indices for pp-effects are sent to gpu.
@@ -20,6 +22,8 @@ struct DescriptorHeapIndices
 struct SlotInfo
 {
 	unsigned int vertexDataIndex;
+	unsigned int indicesIndex;	// Only used for DXR
+
 	// TextureIndices
 	unsigned int textureAlbedo;
 	unsigned int textureRoughness;
@@ -27,8 +31,19 @@ struct SlotInfo
 	unsigned int textureNormal;
 	unsigned int textureEmissive;
 	unsigned int textureOpacity;
+};
 
-	unsigned int pad[1];
+struct DXR_WORLDMATRIX_STRUCT
+{
+	float4x4 worldMatrix;
+};
+
+struct DXR_CAMERA
+{
+	float4x4 view;
+	float4x4 projection;
+	float4x4 viewI;
+	float4x4 projectionI;
 };
 
 struct CB_PER_OBJECT_STRUCT
@@ -48,6 +63,8 @@ struct CB_PER_FRAME_STRUCT
 	float pad2;
 	float3 camForward;
 	float pad3;
+	unsigned int frameCounter;
+	float pad4[3];
 
 
 	// deltaTime ..
@@ -56,14 +73,16 @@ struct CB_PER_FRAME_STRUCT
 
 struct CB_PER_SCENE_STRUCT
 {
-	float4 dirLightIndices[MAX_DIR_LIGHTS];
-	float4 pointLightIndices[MAX_POINT_LIGHTS];
-	float4 spotLightIndices[MAX_SPOT_LIGHTS];
+	unsigned int pointLightRawBufferIndex;
+	unsigned int depthBufferIndex;
+	unsigned int gBufferNormalIndex;
+	unsigned int spp;
+};
 
-	unsigned int Num_Dir_Lights;
-	unsigned int Num_Point_Lights;
-	unsigned int Num_Spot_Lights;
-	unsigned int pad1;
+struct LightHeader
+{
+	unsigned int numLights;
+	unsigned int pad[3];	// TODO: add more info if needed
 };
 
 struct BaseLight

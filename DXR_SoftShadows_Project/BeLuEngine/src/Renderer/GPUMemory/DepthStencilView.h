@@ -1,9 +1,9 @@
 #ifndef DEPTHSTENCILVIEW_H
 #define DEPTHSTENCILVIEW_H
 
-#include "View.h"
+#include "Descriptor.h"
 
-class DepthStencilView : public View
+class DepthStencilView : public Descriptor
 {
 public:
 	DepthStencilView(

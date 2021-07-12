@@ -3,6 +3,11 @@
 DXR_SoftShadows_Project/bin/
 DXR_SoftShadows_Project/*.bat
 
+**.csv
+**.xlsx
+DXR_SoftShadows_Project/Sandbox/*.csv
+nvidia-smi.txt
+
 **.sln
 **.vcxproj
 **.user
@@ -12,6 +17,4 @@ DXR_SoftShadows_Project/*.bat
 **bin/
 **bin-int/
 
-
-DXR_SoftShadows_Project/Vendor/**
 DXR_SoftShadows_Project/Vendor/Resources/Scenes/**

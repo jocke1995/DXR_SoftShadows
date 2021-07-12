@@ -1,105 +1,70 @@
-#include "LightCalculations.hlsl"
+#include "LightCalculations.hlsl" 
 
 struct VS_OUT
 {
-	float4 pos      : SV_Position;
-	float4 worldPos : WPos;
-	float2 uv       : UV;
-	float3x3 tbn	: TBN;
+    float4 pos  : SV_Position;
+    float2 uv   : UV;
+    float3 normal : NORMAL;
 };
 
-struct PS_OUTPUT
+struct RootConstant4
 {
-	float4 sceneColor: SV_TARGET0;
+    unsigned int depthBufferIndice;
+    unsigned int gBufferIndice;
+    unsigned int c;
+    unsigned int d;
 };
 
-ConstantBuffer<DirectionalLight> dirLight[]	: register(b0, space0);
-ConstantBuffer<PointLight> pointLight[]		: register(b0, space1);
-ConstantBuffer<SpotLight> spotLight[]		: register(b0, space2);
+RWTexture2D<float4> light_uav[] : register(u0, space1);
 
-ConstantBuffer<CB_PER_OBJECT_STRUCT> cbPerObject : register(b1, space3);
-ConstantBuffer<CB_PER_FRAME_STRUCT>  cbPerFrame  : register(b4, space3);
+SamplerState MIN_MAG_MIP_LINEAR__WRAP : register(s5);
 
-PS_OUTPUT PS_main(VS_OUT input)
+ConstantBuffer<CB_PER_OBJECT_STRUCT> cbPerObject	  : register(b1, space3);
+ConstantBuffer<DXR_CAMERA>			 cbCameraMatrices : register(b6, space3);
+ByteAddressBuffer rawBufferLights : register(t0, space3);
+
+ConstantBuffer<RootConstant4> CBindices : register(b9, space3);
+SamplerState point_Wrap	: register (s5);
+
+// Calculate world pos from DepthBuffer 
+float3 WorldPosFromDepth(float depth, float2 TexCoord)
 {
-	// Sample from textures
-	float2 uvScaled = float2(input.uv.x, input.uv.y);
-	float4 albedo   = textures[cbPerObject.info.textureAlbedo	].Sample(Anisotropic16_Wrap, uvScaled);
-	float roughness = textures[cbPerObject.info.textureRoughness].Sample(Anisotropic16_Wrap, uvScaled).r;
-	float metallic  = textures[cbPerObject.info.textureMetallic	].Sample(Anisotropic16_Wrap, uvScaled).r;
-	float4 emissive = textures[cbPerObject.info.textureEmissive	].Sample(Anisotropic16_Wrap, uvScaled);
-	float4 normal   = textures[cbPerObject.info.textureNormal	].Sample(Anisotropic16_Wrap, uvScaled);
+    TexCoord.y = 1.0 - TexCoord.y;
+    float4 clipSpacePosition = float4(TexCoord * 2.0 - 1.0, depth, 1.0);
+    float4 viewSpacePosition = mul(cbCameraMatrices.projectionI, clipSpacePosition);
 
-	normal = (2.0f * normal) - 1.0f;
-	normal = float4(normalize(mul(normal.xyz, input.tbn)), 1.0f);
+    // Perspective division
+    viewSpacePosition /= viewSpacePosition.w;
 
-	float3 camPos = cbPerFrame.camPos;
-	float3 finalColor = float3(0.0f, 0.0f, 0.0f);
-	float3 viewDir = normalize(camPos - input.worldPos.xyz);
+    float4 worldSpacePosition = mul(cbCameraMatrices.viewI, viewSpacePosition);
 
-	// Linear interpolation
-	float3 baseReflectivity = lerp(float3(0.04f, 0.04f, 0.04f), albedo.rgb, metallic);
+    return worldSpacePosition.xyz;
+}
 
-	// DirectionalLight contributions
-	for (unsigned int i = 0; i < cbPerScene.Num_Dir_Lights; i++)
-	{
-		int index = cbPerScene.dirLightIndices[i].x;
-	
-		finalColor += CalcDirLight(
-			dirLight[index],
-			camPos,
-			viewDir,
-			input.worldPos,
-			metallic,
-			albedo.rgb,
-			roughness,
-			normal.rgb,
-			baseReflectivity);
-	}
+void PS_main(VS_OUT input)
+{
+    // pixel index
+    float2 d = input.pos.xy - float2(0.5f, 0.5f);
+    float2 uv = d / screenSize;
 
-	// PointLight contributions
-	for (unsigned int i = 0; i < cbPerScene.Num_Point_Lights; i++)
-	{
-		int index = cbPerScene.pointLightIndices[i].x;
+    float depth = textures[cbPerScene.depthBufferIndex].SampleLevel(MIN_MAG_MIP_LINEAR__WRAP, uv, 0).r;
+    float3 worldPos = WorldPosFromDepth(depth, uv);
 
-		finalColor += CalcPointLight(
-			pointLight[index],
-			camPos,
-			viewDir,
-			input.worldPos,
-			metallic,
-			albedo.rgb,
-			roughness,
-			normal.rgb,
-			baseReflectivity);
-	}
+    // Init random floats
+    uint frameSeed = cbPerFrame.frameCounter + 200000;
+    uint seed = initRand(frameSeed * uv.x, frameSeed * uv.y);
 
-	// SpotLight  contributions
-	for (unsigned int i = 0; i < cbPerScene.Num_Spot_Lights; i++)
-	{
-		int index = cbPerScene.spotLightIndices[i].x;
-	
-		finalColor += CalcSpotLight(
-			spotLight[index],
-			camPos,
-			viewDir,
-			input.worldPos,
-			metallic,
-			albedo.rgb,
-			roughness,
-			normal.rgb,
-			baseReflectivity);
-	}
-	
-	float3 ambient = float3(0.007f, 0.007f, 0.007f) * albedo;
-	finalColor += ambient;
+    // PointLight Test
+    LightHeader lHeader = rawBufferLights.Load<LightHeader>(0);
+    for (int i = 0; i < lHeader.numLights; i++)
+    {
+        PointLight pl = rawBufferLights.Load<PointLight>(sizeof(LightHeader) + i * sizeof(PointLight));
 
-	// Since hdr will lower the intensity of our emissive textures, our quick solution in this game is to
-	// just use plain colors as emissive textures (255, 0, 255) or (0, 255, 0) etc. So basicly we cannot
-	// use emissive textures like this(200, 50, 0). The intesity is increased so that a red emissive texture actually stays red after HDR.
-	finalColor += (emissive.rgb * 2);
+        float3 lightDir = normalize(pl.position.xyz - worldPos.xyz);
+        float shadowFactor = RT_ShadowFactorSoft(worldPos.xyz, pl.position.xyz, uv, lightDir, seed);
+        shadowFactor = min(shadowFactor, 1);
+        light_uav[i * 2 + 1][d] = shadowFactor;
+    }
 
-	PS_OUTPUT output;
-	output.sceneColor = float4(finalColor.rgb, 1.0f);
-	return output;
+    return;
 }

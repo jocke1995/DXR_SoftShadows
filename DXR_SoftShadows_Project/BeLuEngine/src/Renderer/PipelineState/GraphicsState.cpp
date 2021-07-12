@@ -12,11 +12,11 @@ GraphicsState::GraphicsState(ID3D12Device5* device, RootSignature* rootSignature
 
 	m_pGPSD->pRootSignature = rootSignature->GetRootSig();
 
-	m_pVS = createShader(VSName, ShaderType::VS);
-	m_pPS = createShader(PSName, ShaderType::PS);
+	m_pVS = createShader(VSName, SHADER_TYPE::VS);
+	m_pPS = createShader(PSName, SHADER_TYPE::PS);
 
-	ID3DBlob* vsBlob = m_pVS->GetBlob();
-	ID3DBlob* psBlob = m_pPS->GetBlob();
+	IDxcBlob* vsBlob = m_pVS->GetBlob();
+	IDxcBlob* psBlob = m_pPS->GetBlob();
 
 	m_pGPSD->VS.pShaderBytecode = vsBlob->GetBufferPointer();
 	m_pGPSD->VS.BytecodeLength = vsBlob->GetBufferSize();
@@ -28,7 +28,7 @@ GraphicsState::GraphicsState(ID3D12Device5* device, RootSignature* rootSignature
 
 	if (FAILED(hr))
 	{
-		Log::PrintSeverity(Log::Severity::CRITICAL, "Failed to create %S\n", psoName);
+		BL_LOG_CRITICAL("Failed to create %S\n", psoName);
 	}
 	m_pPSO->SetName(psoName.c_str());
 }
@@ -42,17 +42,17 @@ const D3D12_GRAPHICS_PIPELINE_STATE_DESC* GraphicsState::GetGpsd() const
 	return m_pGPSD;
 }
 
-Shader* GraphicsState::GetShader(ShaderType type) const
+Shader* GraphicsState::GetShader(SHADER_TYPE type) const
 {
-	if (type == ShaderType::VS)
+	if (type == SHADER_TYPE::VS)
 	{
 		return m_pVS;
 	}
-	else if (type == ShaderType::PS)
+	else if (type == SHADER_TYPE::PS)
 	{
 		return m_pPS;
 	}
 	
-	Log::PrintSeverity(Log::Severity::CRITICAL, "There is no ComputeShader in \'%S\'\n", m_PsoName);
+	BL_LOG_CRITICAL("There is no ComputeShader in \'%S\'\n", m_PsoName);
 	return nullptr;
 }
